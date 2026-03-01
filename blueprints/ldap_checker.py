@@ -6,9 +6,13 @@ Les credentials LDAP de l'utilisateur portail sont stockés en session Flask
 ou à la déconnexion du portail.
 
 Config LDAP (dans datas/auth/config.json, section "ldap") :
-  host              : ldaps://domain.com
-  base_dn           : DC=domain,DC=com
-  bind_dn_template  : CN={username},OU=OU_Utilisateurs,DC=domain,DC=com
+  host              : ldaps://ZOE.GCA
+  base_dn           : DC=zoe,DC=gca
+  bind_dn_template  : (optionnel) si absent, bind UPN auto = username@zoe.gca
+                      si présent, exemples valides :
+                        "{username}@zoe.gca"          ← UPN (recommandé AD)
+                        "ZOE\\{username}"              ← NetBIOS
+                        "CN={username},OU=Users,DC=zoe,DC=gca" ← DN complet
   tls_verify        : false
 """
 import base64
@@ -37,9 +41,18 @@ def _host(c: dict) -> str:
 def _base_dn(c: dict) -> str:
     return c.get('base_dn', 'DC=domain,DC=com')
 
+def _derive_upn_suffix(base_dn: str) -> str:
+    """Extrait le domaine UPN depuis base_dn. 'DC=zoe,DC=gca' → 'zoe.gca'."""
+    parts = [p.strip()[3:] for p in base_dn.split(',') if p.strip().upper().startswith('DC=')]
+    return '.'.join(parts)
+
 def _bind_dn(c: dict, username: str) -> str:
-    tpl = c.get('bind_dn_template', 'CN={username},OU=OU_Utilisateurs,DC=domain,DC=com')
-    return tpl.replace('{username}', username)
+    tpl = c.get('bind_dn_template', '')
+    if tpl:
+        return tpl.replace('{username}', username)
+    # Fallback automatique : UPN à partir du base_dn (format le plus compatible AD)
+    domain = _derive_upn_suffix(_base_dn(c))
+    return f'{username}@{domain}'
 
 def _env(c: dict) -> dict:
     env = os.environ.copy()
@@ -140,10 +153,11 @@ def ldap_auth():
     cmd = _base_cmd(c, username, password) + [
         '-b', _base_dn(c), '-s', 'base', '(objectClass=*)', 'dn'
     ]
-    ok, _ = _run(cmd, _env(c), timeout=10)
+    ok, err_msg = _run(cmd, _env(c), timeout=10)
     if not ok:
-        _audit.warning('ldap_auth_failed portal_user=%s ldap_user=%s', _uid(), username)
-        return api_error('Identifiants AD invalides', 401)
+        _audit.warning('ldap_auth_failed portal_user=%s ldap_user=%s err=%s', _uid(), username, err_msg)
+        logger.warning('LDAP auth failed for %s — bind_dn=%s — err: %s', username, _bind_dn(c, username), err_msg)
+        return api_error(f'Authentification AD échouée : {err_msg}', 401)
 
     session['ldap_user'] = username
     session['ldap_pass'] = password

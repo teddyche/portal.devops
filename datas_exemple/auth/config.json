@@ -14,9 +14,8 @@
   },
   "secret_key": "e6e238dd1fd3b4355773d04d011b46cf9495df6f9a185e6fb96d726ba4d31400",
   "ldap": {
-    "host": "ldaps://domain.exemple.com",
-    "base_dn": "DC=domain,DC=exemple,DC=com",
-    "bind_dn_template": "CN={username},OU=Utilisateurs,DC=domain,DC=exemple,DC=com",
+    "host": "ldaps://MONSERVEUR.AD",
+    "base_dn": "DC=mondomaine,DC=local",
     "tls_verify": false
   }
 }
