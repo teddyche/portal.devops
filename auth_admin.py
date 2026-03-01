@@ -10,19 +10,8 @@ from crypto import encrypt_token, decrypt_token
 auth_admin_bp = Blueprint('auth_admin', __name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-AUTH_DIR = os.path.join(BASE_DIR, 'datas', 'auth')
 
-def _load(name):
-    path = os.path.join(AUTH_DIR, name)
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return None
-
-def _save(name, data):
-    os.makedirs(AUTH_DIR, exist_ok=True)
-    with open(os.path.join(AUTH_DIR, name), 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+from auth_store import load_auth as _load, save_auth as _save
 
 def _require_admin():
     from auth import get_user_by_id, is_admin

@@ -4,6 +4,7 @@ Blueprint SRE : routes API pour les clusters, configurations, données, autoscor
 from flask import Blueprint, abort, current_app, jsonify, request
 
 import services.sre as sre_service
+from blueprints import _require_json
 from services.store import ServiceError
 
 sre_bp = Blueprint('sre', __name__)
@@ -27,7 +28,7 @@ def api_get_clusters():
 @sre_bp.route('/api/clusters', methods=['POST'])
 def api_create_cluster():
     try:
-        sre_service.create_cluster(_dd(), request.json)
+        sre_service.create_cluster(_dd(), _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -36,7 +37,7 @@ def api_create_cluster():
 @sre_bp.route('/api/clusters/<cluster_id>', methods=['PUT'])
 def api_update_cluster(cluster_id: str):
     try:
-        sre_service.update_cluster(_dd(), cluster_id, request.json)
+        sre_service.update_cluster(_dd(), cluster_id, _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -64,7 +65,7 @@ def api_get_config(cluster_id: str):
 def api_save_config(cluster_id: str):
     if not sre_service.cluster_exists(_dd(), cluster_id):
         abort(404)
-    sre_service.save_cluster_config(_dd(), cluster_id, request.json)
+    sre_service.save_cluster_config(_dd(), cluster_id, _require_json())
     return jsonify({'success': True})
 
 
@@ -81,7 +82,7 @@ def api_get_data(cluster_id: str):
 def api_save_data(cluster_id: str):
     if not sre_service.cluster_exists(_dd(), cluster_id):
         abort(404)
-    sre_service.save_cluster_data(_dd(), cluster_id, request.json)
+    sre_service.save_cluster_data(_dd(), cluster_id, _require_json())
     return jsonify({'success': True})
 
 
@@ -98,7 +99,7 @@ def api_get_autoscore(cluster_id: str, app_code: str):
 def api_save_autoscore(cluster_id: str, app_code: str):
     if not sre_service.cluster_exists(_dd(), cluster_id):
         abort(404)
-    sre_service.save_autoscore(_dd(), cluster_id, app_code, request.json)
+    sre_service.save_autoscore(_dd(), cluster_id, app_code, _require_json())
     return jsonify({'success': True})
 
 
@@ -115,5 +116,5 @@ def api_get_autoscore_config(cluster_id: str):
 def api_save_autoscore_config(cluster_id: str):
     if not sre_service.cluster_exists(_dd(), cluster_id):
         abort(404)
-    sre_service.save_autoscore_config(_dd(), cluster_id, request.json)
+    sre_service.save_autoscore_config(_dd(), cluster_id, _require_json())
     return jsonify({'success': True})

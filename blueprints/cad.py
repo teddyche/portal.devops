@@ -4,6 +4,7 @@ Blueprint CAD : routes API pour les workspaces, configurations et données.
 from flask import Blueprint, abort, current_app, jsonify, request
 
 import services.cad as cad_service
+from blueprints import _require_json
 from services.store import ServiceError
 
 cad_bp = Blueprint('cad', __name__)
@@ -26,7 +27,7 @@ def api_get_cad_workspaces():
 @cad_bp.route('/api/cad/workspaces', methods=['POST'])
 def api_create_cad_workspace():
     try:
-        cad_service.create_cad_workspace(_dd(), request.json)
+        cad_service.create_cad_workspace(_dd(), _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -35,7 +36,7 @@ def api_create_cad_workspace():
 @cad_bp.route('/api/cad/workspaces/<ws_id>', methods=['PUT'])
 def api_update_cad_workspace(ws_id: str):
     try:
-        cad_service.update_cad_workspace(_dd(), ws_id, request.json)
+        cad_service.update_cad_workspace(_dd(), ws_id, _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -63,7 +64,7 @@ def api_get_cad_config(ws_id: str):
 def api_save_cad_config(ws_id: str):
     if not cad_service.cad_ws_exists(_dd(), ws_id):
         abort(404)
-    cad_service.save_cad_config(_dd(), ws_id, request.json)
+    cad_service.save_cad_config(_dd(), ws_id, _require_json())
     return jsonify({'success': True})
 
 
@@ -78,5 +79,5 @@ def api_get_cad_data(ws_id: str):
 def api_save_cad_data(ws_id: str):
     if not cad_service.cad_ws_exists(_dd(), ws_id):
         abort(404)
-    cad_service.save_cad_data(_dd(), ws_id, request.json)
+    cad_service.save_cad_data(_dd(), ws_id, _require_json())
     return jsonify({'success': True})

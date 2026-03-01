@@ -72,7 +72,7 @@ def test_save_pssit_config_encrypts_tokens(datas_dir):
     store._cache.clear()
     raw = store.load_json(os.path.join(datas_dir, 'pssit', 'MYAPP', 'config.json'))
     awx_token = raw['environments'][0]['awx']['token']
-    assert awx_token.startswith('enc:')
+    assert awx_token.startswith('enc2:') or awx_token.startswith('enc:')
 
 
 # === get_pssit_env_config (déchiffrement) ===

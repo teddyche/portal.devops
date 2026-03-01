@@ -44,11 +44,11 @@ def client(app):
 @pytest.fixture
 def authed_client(client, tmp_data_dir, mocker):
     """Client HTTP avec session authentifiée (superadmin).
-    Redirige auth.AUTH_DIR vers le répertoire temporaire pour que
+    Redirige auth_store.AUTH_DIR vers le répertoire temporaire pour que
     require_auth trouve l'utilisateur test dans users.json.
     """
-    import auth
-    mocker.patch.object(auth, 'AUTH_DIR', str(tmp_data_dir / 'auth'))
+    import auth_store
+    mocker.patch.object(auth_store, 'AUTH_DIR', str(tmp_data_dir / 'auth'))
 
     with client.session_transaction() as sess:
         sess['user_id'] = 'test_user'

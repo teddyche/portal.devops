@@ -9,6 +9,7 @@ import secrets
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+_audit = logging.getLogger('audit')
 
 import bcrypt
 import requests as http_requests
@@ -20,7 +21,8 @@ from cryptography.hazmat.backends import default_backend
 auth_bp = Blueprint('auth', __name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-AUTH_DIR = os.path.join(BASE_DIR, 'datas', 'auth')
+
+from auth_store import load_auth as _load, save_auth as _save
 
 # === Rate limiting (in-memory, reset au redémarrage) ===
 _login_attempts = {}   # {username: {'count', 'locked_until', 'window_start'}}
@@ -31,18 +33,6 @@ _WINDOW_SEC    = 300   # fenêtre de 5 minutes
 # === Cache JWKS ===
 _jwks_cache = {}       # {uri: (jwks_dict, fetched_at)}
 _JWKS_TTL   = 3600    # 1 heure
-
-def _load(name):
-    path = os.path.join(AUTH_DIR, name)
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return None
-
-def _save(name, data):
-    os.makedirs(AUTH_DIR, exist_ok=True)
-    with open(os.path.join(AUTH_DIR, name), 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
 def get_auth_config():
     return _load('config.json') or {}
@@ -290,6 +280,7 @@ def local_login():
     allowed, retry_after = _rl_check(username)
     if not allowed:
         minutes = max(1, retry_after // 60)
+        _audit.warning('login_blocked user=%s ip=%s retry_after=%d', username, request.remote_addr, retry_after)
         return jsonify({'error': f'Compte verrouillé. Réessayez dans {minutes} minute(s).'}), 429
 
     config = get_auth_config()
@@ -297,14 +288,17 @@ def local_login():
 
     if username != local.get('username', ''):
         _rl_fail(username)
+        _audit.warning('login_failed user=%s ip=%s reason=unknown_user', username, request.remote_addr)
         return jsonify({'error': 'Identifiants invalides'}), 401
 
     stored_hash = local.get('password_hash', '')
     if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
         _rl_fail(username)
+        _audit.warning('login_failed user=%s ip=%s reason=wrong_password', username, request.remote_addr)
         return jsonify({'error': 'Identifiants invalides'}), 401
 
     _rl_success(username)
+    _audit.info('login_success user=%s ip=%s', username, request.remote_addr)
 
     # Ensure admin user exists
     users = get_users()
@@ -394,9 +388,11 @@ def adfs_callback():
             claims = verify_id_token(id_token, adfs)
         except Exception as jwt_err:
             logger.warning('JWT validation échouée : %s', jwt_err)
+            _audit.warning('adfs_jwt_failed ip=%s reason=%s', request.remote_addr, type(jwt_err).__name__)
             return redirect('/login?error=adfs_error')
 
     except Exception:
+        _audit.warning('adfs_callback_error ip=%s', request.remote_addr)
         return redirect('/login?error=adfs_error')
 
     # Extract user info

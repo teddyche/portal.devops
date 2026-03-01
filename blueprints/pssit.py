@@ -6,6 +6,7 @@ from flask import Blueprint, abort, current_app, jsonify, request
 
 import services.pssit as pssit_service
 from auth import get_ssl_verify
+from blueprints import _require_json
 from services.store import ServiceError
 
 pssit_bp = Blueprint('pssit', __name__)
@@ -32,7 +33,7 @@ def api_get_pssit_apps():
 @pssit_bp.route('/api/pssit/apps', methods=['POST'])
 def api_create_pssit_app():
     try:
-        pssit_service.create_pssit_app(_dd(), request.json)
+        pssit_service.create_pssit_app(_dd(), _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -41,7 +42,7 @@ def api_create_pssit_app():
 @pssit_bp.route('/api/pssit/apps/<app_id>', methods=['PUT'])
 def api_update_pssit_app(app_id: str):
     try:
-        pssit_service.update_pssit_app(_dd(), app_id, request.json)
+        pssit_service.update_pssit_app(_dd(), app_id, _require_json())
         return jsonify({'success': True})
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -69,7 +70,7 @@ def api_get_pssit_config(app_id: str):
 def api_save_pssit_config(app_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
-    pssit_service.save_pssit_config(_dd(), app_id, request.json, _sk())
+    pssit_service.save_pssit_config(_dd(), app_id, _require_json(), _sk())
     return jsonify({'success': True})
 
 
@@ -107,7 +108,7 @@ def api_pssit_launch(app_id: str, env_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
     try:
-        entry = pssit_service.launch_pssit_workflow(_dd(), app_id, env_id, request.json, _sk(), get_ssl_verify())
+        entry = pssit_service.launch_pssit_workflow(_dd(), app_id, env_id, _require_json(), _sk(), get_ssl_verify())
         return jsonify(entry)
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
@@ -131,7 +132,7 @@ def api_pssit_schedule(app_id: str, env_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
     try:
-        entry = pssit_service.schedule_pssit_action(_dd(), app_id, env_id, request.json, _sk(), get_ssl_verify())
+        entry = pssit_service.schedule_pssit_action(_dd(), app_id, env_id, _require_json(), _sk(), get_ssl_verify())
         return jsonify(entry)
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
