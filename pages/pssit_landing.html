@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppOps - PSSIT APP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left img { height: 48px; width: auto; }
+        .header h1 { color: #333; font-size: 28px; }
+        .header-right { display: flex; gap: 10px; align-items: center; }
+        .btn-header {
+            padding: 10px 20px; color: white;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; text-decoration: none; font-weight: bold;
+        }
+        .btn-admin { background: #6c757d; }
+        .btn-admin:hover { background: #555; }
+        .btn-home { background: #2e7d32; }
+        .btn-home:hover { background: #1b5e20; }
+
+        .filter-bar { margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+        .filter-bar label { font-size: 14px; color: #666; font-weight: bold; }
+        .filter-bar select {
+            padding: 8px 14px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; background: white; min-width: 200px;
+        }
+
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white; border-radius: 10px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer; text-decoration: none; color: inherit;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .card h2 { font-size: 22px; color: #2e7d32; margin-bottom: 8px; }
+        .card .desc { color: #666; font-size: 14px; margin-bottom: 16px; min-height: 20px; }
+        .card .meta {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; color: #999;
+        }
+        .card .team-badge {
+            background: #e8f5e9; color: #2e7d32; padding: 4px 12px;
+            border-radius: 20px; font-weight: bold; font-size: 13px;
+        }
+        .card .env-count {
+            background: #f3e5f5; color: #6a1b9a; padding: 4px 12px;
+            border-radius: 20px; font-weight: bold; font-size: 13px;
+        }
+
+        .empty {
+            text-align: center; padding: 60px; color: #999;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-left">
+            <img src="/img/logo-cagip.jpg" alt="CA-GIP">
+            <h1>AppOps - PSSIT APP</h1>
+        </div>
+        <div class="header-right">
+            <a href="/pssit/admin" class="btn-header btn-admin">Administration</a>
+            <a href="/" class="btn-header btn-home">&larr; Accueil</a>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <label>&Eacute;quipe :</label>
+        <select id="teamFilter" onchange="filterTeam()">
+            <option value="">Toutes les &eacute;quipes</option>
+        </select>
+    </div>
+
+    <div class="grid" id="grid"></div>
+</div>
+
+<script>
+let allApps = [];
+let allConfigs = {};
+
+async function load() {
+    const resp = await fetch('/api/pssit/apps');
+    allApps = await resp.json();
+
+    // Fetch env count for each app in parallel
+    const configPromises = allApps.map(a =>
+        fetch('/api/pssit/app/' + a.id + '/config').then(r => r.json()).catch(() => ({ environments: [] }))
+    );
+    const configs = await Promise.all(configPromises);
+    allApps.forEach((a, i) => { allConfigs[a.id] = configs[i]; });
+
+    // Build team filter
+    const teams = [...new Set(allApps.map(a => a.team).filter(Boolean))].sort();
+    const select = document.getElementById('teamFilter');
+    teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t; opt.textContent = t;
+        select.appendChild(opt);
+    });
+
+    filterTeam();
+}
+
+function filterTeam() {
+    const team = document.getElementById('teamFilter').value;
+    const filtered = team ? allApps.filter(a => a.team === team) : allApps;
+    renderGrid(filtered);
+}
+
+function renderGrid(apps) {
+    const grid = document.getElementById('grid');
+    if (apps.length === 0) {
+        grid.innerHTML = '<div class="empty">Aucune application. Allez dans Administration pour en cr\u00e9er une.</div>';
+        return;
+    }
+
+    grid.innerHTML = '';
+    for (const a of apps) {
+        const cfg = allConfigs[a.id] || { environments: [] };
+        const envCount = (cfg.environments || []).length;
+
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = '/pssit/app/' + a.id;
+        card.innerHTML =
+            '<h2>' + esc(a.name || a.id) + '</h2>' +
+            '<div class="desc">' + esc(a.description || '') + '</div>' +
+            '<div class="meta">' +
+                '<span class="team-badge">' + esc(a.team || '-') + '</span>' +
+                '<span class="env-count">' + envCount + ' env' + (envCount !== 1 ? 's' : '') + '</span>' +
+            '</div>';
+        grid.appendChild(card);
+    }
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+load();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

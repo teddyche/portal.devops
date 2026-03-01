@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppOps - Clusters SRE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left img { height: 48px; width: auto; }
+        .header h1 { color: #333; font-size: 28px; }
+        .btn-admin {
+            padding: 10px 20px; background: #6c757d; color: white;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; text-decoration: none; font-weight: bold;
+        }
+        .btn-admin:hover { background: #555; }
+
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white; border-radius: 10px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer; text-decoration: none; color: inherit;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .card h2 { font-size: 22px; color: #1565c0; margin-bottom: 8px; }
+        .card .desc { color: #666; font-size: 14px; margin-bottom: 16px; min-height: 20px; }
+        .card .meta {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; color: #999;
+        }
+        .card .app-count {
+            background: #e3f2fd; color: #1565c0; padding: 4px 12px;
+            border-radius: 20px; font-weight: bold; font-size: 13px;
+        }
+
+        .empty {
+            text-align: center; padding: 60px; color: #999;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-left">
+            <img src="/img/logo-cagip.jpg" alt="CA-GIP">
+            <h1>AppOps - Clusters SRE</h1>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <a href="/admin" class="btn-admin">Administration</a>
+            <a href="/" class="btn-admin" style="background:#1565c0;">&larr; Accueil</a>
+        </div>
+    </div>
+    <div class="grid" id="grid"></div>
+</div>
+
+<script>
+async function load() {
+    const resp = await fetch('/api/clusters');
+    const clusters = await resp.json();
+    const grid = document.getElementById('grid');
+
+    if (clusters.length === 0) {
+        grid.innerHTML = '<div class="empty">Aucun cluster. Allez dans Administration pour en cr\u00e9er un.</div>';
+        return;
+    }
+
+    for (const c of clusters) {
+        let appCount = 0;
+        try {
+            const r = await fetch('/api/cluster/' + c.id + '/data');
+            const apps = await r.json();
+            appCount = apps.length;
+        } catch (e) {}
+
+        const a = document.createElement('a');
+        a.className = 'card';
+        a.href = '/cluster/' + c.id;
+        a.innerHTML = `
+            <h2>${c.name || c.id}</h2>
+            <div class="desc">${c.description || ''}</div>
+            <div class="meta">
+                <span>Cr\u00e9\u00e9 le ${c.created || '-'}</span>
+                <span class="app-count">${appCount} app${appCount !== 1 ? 's' : ''}</span>
+            </div>
+        `;
+        grid.appendChild(a);
+    }
+}
+load();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

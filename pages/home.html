@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppOps</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 40px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left img { height: 48px; width: auto; }
+        .header h1 { color: #333; font-size: 28px; }
+
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px; max-width: 800px; margin: 0 auto;
+        }
+
+        .card {
+            background: white; border-radius: 12px; padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer; text-decoration: none; color: inherit;
+            display: block; position: relative; overflow: hidden;
+            border-top: 5px solid #ccc;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .card h2 { font-size: 24px; margin-bottom: 10px; }
+        .card .desc { color: #666; font-size: 14px; line-height: 1.5; }
+
+        .card-sre { border-top-color: #1565c0; }
+        .card-sre h2 { color: #1565c0; }
+
+        .card-pssit { border-top-color: #2e7d32; }
+        .card-pssit h2 { color: #2e7d32; }
+
+        .card-ldap { border-top-color: #e65100; }
+        .card-ldap h2 { color: #e65100; }
+
+        .card-cad { border-top-color: #6a1b9a; }
+        .card-cad h2 { color: #6a1b9a; }
+
+        .badge {
+            position: absolute; top: 16px; right: -32px;
+            background: #9e9e9e; color: white;
+            font-size: 11px; font-weight: bold;
+            padding: 4px 40px; transform: rotate(45deg);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-left">
+            <img src="/img/logo-cagip.jpg" alt="CA-GIP">
+            <h1>AppOps</h1>
+        </div>
+    </div>
+    <div class="grid">
+        <a class="card card-sre" href="/sre">
+            <h2>SRE</h2>
+            <div class="desc">Clusters SRE - Tableaux de bord et autoscores</div>
+        </a>
+        <a class="card card-pssit" href="/pssit">
+            <h2>PSSIT APP</h2>
+            <div class="desc">Gestion des op&eacute;rations applicatives</div>
+        </a>
+        <a class="card card-ldap" href="/ldap-checker">
+            <h2>LDAP CHECKER</h2>
+            <div class="desc">LDAP Checker</div>
+            <div class="badge">Bient&ocirc;t</div>
+        </a>
+        <a class="card card-cad" href="/cad">
+            <h2>CAD</h2>
+            <div class="desc">Comit&eacute; d'Architecture et Design</div>
+        </a>
+    </div>
+</div>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

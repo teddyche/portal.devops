@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - PSSIT APP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { color: #333; font-size: 24px; }
+        .header a { color: #2e7d32; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .card {
+            background: white; border-radius: 8px; padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .card h2 { font-size: 18px; color: #333; margin-bottom: 16px; }
+
+        .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: #666; font-weight: bold; }
+        .form-group input {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+        }
+        .btn {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        .btn-primary { background: #2e7d32; color: white; }
+        .btn-primary:hover { background: #1b5e20; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #555; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-config { background: #1565c0; color: white; }
+        .btn-config:hover { background: #0d47a1; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table th, table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
+        table th { font-size: 13px; color: #666; font-weight: bold; background: #f9f9f9; }
+        table td { font-size: 14px; }
+        table td .actions { display: flex; gap: 8px; }
+
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 15px; }
+
+        .edit-row input {
+            padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%;
+        }
+
+        .team-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            background: #e8f5e9; color: #2e7d32; font-size: 12px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Administration - PSSIT APP</h1>
+        <a href="/pssit">&larr; Retour sur PSSIT</a>
+    </div>
+
+    <div class="card">
+        <h2>Ajouter une application</h2>
+        <div class="form-row">
+            <div class="form-group">
+                <label>ID (alphanum, majuscules)</label>
+                <input type="text" id="newId" placeholder="MYAPP" style="text-transform:uppercase; width:120px;">
+            </div>
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" id="newName" placeholder="Mon Application" style="width:200px;">
+            </div>
+            <div class="form-group">
+                <label>&Eacute;quipe</label>
+                <input type="text" id="newTeam" placeholder="EPO" style="width:120px;">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="newDesc" placeholder="Description..." style="width:280px;">
+            </div>
+            <button class="btn btn-primary" onclick="createApp()">Cr&eacute;er</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Applications existantes</h2>
+        <div id="appList"></div>
+    </div>
+</div>
+
+<script>
+let apps = [];
+let editingId = null;
+
+async function load() {
+    const resp = await fetch('/api/pssit/apps');
+    apps = await resp.json();
+    render();
+}
+
+function render() {
+    const container = document.getElementById('appList');
+    if (apps.length === 0) {
+        container.innerHTML = '<div class="empty">Aucune application cr\u00e9\u00e9e.</div>';
+        return;
+    }
+
+    let html = '<table><thead><tr><th>ID</th><th>Nom</th><th>\u00c9quipe</th><th>Description</th><th>Cr\u00e9\u00e9 le</th><th>Actions</th></tr></thead><tbody>';
+    apps.forEach(a => {
+        if (editingId === a.id) {
+            html += '<tr class="edit-row">' +
+                '<td>' + a.id + '</td>' +
+                '<td><input type="text" id="editName" value="' + (a.name || '').replace(/"/g, '&quot;') + '"></td>' +
+                '<td><input type="text" id="editTeam" value="' + (a.team || '').replace(/"/g, '&quot;') + '"></td>' +
+                '<td><input type="text" id="editDesc" value="' + (a.description || '').replace(/"/g, '&quot;') + '"></td>' +
+                '<td>' + (a.created || '-') + '</td>' +
+                '<td><div class="actions">' +
+                '<button class="btn btn-success" onclick="saveEdit(\'' + a.id + '\')">OK</button>' +
+                '<button class="btn btn-secondary" onclick="cancelEdit()">Annuler</button>' +
+                '</div></td></tr>';
+        } else {
+            html += '<tr>' +
+                '<td><strong>' + a.id + '</strong></td>' +
+                '<td>' + (a.name || '-') + '</td>' +
+                '<td><span class="team-badge">' + (a.team || '-') + '</span></td>' +
+                '<td>' + (a.description || '-') + '</td>' +
+                '<td>' + (a.created || '-') + '</td>' +
+                '<td><div class="actions">' +
+                '<a class="btn btn-config" href="/pssit/app/' + a.id + '/config">Configurer</a>' +
+                '<button class="btn btn-secondary" onclick="startEdit(\'' + a.id + '\')">Modifier</button>' +
+                '<button class="btn btn-danger" onclick="deleteApp(\'' + a.id + '\')">Supprimer</button>' +
+                '</div></td></tr>';
+        }
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+async function createApp() {
+    const id = document.getElementById('newId').value.trim().toUpperCase();
+    const name = document.getElementById('newName').value.trim();
+    const team = document.getElementById('newTeam').value.trim();
+    const description = document.getElementById('newDesc').value.trim();
+    if (!id) { alert('ID requis'); return; }
+    if (!/^[A-Z0-9_-]+$/.test(id)) { alert('ID invalide (lettres majuscules, chiffres, tirets, underscores)'); return; }
+
+    const resp = await fetch('/api/pssit/apps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: name || id, team, description })
+    });
+    const result = await resp.json();
+    if (result.error) { alert(result.error); return; }
+
+    document.getElementById('newId').value = '';
+    document.getElementById('newName').value = '';
+    document.getElementById('newTeam').value = '';
+    document.getElementById('newDesc').value = '';
+    await load();
+}
+
+async function deleteApp(id) {
+    if (!confirm('Supprimer l\'application "' + id + '" et toutes ses donn\u00e9es ?')) return;
+    await fetch('/api/pssit/apps/' + id, { method: 'DELETE' });
+    await load();
+}
+
+function startEdit(id) { editingId = id; render(); }
+function cancelEdit() { editingId = null; render(); }
+
+async function saveEdit(id) {
+    const name = document.getElementById('editName').value.trim();
+    const team = document.getElementById('editTeam').value.trim();
+    const description = document.getElementById('editDesc').value.trim();
+    await fetch('/api/pssit/apps/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, team, description })
+    });
+    editingId = null;
+    await load();
+}
+
+load();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

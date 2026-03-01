@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - PSSIT APP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { color: #333; font-size: 24px; }
+        .header-links { display: flex; gap: 16px; }
+        .header a { color: #2e7d32; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .btn {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary { background: #2e7d32; color: white; }
+        .btn-primary:hover { background: #1b5e20; }
+        .btn-danger { background: #dc3545; color: white; font-size: 12px; padding: 6px 12px; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #555; }
+        .btn-add { background: #e8f5e9; color: #2e7d32; border: 2px dashed #2e7d32; padding: 16px; width: 100%; font-size: 16px; border-radius: 8px; margin-bottom: 20px; }
+        .btn-add:hover { background: #c8e6c9; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .env-card {
+            background: white; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 16px; overflow: hidden;
+        }
+        .env-header {
+            background: #2e7d32; color: white; padding: 14px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none;
+        }
+        .env-header:hover { background: #1b5e20; }
+        .env-header .env-title { font-size: 16px; font-weight: bold; }
+        .env-header .env-actions { display: flex; gap: 8px; align-items: center; }
+        .env-header .env-toggle { font-size: 18px; }
+        .env-body { padding: 20px; display: none; }
+        .env-body.open { display: block; }
+
+        .section { margin-bottom: 24px; }
+        .section h3 { font-size: 15px; color: #333; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #e0e0e0; }
+        .section h3 .icon { margin-right: 6px; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-size: 12px; color: #666; font-weight: bold; }
+        .form-group input {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+        }
+        .form-group input:focus { border-color: #2e7d32; outline: none; box-shadow: 0 0 0 2px rgba(46,125,50,0.15); }
+
+        .password-wrap { position: relative; }
+        .password-wrap input { width: 100%; padding-right: 40px; }
+        .password-wrap .toggle-pw {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 16px; color: #999;
+        }
+
+        .wf-table { width: 100%; border-collapse: collapse; }
+        .wf-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+        .wf-table td:first-child { font-size: 13px; font-weight: bold; color: #555; width: 140px; text-transform: uppercase; }
+        .wf-table td:last-child input { width: 100%; }
+
+        .params-table { width: 100%; border-collapse: collapse; }
+        .params-table td { padding: 6px 8px; }
+        .params-table input { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+
+        .buttons-bar {
+            display: flex; gap: 12px; justify-content: flex-end;
+            padding-top: 20px; border-top: 1px solid #eee; margin-top: 20px;
+        }
+
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="pageTitle">Configuration</h1>
+        <div class="header-links">
+            <a id="backApp" href="/pssit">&larr; Retour &agrave; l'application</a>
+            <a href="/pssit">&larr; PSSIT</a>
+        </div>
+    </div>
+
+    <div id="envList"></div>
+
+    <button class="btn btn-add" onclick="addEnv()">+ Ajouter un environnement</button>
+
+    <div class="buttons-bar">
+        <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
+    </div>
+</div>
+
+<script>
+const appId = window.location.pathname.split('/')[3];
+let config = { environments: [] };
+let appName = appId;
+
+async function init() {
+    // Fetch app info
+    const appsResp = await fetch('/api/pssit/apps');
+    const apps = await appsResp.json();
+    const app = apps.find(a => a.id === appId);
+    if (app) {
+        appName = app.name || app.id;
+        document.getElementById('pageTitle').textContent = 'Configuration - ' + appName;
+    }
+    document.getElementById('backApp').href = '/pssit/app/' + appId;
+
+    // Fetch config
+    const configResp = await fetch('/api/pssit/app/' + appId + '/config');
+    config = await configResp.json();
+    if (!config.environments) config.environments = [];
+    render();
+}
+
+function render() {
+    const container = document.getElementById('envList');
+    if (config.environments.length === 0) {
+        container.innerHTML = '<div class="empty">Aucun environnement configur\u00e9. Ajoutez-en un ci-dessous.</div>';
+        return;
+    }
+
+    let html = '';
+    config.environments.forEach((env, i) => {
+        const awx = env.awx || {};
+        const jfrog = env.jfrog || {};
+        const workflows = awx.workflows || {};
+        const extraParams = env.extraParams || {};
+        const paramKeys = Object.keys(extraParams);
+
+        html += '<div class="env-card">' +
+            '<div class="env-header" onclick="toggleEnv(' + i + ')">' +
+                '<span class="env-title">' + (env.name || env.id) + '</span>' +
+                '<div class="env-actions">' +
+                    '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); removeEnv(' + i + ')">Supprimer</button>' +
+                    '<span class="env-toggle" id="toggle-' + i + '">\u25BC</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="env-body" id="body-' + i + '">' +
+
+            '<div class="section">' +
+                '<h3><span class="icon">\u2699</span>G\u00e9n\u00e9ral</h3>' +
+                '<div class="form-grid">' +
+                    '<div class="form-group"><label>ID environnement</label><input type="text" value="' + esc(env.id) + '" onchange="config.environments[' + i + '].id=this.value"></div>' +
+                    '<div class="form-group"><label>Nom</label><input type="text" value="' + esc(env.name) + '" onchange="config.environments[' + i + '].name=this.value"></div>' +
+                    '<div class="form-group"><label>Ordre d\'affichage</label><input type="number" value="' + (env.order || i + 1) + '" onchange="config.environments[' + i + '].order=parseInt(this.value)"></div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="section">' +
+                '<h3><span class="icon">\u26A1</span>AWX</h3>' +
+                '<div class="form-grid">' +
+                    '<div class="form-group full"><label>URL AWX</label><input type="text" value="' + esc(awx.url || '') + '" placeholder="https://awx.example.com" onchange="ensureAwx(' + i + ').url=this.value"></div>' +
+                    '<div class="form-group full"><label>Token API</label>' +
+                        '<div class="password-wrap"><input type="password" id="awx-token-' + i + '" value="' + (awx.token ? '__UNCHANGED__' : '') + '" onchange="ensureAwx(' + i + ').token=this.value">' +
+                        '<button class="toggle-pw" onclick="togglePw(\'awx-token-' + i + '\')">\u{1F441}</button></div>' +
+                    '</div>' +
+                '</div>' +
+                '<h4 style="font-size:13px;color:#666;margin:12px 0 8px;">Workflow Template IDs</h4>' +
+                '<table class="wf-table">' +
+                    wfRow('stop', workflows.stop, i) +
+                    wfRow('start', workflows.start, i) +
+                    wfRow('status', workflows.status, i) +
+                    wfRow('deploy', workflows.deploy, i) +
+                    wfRow('patch', workflows.patch, i) +
+                '</table>' +
+            '</div>' +
+
+            '<div class="section">' +
+                '<h3><span class="icon">\u{1F4E6}</span>JFrog Artifactory</h3>' +
+                '<div class="form-grid">' +
+                    '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
+                    '<div class="form-group full"><label>Token API</label>' +
+                        '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="' + (jfrog.token ? '__UNCHANGED__' : '') + '" onchange="ensureJfrog(' + i + ').token=this.value">' +
+                        '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +
+                    '</div>' +
+                    '<div class="form-group"><label>Repository</label><input type="text" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
+                    '<div class="form-group"><label>Path</label><input type="text" value="' + esc(jfrog.path || '') + '" placeholder="com/example/myapp" onchange="ensureJfrog(' + i + ').path=this.value"></div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="section">' +
+                '<h3><span class="icon">\u{1F527}</span>Param\u00e8tres suppl\u00e9mentaires</h3>' +
+                '<table class="params-table" id="params-table-' + i + '">';
+
+        paramKeys.forEach((k, pi) => {
+            html += '<tr>' +
+                '<td><input type="text" value="' + esc(k) + '" data-env="' + i + '" data-pidx="' + pi + '" class="param-key"></td>' +
+                '<td><input type="text" value="' + esc(extraParams[k]) + '" data-env="' + i + '" data-pkey="' + k + '" class="param-val"></td>' +
+                '<td style="width:40px;"><button class="btn btn-danger btn-sm" onclick="removeParam(' + i + ', \'' + esc(k) + '\')">X</button></td>' +
+                '</tr>';
+        });
+
+        html += '</table>' +
+                '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="addParam(' + i + ')">+ Param\u00e8tre</button>' +
+            '</div>' +
+
+            '</div>' +
+        '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function wfRow(action, val, envIdx) {
+    return '<tr><td>' + action.toUpperCase() + '</td><td><input type="number" value="' + (val || '') + '" placeholder="Template ID" onchange="ensureWf(' + envIdx + ').' + action + '=parseInt(this.value)||null"></td></tr>';
+}
+
+function ensureAwx(i) {
+    if (!config.environments[i].awx) config.environments[i].awx = {};
+    return config.environments[i].awx;
+}
+function ensureJfrog(i) {
+    if (!config.environments[i].jfrog) config.environments[i].jfrog = {};
+    return config.environments[i].jfrog;
+}
+function ensureWf(i) {
+    if (!config.environments[i].awx) config.environments[i].awx = {};
+    if (!config.environments[i].awx.workflows) config.environments[i].awx.workflows = {};
+    return config.environments[i].awx.workflows;
+}
+
+function toggleEnv(i) {
+    const body = document.getElementById('body-' + i);
+    const toggle = document.getElementById('toggle-' + i);
+    const open = body.classList.toggle('open');
+    toggle.textContent = open ? '\u25B2' : '\u25BC';
+}
+
+function togglePw(id) {
+    const input = document.getElementById(id);
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function addEnv() {
+    const id = prompt('ID de l\'environnement (ex: PROD, PREPROD, DEV) :');
+    if (!id) return;
+    const name = prompt('Nom de l\'environnement :', id);
+    config.environments.push({
+        id: id.toUpperCase(),
+        name: name || id.toUpperCase(),
+        order: config.environments.length + 1,
+        awx: { url: '', token: '', workflows: {} },
+        jfrog: { url: '', token: '', repo: '', path: '' },
+        extraParams: {}
+    });
+    render();
+}
+
+function removeEnv(i) {
+    const env = config.environments[i];
+    if (!confirm('Supprimer l\'environnement "' + (env.name || env.id) + '" ?')) return;
+    config.environments.splice(i, 1);
+    render();
+}
+
+function addParam(envIdx) {
+    const key = prompt('Nom du param\u00e8tre :');
+    if (!key) return;
+    if (!config.environments[envIdx].extraParams) config.environments[envIdx].extraParams = {};
+    config.environments[envIdx].extraParams[key] = '';
+    render();
+}
+
+function removeParam(envIdx, key) {
+    delete config.environments[envIdx].extraParams[key];
+    render();
+}
+
+function collectParams() {
+    // Collect param key/value changes from inputs before save
+    document.querySelectorAll('.param-key').forEach(input => {
+        const envIdx = parseInt(input.dataset.env);
+        const pidx = parseInt(input.dataset.pidx);
+        const env = config.environments[envIdx];
+        if (!env.extraParams) env.extraParams = {};
+        const oldKeys = Object.keys(env.extraParams);
+        const oldKey = oldKeys[pidx];
+        const newKey = input.value.trim();
+        if (oldKey && oldKey !== newKey) {
+            const val = env.extraParams[oldKey];
+            delete env.extraParams[oldKey];
+            if (newKey) env.extraParams[newKey] = val;
+        }
+    });
+    document.querySelectorAll('.param-val').forEach(input => {
+        const envIdx = parseInt(input.dataset.env);
+        const key = input.dataset.pkey;
+        const env = config.environments[envIdx];
+        if (env.extraParams && key in env.extraParams) {
+            env.extraParams[key] = input.value;
+        }
+    });
+}
+
+async function saveConfig() {
+    collectParams();
+    const resp = await fetch('/api/pssit/app/' + appId + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    });
+    const result = await resp.json();
+    if (result.error) { alert(result.error); return; }
+    alert('Configuration enregistr\u00e9e !');
+    // Reload to refresh token sentinels
+    location.reload();
+}
+
+init();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

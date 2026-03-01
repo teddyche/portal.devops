@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { color: #333; font-size: 22px; }
+        .header a { color: #007bff; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .actions-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #555; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .group-card {
+            background: white; border-radius: 8px; margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;
+        }
+        .group-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px; color: white; font-weight: bold; font-size: 15px;
+            cursor: pointer;
+        }
+        .group-header:hover { filter: brightness(1.1); }
+        .group-header .left { display: flex; align-items: center; gap: 10px; }
+        .group-header .right { display: flex; align-items: center; gap: 8px; }
+        .group-header input {
+            padding: 4px 8px; border: none; border-radius: 4px; font-size: 14px;
+            font-weight: bold; width: 250px;
+        }
+
+        .group-body { padding: 16px 20px; }
+
+        .color-select {
+            display: flex; gap: 6px; align-items: center;
+        }
+        .color-option {
+            width: 24px; height: 24px; border-radius: 4px; cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-option.selected { border-color: white; box-shadow: 0 0 0 2px rgba(0,0,0,0.3); }
+
+        .column-row {
+            display: grid; grid-template-columns: 130px 180px 100px 1fr 140px;
+            gap: 10px; align-items: center; padding: 8px 0;
+            border-bottom: 1px solid #eee; font-size: 13px;
+        }
+        .column-row:last-child { border-bottom: none; }
+        .column-row input, .column-row select {
+            padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%;
+        }
+        .column-row .actions { display: flex; gap: 4px; }
+
+        .values-container { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+        .value-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 12px; font-size: 11px;
+            background: #e3f2fd; color: #1565c0;
+        }
+        .value-tag .remove {
+            cursor: pointer; font-weight: bold; color: #c62828;
+            margin-left: 2px;
+        }
+        .add-value-btn {
+            padding: 3px 8px; border: 1px dashed #999; border-radius: 12px;
+            font-size: 11px; cursor: pointer; background: transparent; color: #666;
+        }
+        .add-value-btn:hover { background: #f0f0f0; }
+
+        .btn-eye {
+            padding: 4px 8px; font-size: 14px; border: none; border-radius: 4px;
+            cursor: pointer; background: #e3f2fd; color: #1565c0; line-height: 1;
+        }
+        .btn-eye:hover { background: #bbdefb; }
+        .btn-eye.hidden-col { background: #ffcdd2; color: #c62828; text-decoration: line-through; }
+
+        .section-card {
+            background: white; border-radius: 8px; padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 16px;
+        }
+        .section-card h2 { font-size: 16px; color: #333; margin-bottom: 12px; }
+
+        .color-table { width: 100%; border-collapse: collapse; }
+        .color-table th, .color-table td { padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; }
+        .color-table th { text-align: left; color: #666; font-size: 12px; }
+        .color-table input[type="text"] { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100px; }
+        .color-table input[type="color"] { width: 36px; height: 28px; border: none; cursor: pointer; }
+        .color-preview {
+            display: inline-block; padding: 3px 10px; border-radius: 4px;
+            font-weight: bold; font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="pageTitle">Configuration Dashboard</h1>
+        <a id="backLink" href="/sre">&larr; Retour au dashboard</a>
+    </div>
+
+    <div class="actions-bar">
+        <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
+        <button class="btn btn-danger" onclick="resetConfig()">R&eacute;initialiser (d&eacute;faut)</button>
+        <button class="btn btn-success" onclick="addGroup()">+ Ajouter un groupe</button>
+    </div>
+
+    <div id="groupsContainer"></div>
+
+    <div class="section-card">
+        <h2>Couleurs des valeurs</h2>
+        <table class="color-table" id="colorsTable">
+            <thead><tr><th>Valeur</th><th>Fond</th><th>Texte</th><th>Aper&ccedil;u</th><th></th></tr></thead>
+            <tbody id="colorsBody"></tbody>
+        </table>
+        <div style="margin-top: 10px;">
+            <button class="btn btn-sm btn-secondary" onclick="addValueColor()">+ Ajouter une couleur</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const _path = window.location.pathname;
+let itemId, apiBase, dashUrl, backLabel;
+if (_path.startsWith('/cad/workspace/')) {
+    itemId = _path.split('/')[3];
+    apiBase = '/api/cad/workspace/' + itemId;
+    dashUrl = '/cad/workspace/' + itemId;
+    backLabel = 'Retour au dashboard';
+} else {
+    itemId = _path.split('/')[2];
+    apiBase = '/api/cluster/' + itemId;
+    dashUrl = '/cluster/' + itemId;
+    backLabel = 'Retour au dashboard';
+}
+const clusterId = itemId; // compat alias
+let config = {};
+const AVAILABLE_COLORS = ['grey', 'pink', 'blue', 'green', 'yellow'];
+const DEFAULT_GROUP_COLORS = {
+    grey: { header: '#6c757d', subHeader: '#9e9e9e', cell: '#e0e0e0' },
+    pink: { header: '#ec407a', subHeader: '#f06292', cell: '#f8bbd0' },
+    blue: { header: '#42a5f5', subHeader: '#64b5f6', cell: '#bbdefb' },
+    green: { header: '#66bb6a', subHeader: '#81c784', cell: '#c8e6c9' },
+    yellow: { header: '#fdd835', subHeader: '#ffeb3b', cell: '#fff9c4' }
+};
+
+document.getElementById('backLink').href = dashUrl;
+document.getElementById('pageTitle').textContent = 'Configuration - ' + itemId;
+
+async function init() {
+    const resp = await fetch(apiBase + '/config');
+    config = await resp.json();
+    if (!config.groupColors) config.groupColors = { ...DEFAULT_GROUP_COLORS };
+    if (!config.valueColors) config.valueColors = {};
+    render();
+}
+
+function render() {
+    renderGroups();
+    renderColors();
+}
+
+function renderGroups() {
+    const container = document.getElementById('groupsContainer');
+    container.innerHTML = '';
+    (config.groups || []).forEach((group, gi) => {
+        const gc = (config.groupColors || {})[group.color] || DEFAULT_GROUP_COLORS.grey;
+        const card = document.createElement('div');
+        card.className = 'group-card';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'group-header';
+        header.style.backgroundColor = gc.header;
+        header.innerHTML = '<div class="left">' +
+            '<input type="text" value="' + (group.name || '').replace(/"/g, '&quot;') + '" onchange="updateGroupName(' + gi + ', this.value)" onclick="event.stopPropagation()">' +
+            '<div class="color-select">' + AVAILABLE_COLORS.map(c =>
+                '<div class="color-option' + (group.color === c ? ' selected' : '') + '" ' +
+                'style="background:' + (DEFAULT_GROUP_COLORS[c] || {}).header + '" ' +
+                'onclick="event.stopPropagation(); setGroupColor(' + gi + ', \'' + c + '\')" title="' + c + '"></div>'
+            ).join('') + '</div></div>' +
+            '<div class="right">' +
+            '<span>' + (group.columns || []).length + ' colonnes</span>' +
+            '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); removeGroup(' + gi + ')">Supprimer</button>' +
+            '</div>';
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'group-body';
+        body.id = 'groupBody-' + gi;
+
+        // Column headers
+        const colHeaders = document.createElement('div');
+        colHeaders.className = 'column-row';
+        colHeaders.style.fontWeight = 'bold';
+        colHeaders.style.color = '#666';
+        colHeaders.style.fontSize = '12px';
+        colHeaders.innerHTML = '<span>Champ (field)</span><span>Label</span><span>Type</span><span>Valeurs (toggle)</span><span>Actions</span>';
+        body.appendChild(colHeaders);
+
+        (group.columns || []).forEach((col, ci) => {
+            const row = document.createElement('div');
+            row.className = 'column-row';
+
+            // Field
+            const fieldInput = document.createElement('input');
+            fieldInput.type = 'text';
+            fieldInput.value = col.field || '';
+            fieldInput.onchange = function() { config.groups[gi].columns[ci].field = this.value; };
+
+            // Label
+            const labelInput = document.createElement('input');
+            labelInput.type = 'text';
+            labelInput.value = col.label || '';
+            labelInput.onchange = function() { config.groups[gi].columns[ci].label = this.value; };
+
+            // Type
+            const typeSelect = document.createElement('select');
+            ['text', 'toggle', 'autoscore'].forEach(t => {
+                const o = document.createElement('option');
+                o.value = t; o.textContent = t;
+                if (col.type === t) o.selected = true;
+                typeSelect.appendChild(o);
+            });
+            typeSelect.onchange = function() { config.groups[gi].columns[ci].type = this.value; render(); };
+
+            // Values
+            const valuesDiv = document.createElement('div');
+            valuesDiv.className = 'values-container';
+            if (col.type === 'toggle' && col.values) {
+                col.values.forEach((v, vi) => {
+                    if (v === '') return;
+                    const tag = document.createElement('span');
+                    tag.className = 'value-tag';
+                    const vc = (config.valueColors || {})[v];
+                    if (vc) { tag.style.background = vc.bg; tag.style.color = vc.fg; }
+                    tag.innerHTML = v + ' <span class="remove" onclick="removeValue(' + gi + ',' + ci + ',' + vi + ')">&times;</span>';
+                    valuesDiv.appendChild(tag);
+                });
+                const addBtn = document.createElement('button');
+                addBtn.className = 'add-value-btn';
+                addBtn.textContent = '+';
+                addBtn.onclick = function() {
+                    const val = prompt('Nouvelle valeur :');
+                    if (val && val.trim()) {
+                        if (!config.groups[gi].columns[ci].values.includes(val.trim())) {
+                            config.groups[gi].columns[ci].values.push(val.trim());
+                            render();
+                        }
+                    }
+                };
+                valuesDiv.appendChild(addBtn);
+            } else {
+                valuesDiv.innerHTML = '<span style="color:#999; font-size:11px">-</span>';
+            }
+
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'actions';
+            const upBtn = document.createElement('button');
+            upBtn.className = 'btn btn-sm btn-secondary';
+            upBtn.textContent = '\u25B2';
+            upBtn.onclick = function() { moveColumn(gi, ci, -1); };
+            const downBtn = document.createElement('button');
+            downBtn.className = 'btn btn-sm btn-secondary';
+            downBtn.textContent = '\u25BC';
+            downBtn.onclick = function() { moveColumn(gi, ci, 1); };
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn btn-sm btn-danger';
+            delBtn.textContent = '\u00D7';
+            delBtn.onclick = function() { removeColumn(gi, ci); };
+            const eyeBtn = document.createElement('button');
+            eyeBtn.className = 'btn-eye' + (col.hiddenByDefault ? ' hidden-col' : '');
+            eyeBtn.innerHTML = col.hiddenByDefault
+                ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+                : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+            eyeBtn.title = col.hiddenByDefault ? 'Cach\u00e9e par d\u00e9faut' : 'Visible par d\u00e9faut';
+            eyeBtn.onclick = function() { toggleHiddenByDefault(gi, ci); };
+            actionsDiv.appendChild(upBtn);
+            actionsDiv.appendChild(downBtn);
+            actionsDiv.appendChild(delBtn);
+            actionsDiv.appendChild(eyeBtn);
+
+            row.appendChild(fieldInput);
+            row.appendChild(labelInput);
+            row.appendChild(typeSelect);
+            row.appendChild(valuesDiv);
+            row.appendChild(actionsDiv);
+            body.appendChild(row);
+        });
+
+        // Add column button
+        const addColBtn = document.createElement('button');
+        addColBtn.className = 'btn btn-sm btn-success';
+        addColBtn.textContent = '+ Ajouter une colonne';
+        addColBtn.style.marginTop = '10px';
+        addColBtn.onclick = function() { addColumn(gi); };
+        body.appendChild(addColBtn);
+
+        card.appendChild(header);
+        card.appendChild(body);
+        container.appendChild(card);
+    });
+}
+
+function renderColors() {
+    const tbody = document.getElementById('colorsBody');
+    tbody.innerHTML = '';
+    const vc = config.valueColors || {};
+    Object.entries(vc).forEach(([val, colors]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><strong>' + val + '</strong></td>' +
+            '<td><input type="color" value="' + colors.bg + '" onchange="updateColor(\'' + val + '\', \'bg\', this.value)"></td>' +
+            '<td><input type="color" value="' + (colors.fg === 'white' ? '#ffffff' : colors.fg === '#333' ? '#333333' : colors.fg) + '" onchange="updateColor(\'' + val + '\', \'fg\', this.value)"></td>' +
+            '<td><span class="color-preview" style="background:' + colors.bg + ';color:' + colors.fg + '">' + val + '</span></td>' +
+            '<td><button class="btn btn-sm btn-danger" onclick="removeColor(\'' + val + '\')">\u00D7</button></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+// === Group operations ===
+function updateGroupName(gi, name) { config.groups[gi].name = name; }
+function setGroupColor(gi, color) { config.groups[gi].color = color; render(); }
+function removeGroup(gi) {
+    if (!confirm('Supprimer le groupe "' + config.groups[gi].name + '" et toutes ses colonnes ?')) return;
+    config.groups.splice(gi, 1);
+    render();
+}
+function addGroup() {
+    config.groups.push({ name: 'Nouveau groupe', color: 'grey', columns: [] });
+    render();
+}
+
+// === Column operations ===
+function addColumn(gi) {
+    config.groups[gi].columns.push({ field: 'nouveau', label: 'Nouveau', type: 'toggle', values: [''], filterable: true, format: 'status' });
+    render();
+}
+function removeColumn(gi, ci) {
+    config.groups[gi].columns.splice(ci, 1);
+    render();
+}
+function moveColumn(gi, ci, dir) {
+    const cols = config.groups[gi].columns;
+    const newIdx = ci + dir;
+    if (newIdx < 0 || newIdx >= cols.length) return;
+    [cols[ci], cols[newIdx]] = [cols[newIdx], cols[ci]];
+    render();
+}
+function toggleHiddenByDefault(gi, ci) {
+    config.groups[gi].columns[ci].hiddenByDefault = !config.groups[gi].columns[ci].hiddenByDefault;
+    render();
+}
+function removeValue(gi, ci, vi) {
+    config.groups[gi].columns[ci].values.splice(vi, 1);
+    render();
+}
+
+// === Color operations ===
+function updateColor(val, prop, color) {
+    config.valueColors[val][prop] = color;
+    renderColors();
+}
+function removeColor(val) {
+    delete config.valueColors[val];
+    renderColors();
+}
+function addValueColor() {
+    const val = prompt('Nom de la valeur :');
+    if (!val || !val.trim()) return;
+    config.valueColors[val.trim()] = { bg: '#007bff', fg: '#ffffff' };
+    renderColors();
+}
+
+// === Save / Reset ===
+async function saveConfig() {
+    await fetch(apiBase + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    });
+    alert('Configuration enregistr\u00e9e !');
+}
+
+async function resetConfig() {
+    if (!confirm('R\u00e9initialiser la configuration par d\u00e9faut ? Toutes les modifications seront perdues.')) return;
+    const resp = await fetch(apiBase + '/config');
+    const defaultResp = await fetch('/api/clusters');
+    // Fetch fresh default from server by recreating it
+    // Actually we just reload the page - the server has the original
+    // For a true reset, we'd need a dedicated endpoint. Let's use a workaround:
+    // We POST the default config
+    const migResp = await fetch(apiBase + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(DEFAULT_RESET_CONFIG)
+    });
+    config = JSON.parse(JSON.stringify(DEFAULT_RESET_CONFIG));
+    render();
+    alert('Configuration r\u00e9initialis\u00e9e.');
+}
+
+const DEFAULT_RESET_CONFIG = {
+    groups: [
+        { name: "APPLICATIONS", color: "grey", columns: [
+            { field: "nom", label: "Nom", type: "text", hasLink: true, filterable: true },
+            { field: "code", label: "Code", type: "text", filterable: true },
+            { field: "equipe", label: "\u00c9quipe", type: "text", filterable: true },
+            { field: "os", label: "OS", type: "toggle", values: ["", "UNIX", "WINDOWS", "MAINFRAME", "KUBE"], filterable: true },
+            { field: "zone", label: "Zone", type: "toggle", values: ["", "3PG", "TARGET2", "COMMUNAUTAIRE"], filterable: true }
+        ]},
+        { name: "AUTOSCORE", color: "pink", columns: [
+            { field: "note", label: "Note (A-G)", type: "autoscore", format: "note", filterable: true },
+            { field: "score", label: "Score (/660)", type: "autoscore", format: "score", filterable: true }
+        ]},
+        { name: "AUTOMATISATION / TOIL", color: "blue", columns: [
+            { field: "priority", label: "Priorit\u00e9", type: "toggle", values: ["", "P0", "P1", "P2", "P3", "P4"], filterable: true, format: "priority" },
+            { field: "stop", label: "Stop", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "start", label: "Start", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "status", label: "Status", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "prisePreuve", label: "Prise preuve PSI", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "deployApp", label: "Deploy Applicatif", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "deployBout", label: "Deploy Bout en Bout", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "patchMgt", label: "Patch Mgt", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "blackout", label: "Blackout Superv.", type: "toggle", values: ["", "AUTO", "MANUEL"], filterable: true, format: "status" },
+            { field: "artifactory", label: "Livraison via Artifactory", type: "toggle", values: ["", "OUI", "NON"], filterable: true, format: "status" }
+        ]},
+        { name: "OBSERVABILITE", color: "green", columns: [
+            { field: "dynaHP", label: "Dynatrace Install en HP", type: "toggle", values: ["", "INFRAO", "NON", "FSTACK"], filterable: true, format: "status" },
+            { field: "dynaProd", label: "Dynatrace Install en Prod", type: "toggle", values: ["", "INFRAO", "NON", "FSTACK"], filterable: true, format: "status" },
+            { field: "dashDyna", label: "Dashboard Dynatrace", type: "toggle", values: ["", "OUI", "NON"], filterable: true, format: "status" },
+            { field: "elisa", label: "Puit de logs ELISA", type: "toggle", values: ["", "OUI", "NON", "PARTIEL"], filterable: true, format: "status" }
+        ]},
+        { name: "DISPONIBILITE", color: "yellow", columns: [
+            { field: "sla", label: "SLA (%)", type: "text", filterable: true, format: "sla" },
+            { field: "dashSLx", label: "Dash SLx", type: "toggle", values: ["", "OUI", "NON"], filterable: true, format: "status" },
+            { field: "errorBudget", label: "Error Budget", type: "toggle", values: ["", "OUI", "NON"], filterable: true, format: "status" }
+        ]}
+    ],
+    valueColors: {
+        AUTO: { bg: "#66bb6a", fg: "white" }, MANUEL: { bg: "#dc3545", fg: "white" },
+        INFRAO: { bg: "#ff9800", fg: "white" }, FSTACK: { bg: "#66bb6a", fg: "white" },
+        OUI: { bg: "#66bb6a", fg: "white" }, NON: { bg: "#dc3545", fg: "white" },
+        PARTIEL: { bg: "#ff9800", fg: "white" },
+        P0: { bg: "#b71c1c", fg: "white" }, P1: { bg: "#dc3545", fg: "white" },
+        P2: { bg: "#ff9800", fg: "white" }, P3: { bg: "#fdd835", fg: "#333" },
+        P4: { bg: "#66bb6a", fg: "white" }
+    },
+    groupColors: {
+        grey: { header: "#6c757d", subHeader: "#9e9e9e", cell: "#e0e0e0" },
+        pink: { header: "#ec407a", subHeader: "#f06292", cell: "#f8bbd0" },
+        blue: { header: "#42a5f5", subHeader: "#64b5f6", cell: "#bbdefb" },
+        green: { header: "#66bb6a", subHeader: "#81c784", cell: "#c8e6c9" },
+        yellow: { header: "#fdd835", subHeader: "#ffeb3b", cell: "#fff9c4" }
+    },
+    noteThresholds: [
+        { min: 600, note: "A" }, { min: 550, note: "B" }, { min: 500, note: "C" },
+        { min: 400, note: "D" }, { min: 300, note: "E" }, { min: 200, note: "F" },
+        { min: 0, note: "G" }
+    ],
+    slaThresholds: [
+        { min: 99.9, color: "green" }, { min: 99.0, color: "orange" }, { min: 0, color: "red" }
+    ],
+    addRowFields: [
+        { field: "nom", type: "input", placeholder: "Nom", required: true },
+        { field: "code", type: "input", placeholder: "Code", required: true },
+        { field: "equipe", type: "input", placeholder: "\u00c9quipe", required: true },
+        { field: "os", type: "select", placeholder: "-- OS --", options: ["UNIX", "WINDOWS", "MAINFRAME", "KUBE"] },
+        { field: "zone", type: "select", placeholder: "-- Zone --", options: ["3PG", "TARGET2", "COMMUNAUTAIRE"] }
+    ]
+};
+
+init();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

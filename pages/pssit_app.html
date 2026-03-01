@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSSIT APP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* Header */
+        .header { margin-bottom: 24px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .header-top h1 { font-size: 28px; color: #333; }
+        .header-links { display: flex; gap: 12px; }
+        .header-links a {
+            padding: 8px 16px; text-decoration: none; border-radius: 6px;
+            font-size: 13px; font-weight: bold; color: white;
+        }
+        .link-config { background: #1565c0; }
+        .link-config:hover { background: #0d47a1; }
+        .link-back { background: #2e7d32; }
+        .link-back:hover { background: #1b5e20; }
+        .header-meta { display: flex; gap: 12px; align-items: center; color: #666; font-size: 14px; }
+        .team-badge {
+            display: inline-block; padding: 3px 12px; border-radius: 12px;
+            background: #e8f5e9; color: #2e7d32; font-size: 12px; font-weight: bold;
+        }
+
+        /* Env cards grid */
+        .env-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 20px; margin-bottom: 32px;
+        }
+
+        .env-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;
+            border-left: 5px solid #2e7d32;
+        }
+        .env-card.env-prod { border-left-color: #c62828; }
+        .env-card.env-preprod { border-left-color: #e65100; }
+
+        .env-card-header {
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .env-card-header h3 { font-size: 18px; color: #333; }
+        .status-dot {
+            width: 12px; height: 12px; border-radius: 50%; display: inline-block;
+            background: #bbb; margin-right: 8px;
+        }
+        .status-dot.running { background: #4caf50; }
+        .status-dot.stopped { background: #f44336; }
+        .status-dot.checking { background: #2196f3; animation: pulse-dot 1s ease-in-out infinite; }
+
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .env-card-body { padding: 16px 20px; }
+
+        /* Action buttons */
+        .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .btn-action {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 13px; font-weight: bold; color: white;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: opacity 0.2s, filter 0.2s;
+        }
+        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-action:hover:not(:disabled) { filter: brightness(0.9); }
+        .btn-stop { background: #c62828; }
+        .btn-start { background: #2e7d32; }
+        .btn-status { background: #6c757d; }
+        .btn-patch { background: #e65100; }
+        .btn-deploy { background: #1565c0; }
+
+        .btn-spinner {
+            width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%;
+            animation: spin 0.6s linear infinite; display: none;
+        }
+        .btn-action.loading .btn-spinner { display: inline-block; }
+        .btn-action.loading .btn-label { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Deploy section */
+        .deploy-section {
+            background: #f8f9fa; border-radius: 6px; padding: 12px;
+            margin-bottom: 14px;
+        }
+        .deploy-section h4 { font-size: 13px; color: #555; margin-bottom: 8px; }
+        .deploy-row { display: flex; gap: 8px; align-items: center; }
+        .deploy-row select {
+            flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
+        }
+        .btn-sm {
+            padding: 7px 14px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 12px; font-weight: bold; color: white;
+        }
+        .btn-refresh { background: #6c757d; }
+        .btn-refresh:hover { background: #555; }
+        .artifact-info { font-size: 11px; color: #999; margin-top: 4px; }
+
+        /* Schedule section */
+        .schedule-section {
+            background: #fff8e1; border-radius: 6px; padding: 12px;
+        }
+        .schedule-section h4 { font-size: 13px; color: #555; margin-bottom: 8px; }
+        .schedule-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .schedule-row select, .schedule-row input {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
+        }
+        .btn-schedule { background: #f9a825; color: #333; }
+        .btn-schedule:hover { background: #f57f17; color: white; }
+
+        /* Tables section */
+        .section-title {
+            font-size: 18px; color: #333; margin: 32px 0 12px;
+            padding-bottom: 8px; border-bottom: 2px solid #2e7d32;
+        }
+
+        .data-table {
+            width: 100%; border-collapse: collapse; background: white;
+            border-radius: 8px; overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .data-table th {
+            padding: 12px 16px; text-align: left; font-size: 13px;
+            color: #666; font-weight: bold; background: #f9f9f9; border-bottom: 2px solid #eee;
+        }
+        .data-table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+
+        /* Status badges */
+        .badge-status {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: bold; text-transform: uppercase;
+        }
+        .badge-successful { background: #e8f5e9; color: #2e7d32; }
+        .badge-failed { background: #ffebee; color: #c62828; }
+        .badge-error { background: #ffebee; color: #b71c1c; }
+        .badge-running { background: #e3f2fd; color: #1565c0; }
+        .badge-pending { background: #f5f5f5; color: #666; }
+        .badge-canceled { background: #fff8e1; color: #f57f17; }
+        .badge-cancelled { background: #fff8e1; color: #f57f17; }
+        .badge-active { background: #e8f5e9; color: #2e7d32; }
+
+        .badge-env {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: bold;
+        }
+        .badge-env-prod { background: #ffebee; color: #c62828; }
+        .badge-env-preprod { background: #fff3e0; color: #e65100; }
+        .badge-env-default { background: #e8f5e9; color: #2e7d32; }
+
+        .awx-link { color: #1565c0; text-decoration: none; font-size: 12px; }
+        .awx-link:hover { text-decoration: underline; }
+
+        .btn-cancel-schedule {
+            padding: 4px 10px; background: #dc3545; color: white;
+            border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;
+        }
+        .btn-cancel-schedule:hover { background: #c82333; }
+
+        .empty-table { text-align: center; padding: 24px; color: #999; font-size: 14px; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column-reverse; gap: 8px;
+        }
+        .toast {
+            padding: 12px 20px; border-radius: 8px; color: white;
+            font-size: 14px; font-weight: bold; min-width: 280px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            animation: toast-in 0.3s ease-out;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .toast.fade-out { animation: toast-out 0.3s ease-in forwards; }
+        .toast-success { background: #2e7d32; }
+        .toast-error { background: #c62828; }
+        .toast-info { background: #1565c0; }
+
+        @keyframes toast-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateX(100%); } }
+
+        .no-envs {
+            background: white; border-radius: 10px; padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+            color: #999; font-size: 16px; margin-bottom: 32px;
+        }
+        .no-envs a { color: #2e7d32; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-top">
+            <h1 id="appTitle">-</h1>
+            <div class="header-links">
+                <a id="linkConfig" href="#" class="link-config">Configuration</a>
+                <a href="/pssit" class="link-back">&larr; PSSIT</a>
+            </div>
+        </div>
+        <div class="header-meta">
+            <span class="team-badge" id="appTeam">-</span>
+            <span id="appDesc">-</span>
+        </div>
+    </div>
+
+    <div class="env-grid" id="envGrid"></div>
+
+    <h2 class="section-title">Jobs planifi&eacute;s</h2>
+    <div id="schedulesSection"></div>
+
+    <h2 class="section-title">Historique</h2>
+    <div id="historySection"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const appId = window.location.pathname.split('/')[3];
+let appInfo = {};
+let config = { environments: [] };
+let history = [];
+let schedules = [];
+let activePollers = {};
+let envArtifacts = {};
+
+// === Init ===
+async function init() {
+    const [appsResp, configResp, histResp, schedResp] = await Promise.all([
+        fetch('/api/pssit/apps'),
+        fetch('/api/pssit/app/' + appId + '/config'),
+        fetch('/api/pssit/app/' + appId + '/history'),
+        fetch('/api/pssit/app/' + appId + '/schedules')
+    ]);
+
+    const apps = await appsResp.json();
+    appInfo = apps.find(a => a.id === appId) || {};
+    config = await configResp.json();
+    history = await histResp.json();
+    schedules = await schedResp.json();
+
+    if (!config.environments) config.environments = [];
+    config.environments.sort((a, b) => (a.order || 99) - (b.order || 99));
+
+    document.getElementById('appTitle').textContent = appInfo.name || appId;
+    document.getElementById('appTeam').textContent = appInfo.team || '-';
+    document.getElementById('appDesc').textContent = appInfo.description || '';
+    document.getElementById('linkConfig').href = '/pssit/app/' + appId + '/config';
+    document.title = 'PSSIT - ' + (appInfo.name || appId);
+
+    renderEnvs();
+    renderSchedules();
+    renderHistory();
+    startPollingRunning();
+}
+
+// === Render environment cards ===
+function renderEnvs() {
+    const grid = document.getElementById('envGrid');
+    if (config.environments.length === 0) {
+        grid.innerHTML = '<div class="no-envs">Aucun environnement configur\u00e9. <a href="/pssit/app/' + appId + '/config">Configurer les environnements</a></div>';
+        return;
+    }
+
+    grid.innerHTML = '';
+    config.environments.forEach(env => {
+        const card = document.createElement('div');
+        const envClass = env.id.toUpperCase().includes('PROD') && !env.id.toUpperCase().includes('PREPROD')
+            ? 'env-prod'
+            : env.id.toUpperCase().includes('PREPROD') ? 'env-preprod' : '';
+        card.className = 'env-card ' + envClass;
+        card.id = 'env-card-' + env.id;
+
+        card.innerHTML =
+            '<div class="env-card-header">' +
+                '<h3><span class="status-dot" id="dot-' + env.id + '"></span>' + esc(env.name || env.id) + '</h3>' +
+            '</div>' +
+            '<div class="env-card-body">' +
+
+                // Action buttons
+                '<div class="action-row">' +
+                    actionBtn('stop', env.id, 'STOP', 'btn-stop') +
+                    actionBtn('start', env.id, 'START', 'btn-start') +
+                    actionBtn('status', env.id, 'STATUS', 'btn-status') +
+                    actionBtn('patch', env.id, 'PATCH', 'btn-patch') +
+                '</div>' +
+
+                // Deploy section
+                '<div class="deploy-section">' +
+                    '<h4>D\u00e9ploiement</h4>' +
+                    '<div class="deploy-row">' +
+                        '<select id="artifact-' + env.id + '" onchange="showArtifactInfo(\'' + env.id + '\')">' +
+                            '<option value="">-- S\u00e9lectionner un artefact --</option>' +
+                        '</select>' +
+                        '<button class="btn-sm btn-refresh" onclick="loadArtifacts(\'' + env.id + '\')" title="Rafra\u00eechir">\u21BB</button>' +
+                        '<button class="btn-sm btn-deploy" id="deploy-btn-' + env.id + '" onclick="launchDeploy(\'' + env.id + '\')" disabled>D\u00e9ployer</button>' +
+                    '</div>' +
+                    '<div class="artifact-info" id="artifact-info-' + env.id + '"></div>' +
+                '</div>' +
+
+                // Schedule section
+                '<div class="schedule-section">' +
+                    '<h4>Planifier</h4>' +
+                    '<div class="schedule-row">' +
+                        '<select id="sched-action-' + env.id + '">' +
+                            '<option value="stop">Stop planifi\u00e9</option>' +
+                            '<option value="start">Start planifi\u00e9</option>' +
+                        '</select>' +
+                        '<input type="datetime-local" id="sched-dt-' + env.id + '">' +
+                        '<button class="btn-sm btn-schedule" onclick="scheduleAction(\'' + env.id + '\')">Planifier</button>' +
+                    '</div>' +
+                '</div>' +
+
+            '</div>';
+
+        grid.appendChild(card);
+
+        // Auto-load artifacts if JFrog is configured
+        const jfrog = env.jfrog || {};
+        if (jfrog.url && jfrog.repo) {
+            loadArtifacts(env.id);
+        }
+    });
+}
+
+function actionBtn(action, envId, label, cls) {
+    return '<button class="btn-action ' + cls + '" id="btn-' + action + '-' + envId + '" onclick="launchAction(\'' + action + '\', \'' + envId + '\')">' +
+        '<span class="btn-spinner"></span>' +
+        '<span class="btn-label">' + label + '</span>' +
+    '</button>';
+}
+
+// === Actions ===
+async function launchAction(action, envId) {
+    const env = config.environments.find(e => e.id === envId);
+    const envName = env ? (env.name || env.id) : envId;
+
+    // Double confirm for STOP on PROD
+    if (action === 'stop' && envId.toUpperCase().includes('PROD') && !envId.toUpperCase().includes('PREPROD')) {
+        if (!confirm('ATTENTION : Vous allez STOPPER l\'application en ' + envName + '. Confirmer ?')) return;
+        const typed = prompt('Tapez "STOP PROD" pour confirmer :');
+        if (typed !== 'STOP PROD') { showToast('Action annul\u00e9e', 'info'); return; }
+    }
+
+    const btn = document.getElementById('btn-' + action + '-' + envId);
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/launch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, params: {} })
+        });
+        const result = await resp.json();
+
+        if (result.error) {
+            showToast(result.error, 'error');
+        } else {
+            history.unshift(result);
+            renderHistory();
+            showToast(action.toUpperCase() + ' lanc\u00e9 sur ' + envName, 'success');
+            if (result.status === 'running') startPollJob(result);
+            if (action === 'status') {
+                const dot = document.getElementById('dot-' + envId);
+                if (dot) dot.className = 'status-dot checking';
+            }
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message, 'error');
+    }
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+}
+
+async function launchDeploy(envId) {
+    const select = document.getElementById('artifact-' + envId);
+    const artifact = select.value;
+    if (!artifact) { showToast('S\u00e9lectionnez un artefact', 'info'); return; }
+
+    const env = config.environments.find(e => e.id === envId);
+    const envName = env ? (env.name || env.id) : envId;
+
+    if (!confirm('D\u00e9ployer "' + artifact + '" sur ' + envName + ' ?')) return;
+
+    const btn = document.getElementById('deploy-btn-' + envId);
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/launch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'deploy', params: { artifact } })
+        });
+        const result = await resp.json();
+
+        if (result.error) {
+            showToast(result.error, 'error');
+        } else {
+            history.unshift(result);
+            renderHistory();
+            showToast('D\u00e9ploiement lanc\u00e9 : ' + artifact, 'success');
+            if (result.status === 'running') startPollJob(result);
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'D\u00e9ployer';
+}
+
+// === Artifacts ===
+async function loadArtifacts(envId) {
+    const select = document.getElementById('artifact-' + envId);
+    if (!select) return;
+    select.innerHTML = '<option value="">Chargement...</option>';
+
+    try {
+        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/artifacts');
+        const data = await resp.json();
+
+        if (data.error) {
+            select.innerHTML = '<option value="">Erreur : ' + esc(data.error) + '</option>';
+            return;
+        }
+
+        envArtifacts[envId] = data;
+        select.innerHTML = '<option value="">-- S\u00e9lectionner (' + data.length + ') --</option>';
+        data.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.name;
+            opt.textContent = a.name;
+            select.appendChild(opt);
+        });
+
+        const deployBtn = document.getElementById('deploy-btn-' + envId);
+        select.onchange = function() {
+            deployBtn.disabled = !this.value;
+            showArtifactInfo(envId);
+        };
+    } catch (e) {
+        select.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
+
+function showArtifactInfo(envId) {
+    const select = document.getElementById('artifact-' + envId);
+    const info = document.getElementById('artifact-info-' + envId);
+    const artifacts = envArtifacts[envId] || [];
+    const selected = artifacts.find(a => a.name === select.value);
+    if (selected) {
+        const size = selected.size ? (selected.size / 1024 / 1024).toFixed(1) + ' Mo' : '-';
+        const date = selected.lastModified ? new Date(selected.lastModified).toLocaleString('fr-FR') : '-';
+        info.textContent = 'Taille: ' + size + ' | Modifi\u00e9: ' + date;
+    } else {
+        info.textContent = '';
+    }
+}
+
+// === Schedule ===
+async function scheduleAction(envId) {
+    const action = document.getElementById('sched-action-' + envId).value;
+    const dt = document.getElementById('sched-dt-' + envId).value;
+    if (!dt) { showToast('Choisissez une date et heure', 'info'); return; }
+
+    const env = config.environments.find(e => e.id === envId);
+    const envName = env ? (env.name || env.id) : envId;
+
+    if (!confirm('Planifier ' + action.toUpperCase() + ' sur ' + envName + ' le ' + new Date(dt).toLocaleString('fr-FR') + ' ?')) return;
+
+    try {
+        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, datetime: new Date(dt).toISOString() })
+        });
+        const result = await resp.json();
+
+        if (result.error) {
+            showToast(result.error, 'error');
+        } else {
+            schedules.unshift(result);
+            renderSchedules();
+            showToast(action.toUpperCase() + ' planifi\u00e9 sur ' + envName, 'success');
+            document.getElementById('sched-dt-' + envId).value = '';
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message, 'error');
+    }
+}
+
+async function cancelSchedule(scheduleId) {
+    if (!confirm('Annuler ce job planifi\u00e9 ?')) return;
+    try {
+        await fetch('/api/pssit/app/' + appId + '/schedules/' + scheduleId, { method: 'DELETE' });
+        const s = schedules.find(s => s.id === scheduleId);
+        if (s) s.status = 'cancelled';
+        renderSchedules();
+        showToast('Planification annul\u00e9e', 'info');
+    } catch (e) {
+        showToast('Erreur: ' + e.message, 'error');
+    }
+}
+
+// === Render schedules ===
+function renderSchedules() {
+    const container = document.getElementById('schedulesSection');
+    const active = schedules.filter(s => s.status === 'active');
+
+    if (active.length === 0) {
+        container.innerHTML = '<div class="empty-table" style="background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);">Aucun job planifi\u00e9</div>';
+        return;
+    }
+
+    let html = '<table class="data-table"><thead><tr>' +
+        '<th>Action</th><th>Environnement</th><th>Date pr\u00e9vue</th><th>Cr\u00e9\u00e9 le</th><th>Statut</th><th>Actions</th>' +
+        '</tr></thead><tbody>';
+
+    active.forEach(s => {
+        const envBadge = envBadgeHtml(s.envId);
+        html += '<tr>' +
+            '<td><strong>' + (s.action || '').toUpperCase() + '</strong></td>' +
+            '<td>' + envBadge + '</td>' +
+            '<td>' + formatDate(s.scheduledAt) + '</td>' +
+            '<td>' + formatDate(s.createdAt) + '</td>' +
+            '<td><span class="badge-status badge-' + s.status + '">' + s.status + '</span></td>' +
+            '<td><button class="btn-cancel-schedule" onclick="cancelSchedule(\'' + s.id + '\')">Annuler</button></td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// === Render history ===
+function renderHistory() {
+    const container = document.getElementById('historySection');
+
+    if (history.length === 0) {
+        container.innerHTML = '<div class="empty-table" style="background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);">Aucun historique</div>';
+        return;
+    }
+
+    let html = '<table class="data-table"><thead><tr>' +
+        '<th>Date</th><th>Action</th><th>Environnement</th><th>Statut</th><th>Job AWX</th><th>Artefact</th>' +
+        '</tr></thead><tbody>';
+
+    history.slice(0, 50).forEach(h => {
+        const envBadge = envBadgeHtml(h.envId);
+        const awxLink = h.awxJobUrl
+            ? '<a class="awx-link" href="' + esc(h.awxJobUrl) + '" target="_blank">#' + h.awxJobId + '</a>'
+            : '-';
+
+        html += '<tr>' +
+            '<td>' + formatDate(h.timestamp) + '</td>' +
+            '<td><strong>' + (h.action || '').toUpperCase() + '</strong></td>' +
+            '<td>' + envBadge + '</td>' +
+            '<td><span class="badge-status badge-' + h.status + '">' + h.status + '</span></td>' +
+            '<td>' + awxLink + '</td>' +
+            '<td>' + esc(h.artifact || '-') + '</td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// === Polling ===
+function startPollJob(entry) {
+    if (activePollers[entry.id]) return;
+    activePollers[entry.id] = setInterval(async () => {
+        try {
+            const resp = await fetch('/api/pssit/app/' + appId + '/env/' + entry.envId + '/job/' + entry.awxJobId + '/status');
+            const data = await resp.json();
+
+            if (data.status && data.status !== 'running' && data.status !== 'pending') {
+                clearInterval(activePollers[entry.id]);
+                delete activePollers[entry.id];
+
+                // Update local history entry
+                const h = history.find(x => x.id === entry.id);
+                if (h) h.status = data.status;
+                renderHistory();
+
+                const type = data.status === 'successful' ? 'success' : 'error';
+                showToast(entry.action.toUpperCase() + ' ' + entry.envId + ' : ' + data.status, type);
+
+                // Update status dot if it was a status check
+                if (entry.action === 'status') {
+                    const dot = document.getElementById('dot-' + entry.envId);
+                    if (dot) dot.className = 'status-dot ' + (data.status === 'successful' ? 'running' : 'stopped');
+                }
+            }
+        } catch (e) { /* silent retry */ }
+    }, 5000);
+}
+
+function startPollingRunning() {
+    history.filter(h => h.status === 'running' && h.awxJobId).forEach(entry => {
+        startPollJob(entry);
+    });
+}
+
+// === Helpers ===
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+}
+
+function formatDate(iso) {
+    if (!iso) return '-';
+    try { return new Date(iso).toLocaleString('fr-FR'); } catch (e) { return iso; }
+}
+
+function envBadgeHtml(envId) {
+    const id = (envId || '').toUpperCase();
+    let cls = 'badge-env-default';
+    if (id.includes('PROD') && !id.includes('PREPROD')) cls = 'badge-env-prod';
+    else if (id.includes('PREPROD')) cls = 'badge-env-preprod';
+    return '<span class="badge-env ' + cls + '">' + esc(envId) + '</span>';
+}
+
+// === Toast ===
+function showToast(message, type) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + (type || 'info');
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+init();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

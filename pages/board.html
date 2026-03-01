@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1800px; margin: 0 auto; }
+
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; background: white; padding: 14px 20px;
+            border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 12px; }
+        .top-bar-left h1 { font-size: 20px; color: #333; }
+        .top-bar-right { display: flex; gap: 10px; align-items: center; }
+        .top-bar a {
+            text-decoration: none; font-size: 13px; padding: 7px 14px;
+            border-radius: 4px; font-weight: bold;
+        }
+        .link-back { color: #007bff; background: none; }
+        .link-back:hover { text-decoration: underline; }
+        .link-table { background: #1565c0; color: white; }
+        .link-table:hover { background: #0d47a1; }
+
+        .toolbar {
+            display: flex; gap: 12px; align-items: center; margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .toolbar label { font-size: 13px; color: #666; font-weight: bold; }
+        .toolbar select, .toolbar input {
+            padding: 7px 12px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 13px;
+        }
+        .toolbar input[type="text"] { width: 260px; }
+
+        .group-section { margin-bottom: 24px; }
+        .group-title {
+            font-size: 16px; font-weight: bold; color: #333;
+            margin-bottom: 12px; padding: 8px 16px;
+            background: white; border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .group-title .count {
+            font-size: 13px; font-weight: normal; color: #999;
+            background: #f0f0f0; padding: 2px 10px; border-radius: 12px;
+        }
+
+        .card-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 14px;
+        }
+
+        .postit {
+            background: white; border-radius: 8px; padding: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            position: relative; cursor: default;
+            border-left: 5px solid #ccc;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .postit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .postit-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .postit-title { font-size: 15px; font-weight: bold; color: #333; }
+        .postit-title a { color: #007bff; text-decoration: underline; }
+        .postit-subtitle { font-size: 12px; color: #888; margin-bottom: 10px; }
+        .postit-body { display: flex; flex-direction: column; gap: 4px; }
+        .postit-field {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 12px; padding: 2px 0;
+        }
+        .postit-field-label { color: #999; }
+        .postit-field-value { font-weight: bold; }
+
+        .badge-inline {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: bold;
+        }
+
+        .postit-icons {
+            display: flex; gap: 4px; align-items: center; flex-shrink: 0;
+        }
+        .postit-icons img { width: 20px; height: 20px; }
+
+        @keyframes alert-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.15; }
+        }
+        .icon-alert { animation: alert-blink 1.2s ease-in-out infinite; }
+
+        @keyframes coaching-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .coaching-border {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 8px; pointer-events: none;
+            border: 3px solid transparent;
+            border-image: conic-gradient(#1565c0 0deg, #42a5f5 90deg, transparent 180deg, transparent 360deg) 1;
+            animation: coaching-pulse 2s linear infinite;
+        }
+        @keyframes coaching-pulse {
+            0% { border-color: #1565c0; }
+            25% { border-color: #42a5f5; }
+            50% { border-color: #1565c0; }
+            75% { border-color: #42a5f5; }
+            100% { border-color: #1565c0; }
+        }
+
+        .postit-comment-icon {
+            position: absolute; bottom: 6px; left: 50%;
+            transform: translateX(-50%); width: 16px; height: 16px;
+        }
+
+        .context-menu {
+            position: fixed; background: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1000; min-width: 200px;
+        }
+        .context-menu-item { padding: 10px 15px; cursor: pointer; font-size: 14px; }
+        .context-menu-item:hover { background-color: #f5f5f5; }
+        .context-menu-sep { border-top: 1px solid #eee; margin: 2px 0; }
+
+        .comment-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; justify-content: center;
+            align-items: center; z-index: 1001;
+        }
+        .comment-modal-content {
+            background: white; padding: 20px; border-radius: 8px; width: 420px; max-width: 90%;
+        }
+        .comment-modal-content h3 { margin-bottom: 15px; color: #333; }
+        .comment-modal-content textarea {
+            width: 100%; height: 100px; padding: 10px; border: 1px solid #ddd;
+            border-radius: 4px; font-size: 14px; resize: vertical;
+        }
+        .comment-modal-content .buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; }
+        .comment-modal-content button {
+            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        .comment-modal-content button.save { background-color: #007bff; color: white; }
+        .comment-modal-content button.cancel { background-color: #6c757d; color: white; }
+
+        .detail-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; justify-content: center;
+            align-items: center; z-index: 1001;
+        }
+        .detail-modal-content {
+            background: white; padding: 24px; border-radius: 10px;
+            width: 600px; max-width: 95%; max-height: 85vh; overflow-y: auto;
+        }
+        .detail-modal-content h3 { margin-bottom: 20px; color: #333; font-size: 18px; }
+        .detail-field {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .detail-field-label { font-size: 13px; color: #666; font-weight: bold; min-width: 140px; }
+        .detail-field-value { font-size: 14px; flex: 1; }
+        .detail-field-value input, .detail-field-value select {
+            padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 13px; width: 100%;
+        }
+        .detail-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+        .detail-buttons button {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        .detail-buttons .save { background: #007bff; color: white; }
+        .detail-buttons .close { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <h1 id="pageTitle">Board</h1>
+        </div>
+        <div class="top-bar-right">
+            <a href="" id="tableLink" class="link-table">Tableau</a>
+            <a href="" id="backLink" class="link-back">&larr; Retour</a>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <label>Grouper par :</label>
+        <select id="groupBy" onchange="renderBoard()">
+            <option value="">-- Aucun --</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Rechercher..." oninput="renderBoard()">
+    </div>
+
+    <div id="boardContainer"></div>
+</div>
+
+<div id="contextMenu" class="context-menu" style="display: none;"></div>
+
+<div id="commentModal" class="comment-modal" style="display: none;">
+    <div class="comment-modal-content">
+        <h3 id="commentModalTitle">Commentaire</h3>
+        <textarea id="commentTextarea" placeholder="Entrez votre commentaire..."></textarea>
+        <div class="buttons">
+            <button class="cancel" onclick="closeCommentModal()">Annuler</button>
+            <button class="save" onclick="saveComment()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<div id="detailModal" class="detail-modal" style="display: none;">
+    <div class="detail-modal-content" id="detailContent"></div>
+</div>
+
+<script>
+// === Context detection ===
+const _path = window.location.pathname;
+let itemId, apiBase, dashUrl, backUrl, backLabel, hasAutoscore;
+if (_path.startsWith('/cad/workspace/')) {
+    itemId = _path.split('/')[3];
+    apiBase = '/api/cad/workspace/' + itemId;
+    dashUrl = '/cad/workspace/' + itemId;
+    backUrl = '/cad';
+    backLabel = 'Retour sur CAD';
+    hasAutoscore = false;
+} else {
+    itemId = _path.split('/')[2];
+    apiBase = '/api/cluster/' + itemId;
+    dashUrl = '/cluster/' + itemId;
+    backUrl = '/sre';
+    backLabel = 'Retour sur SRE';
+    hasAutoscore = true;
+}
+
+document.getElementById('pageTitle').textContent = 'Board - ' + itemId;
+document.getElementById('tableLink').href = dashUrl;
+document.getElementById('backLink').href = backUrl;
+document.getElementById('backLink').innerHTML = '&larr; ' + backLabel;
+
+let config = {};
+let data = [];
+let COLUMNS = [];
+let ctxRowIndex = -1;
+let ctxField = '';
+
+// === Init ===
+async function init() {
+    const [confResp, dataResp] = await Promise.all([
+        fetch(apiBase + '/config'),
+        fetch(apiBase + '/data')
+    ]);
+    config = await confResp.json();
+    data = await dataResp.json();
+
+    COLUMNS = [];
+    (config.groups || []).forEach((g, gi) => {
+        (g.columns || []).forEach(c => {
+            COLUMNS.push({ ...c, group: g.name, color: g.color, groupIndex: gi });
+        });
+    });
+
+    // Populate group-by select
+    const sel = document.getElementById('groupBy');
+    COLUMNS.forEach(col => {
+        if (col.type === 'autoscore') return;
+        const opt = document.createElement('option');
+        opt.value = col.field;
+        opt.textContent = col.label;
+        sel.appendChild(opt);
+    });
+
+    renderBoard();
+}
+
+// === Save ===
+async function saveData() {
+    await fetch(apiBase + '/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+}
+
+// === Format value as badge ===
+function formatBadge(value, col) {
+    if (!value && value !== 0) return '';
+    const strVal = String(value);
+    const vc = (config.valueColors || {})[strVal];
+    if (vc) {
+        return '<span class="badge-inline" style="background:' + vc.bg + ';color:' + vc.fg + '">' + esc(strVal) + '</span>';
+    }
+    if (col && col.format === 'sla') {
+        const num = parseFloat(strVal.replace(',', '.'));
+        const thresholds = config.slaThresholds || [];
+        let color = 'red';
+        for (const t of thresholds) {
+            if (!isNaN(num) && num >= t.min) { color = t.color; break; }
+        }
+        const colors = { green: '#66bb6a', orange: '#ff9800', red: '#dc3545' };
+        return '<span class="badge-inline" style="background:' + (colors[color] || '#dc3545') + ';color:white">' + esc(strVal) + '%</span>';
+    }
+    if (col && col.format === 'note') {
+        const thresholds = config.noteThresholds || [];
+        let color = 'red';
+        for (const t of thresholds) {
+            if (t.note === strVal.toUpperCase()) {
+                const idx = thresholds.indexOf(t);
+                color = idx <= 2 ? 'green' : idx <= 4 ? 'orange' : 'red';
+                break;
+            }
+        }
+        const colors = { green: '#66bb6a', orange: '#ff9800', red: '#dc3545' };
+        return '<span class="badge-inline" style="background:' + (colors[color] || '#dc3545') + ';color:white">' + esc(strVal.toUpperCase()) + '</span>';
+    }
+    return esc(strVal);
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// === Get border color for a card based on first group ===
+function getCardBorderColor(row) {
+    const firstGroup = (config.groups || [])[0];
+    if (!firstGroup) return '#ccc';
+    const gc = (config.groupColors || {})[firstGroup.color] || {};
+    return gc.header || '#ccc';
+}
+
+// === Render board ===
+function renderBoard() {
+    const container = document.getElementById('boardContainer');
+    container.innerHTML = '';
+    const groupByField = document.getElementById('groupBy').value;
+    const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+    // Filter data
+    let filtered = data.map((row, idx) => ({ row, idx }));
+    if (search) {
+        filtered = filtered.filter(({ row }) => {
+            return COLUMNS.some(col => {
+                const val = (row[col.field] || '').toString().toLowerCase();
+                return val.includes(search);
+            });
+        });
+    }
+
+    if (groupByField) {
+        // Group
+        const groups = {};
+        filtered.forEach(item => {
+            const key = (item.row[groupByField] || '').toString() || '(Vide)';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+        const sortedKeys = Object.keys(groups).sort();
+        sortedKeys.forEach(key => {
+            const section = document.createElement('div');
+            section.className = 'group-section';
+            section.innerHTML = '<div class="group-title"><span>' + esc(key) + '</span><span class="count">' + groups[key].length + '</span></div>';
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            groups[key].forEach(item => grid.appendChild(buildCard(item.row, item.idx)));
+            section.appendChild(grid);
+            container.appendChild(section);
+        });
+    } else {
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:60px;color:#999;font-size:15px;">Aucune donn\u00e9e.</div>';
+            return;
+        }
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+        filtered.forEach(item => grid.appendChild(buildCard(item.row, item.idx)));
+        container.appendChild(grid);
+    }
+}
+
+// === Build a post-it card ===
+function buildCard(row, rowIndex) {
+    if (!row.comments) row.comments = {};
+    if (!row.alerts) row.alerts = {};
+    if (!row.reminders) row.reminders = {};
+    if (!row.coaching) row.coaching = {};
+
+    const card = document.createElement('div');
+    card.className = 'postit';
+
+    // Border color from first group
+    const borderColor = getCardBorderColor(row);
+    card.style.borderLeftColor = borderColor;
+
+    // P0 highlight
+    if (row.priority === 'P0') {
+        card.style.borderLeftColor = '#b71c1c';
+        card.style.borderLeftWidth = '6px';
+        card.style.background = '#fff5f5';
+    }
+
+    // Check for any coaching on this row
+    const hasAnyCoaching = Object.keys(row.coaching).some(k => row.coaching[k]);
+    if (hasAnyCoaching) {
+        card.style.border = '2px solid #42a5f5';
+        card.style.borderLeftWidth = '5px';
+        card.style.borderLeftColor = borderColor;
+        if (row.priority === 'P0') { card.style.borderLeftColor = '#b71c1c'; card.style.borderLeftWidth = '6px'; }
+        card.style.animation = 'coaching-pulse 2s linear infinite';
+    }
+
+    // Header: title + icons
+    const header = document.createElement('div');
+    header.className = 'postit-header';
+
+    // Title (nom)
+    const titleDiv = document.createElement('div');
+    const nomCol = COLUMNS.find(c => c.field === 'nom');
+    const nom = row.nom || row[COLUMNS[0]?.field] || '(Sans nom)';
+    if (nomCol && nomCol.hasLink && row.nomLink) {
+        titleDiv.innerHTML = '<div class="postit-title"><a href="' + esc(row.nomLink) + '" target="_blank">' + esc(nom) + '</a></div>';
+    } else {
+        titleDiv.innerHTML = '<div class="postit-title">' + esc(nom) + '</div>';
+    }
+
+    // Icons
+    const iconsDiv = document.createElement('div');
+    iconsDiv.className = 'postit-icons';
+    const hasAnyAlert = Object.keys(row.alerts).some(k => row.alerts[k]);
+    const hasAnyReminder = Object.keys(row.reminders).some(k => row.reminders[k]);
+    const hasAnyComment = Object.keys(row.comments).some(k => row.comments[k]);
+    if (hasAnyAlert) {
+        const img = document.createElement('img');
+        img.src = '/img/alert.png'; img.alt = 'Alert'; img.className = 'icon-alert';
+        iconsDiv.appendChild(img);
+    }
+    if (hasAnyReminder) {
+        const img = document.createElement('img');
+        img.src = '/img/reminder.png'; img.alt = 'Reminder';
+        iconsDiv.appendChild(img);
+    }
+    if (hasAnyComment) {
+        const img = document.createElement('img');
+        img.src = '/img/comment.png'; img.alt = 'Comment';
+        img.style.width = '16px'; img.style.height = '16px';
+        iconsDiv.appendChild(img);
+    }
+
+    header.appendChild(titleDiv);
+    header.appendChild(iconsDiv);
+    card.appendChild(header);
+
+    // Subtitle (code + equipe if exist)
+    const parts = [];
+    if (row.code) parts.push(row.code);
+    if (row.equipe) parts.push(row.equipe);
+    if (parts.length > 0) {
+        const sub = document.createElement('div');
+        sub.className = 'postit-subtitle';
+        sub.textContent = parts.join(' \u2022 ');
+        card.appendChild(sub);
+    }
+
+    // Body: show key fields (skip nom, code, equipe which are already shown)
+    const body = document.createElement('div');
+    body.className = 'postit-body';
+    const skipFields = new Set(['nom', 'code', 'equipe', 'nomLink', 'comments', 'alerts', 'reminders', 'coaching', 'priority']);
+    let fieldCount = 0;
+    COLUMNS.forEach(col => {
+        if (skipFields.has(col.field)) return;
+        const val = row[col.field];
+        if (!val && val !== 0) return;
+        if (fieldCount >= 6) return; // Max 6 fields displayed
+        fieldCount++;
+        const field = document.createElement('div');
+        field.className = 'postit-field';
+        field.innerHTML = '<span class="postit-field-label">' + esc(col.label) + '</span><span class="postit-field-value">' + formatBadge(val, col) + '</span>';
+        body.appendChild(field);
+    });
+    card.appendChild(body);
+
+    // Priority badge top-right if exists
+    if (row.priority) {
+        const vc = (config.valueColors || {})[row.priority];
+        if (vc) {
+            const pBadge = document.createElement('span');
+            pBadge.className = 'badge-inline';
+            pBadge.style.cssText = 'position:absolute;top:8px;right:8px;background:' + vc.bg + ';color:' + vc.fg + ';font-size:11px;';
+            pBadge.textContent = row.priority;
+            card.appendChild(pBadge);
+        }
+    }
+
+    // Click to open detail
+    card.onclick = () => openDetail(rowIndex);
+
+    // Right-click context menu
+    card.oncontextmenu = (e) => {
+        e.preventDefault();
+        showContextMenu(e, rowIndex);
+    };
+
+    return card;
+}
+
+// === Context menu ===
+function showContextMenu(event, rowIndex) {
+    event.preventDefault();
+    event.stopPropagation();
+    ctxRowIndex = rowIndex;
+    const row = data[rowIndex];
+    if (!row) return;
+
+    const menu = document.getElementById('contextMenu');
+    menu.innerHTML = '';
+
+    const hasAnyComment = row.comments && Object.keys(row.comments).some(k => row.comments[k]);
+    const hasAnyAlert = row.alerts && Object.keys(row.alerts).some(k => row.alerts[k]);
+    const hasAnyReminder = row.reminders && Object.keys(row.reminders).some(k => row.reminders[k]);
+    const hasAnyCoaching = row.coaching && Object.keys(row.coaching).some(k => row.coaching[k]);
+
+    const items = [];
+
+    // Comments - on whole row (use first column as default field)
+    if (!hasAnyComment) {
+        items.push({ label: 'Ajouter un commentaire', action: () => startAddComment(rowIndex) });
+    } else {
+        items.push({ label: 'Lire le commentaire', action: () => readComment(rowIndex) });
+        items.push({ label: 'Supprimer le commentaire', action: () => deleteComment(rowIndex) });
+    }
+
+    items.push({ sep: true });
+
+    if (!hasAnyAlert) {
+        items.push({ label: 'Poser une alerte', action: () => toggleFlag(rowIndex, 'alerts', true) });
+    } else {
+        items.push({ label: 'Retirer l\'alerte', action: () => toggleFlag(rowIndex, 'alerts', false) });
+    }
+
+    if (!hasAnyReminder) {
+        items.push({ label: 'Ajouter un rappel', action: () => toggleFlag(rowIndex, 'reminders', true) });
+    } else {
+        items.push({ label: 'Retirer le rappel', action: () => toggleFlag(rowIndex, 'reminders', false) });
+    }
+
+    items.push({ sep: true });
+
+    if (!hasAnyCoaching) {
+        items.push({ label: 'Coaching en cours', action: () => toggleFlag(rowIndex, 'coaching', true) });
+    } else {
+        items.push({ label: 'Arr\u00eater le coaching', action: () => toggleFlag(rowIndex, 'coaching', false) });
+    }
+
+    items.push({ sep: true });
+    items.push({ label: 'Supprimer l\'application', action: () => deleteRow(rowIndex) });
+
+    items.forEach(item => {
+        if (item.sep) {
+            const sep = document.createElement('div');
+            sep.className = 'context-menu-sep';
+            menu.appendChild(sep);
+        } else {
+            const div = document.createElement('div');
+            div.className = 'context-menu-item';
+            div.textContent = item.label;
+            div.onclick = () => { hideContextMenu(); item.action(); };
+            menu.appendChild(div);
+        }
+    });
+
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+    menu.style.display = 'block';
+}
+
+function hideContextMenu() {
+    document.getElementById('contextMenu').style.display = 'none';
+}
+document.addEventListener('click', hideContextMenu);
+
+// === Flag operations (alerts, reminders, coaching) on the whole row ===
+async function toggleFlag(rowIndex, flagType, value) {
+    const row = data[rowIndex];
+    if (!row[flagType]) row[flagType] = {};
+    // Use a special key '_row' for row-level flags on the board
+    if (value) {
+        row[flagType]['_row'] = true;
+    } else {
+        // Clear all flags of this type
+        Object.keys(row[flagType]).forEach(k => delete row[flagType][k]);
+    }
+    await saveData();
+    renderBoard();
+}
+
+// === Comment operations ===
+let commentRowIndex = -1;
+function startAddComment(rowIndex) {
+    commentRowIndex = rowIndex;
+    document.getElementById('commentModalTitle').textContent = 'Ajouter un commentaire';
+    document.getElementById('commentTextarea').value = '';
+    document.getElementById('commentModal').style.display = 'flex';
+}
+
+function readComment(rowIndex) {
+    commentRowIndex = rowIndex;
+    const row = data[rowIndex];
+    const comments = row.comments || {};
+    // Find first comment
+    const key = Object.keys(comments).find(k => comments[k]);
+    const text = key ? comments[key] : '';
+    document.getElementById('commentModalTitle').textContent = 'Modifier le commentaire';
+    document.getElementById('commentTextarea').value = text;
+    document.getElementById('commentModal').style.display = 'flex';
+}
+
+async function deleteComment(rowIndex) {
+    if (!confirm('Supprimer le commentaire ?')) return;
+    const row = data[rowIndex];
+    if (row.comments) {
+        Object.keys(row.comments).forEach(k => delete row.comments[k]);
+    }
+    await saveData();
+    renderBoard();
+}
+
+function closeCommentModal() {
+    document.getElementById('commentModal').style.display = 'none';
+}
+
+async function saveComment() {
+    const text = document.getElementById('commentTextarea').value.trim();
+    const row = data[commentRowIndex];
+    if (!row.comments) row.comments = {};
+    // Clear old
+    Object.keys(row.comments).forEach(k => delete row.comments[k]);
+    if (text) {
+        row.comments['_row'] = text;
+    }
+    await saveData();
+    closeCommentModal();
+    renderBoard();
+}
+
+// === Delete row ===
+async function deleteRow(rowIndex) {
+    if (!confirm('Supprimer cette application ?')) return;
+    data.splice(rowIndex, 1);
+    await saveData();
+    renderBoard();
+}
+
+// === Detail modal ===
+function openDetail(rowIndex) {
+    const row = data[rowIndex];
+    const content = document.getElementById('detailContent');
+    const nom = row.nom || row[COLUMNS[0]?.field] || '(Sans nom)';
+
+    let html = '<h3>' + esc(nom) + '</h3>';
+
+    COLUMNS.forEach(col => {
+        if (col.field === 'nomLink') return;
+        const val = row[col.field] || '';
+        html += '<div class="detail-field">';
+        html += '<div class="detail-field-label">' + esc(col.label) + '</div>';
+        html += '<div class="detail-field-value">';
+
+        if (col.type === 'toggle' && col.values) {
+            html += '<select data-field="' + col.field + '" data-row="' + rowIndex + '" onchange="updateDetailField(this)">';
+            col.values.forEach(v => {
+                html += '<option value="' + esc(v) + '"' + (val === v ? ' selected' : '') + '>' + esc(v || '(Vide)') + '</option>';
+            });
+            html += '</select>';
+        } else if (col.type === 'autoscore') {
+            html += '<span>' + formatBadge(val, col) + '</span>';
+        } else {
+            html += '<input type="text" data-field="' + col.field + '" data-row="' + rowIndex + '" value="' + esc(val) + '" onchange="updateDetailField(this)">';
+        }
+
+        html += '</div></div>';
+    });
+
+    html += '<div class="detail-buttons">';
+    html += '<button class="close" onclick="closeDetail()">Fermer</button>';
+    html += '</div>';
+
+    content.innerHTML = html;
+    document.getElementById('detailModal').style.display = 'flex';
+}
+
+async function updateDetailField(el) {
+    const field = el.dataset.field;
+    const rowIndex = parseInt(el.dataset.row);
+    data[rowIndex][field] = el.value;
+    await saveData();
+}
+
+function closeDetail() {
+    document.getElementById('detailModal').style.display = 'none';
+    renderBoard();
+}
+
+// Close modals on backdrop click
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetail();
+});
+document.getElementById('commentModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCommentModal();
+});
+
+init();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

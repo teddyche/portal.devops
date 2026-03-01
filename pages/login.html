@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppOps - Connexion</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .login-box {
+            background: white; border-radius: 12px; padding: 40px; width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .login-box h1 { text-align: center; font-size: 28px; color: #333; margin-bottom: 8px; }
+        .login-box .subtitle { text-align: center; color: #999; font-size: 14px; margin-bottom: 30px; }
+
+        .btn-adfs {
+            display: block; width: 100%; padding: 14px; background: #007bff; color: white;
+            border: none; border-radius: 6px; font-size: 16px; font-weight: bold;
+            cursor: pointer; text-align: center; text-decoration: none;
+        }
+        .btn-adfs:hover { background: #0056b3; }
+
+        .separator {
+            display: flex; align-items: center; margin: 24px 0; gap: 12px;
+        }
+        .separator::before, .separator::after {
+            content: ''; flex: 1; border-top: 1px solid #ddd;
+        }
+        .separator span { color: #999; font-size: 13px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; color: #666; font-weight: bold; margin-bottom: 4px; }
+        .form-group input {
+            width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; outline: none;
+        }
+        .form-group input:focus { border-color: #007bff; }
+
+        .btn-local {
+            display: block; width: 100%; padding: 12px; background: #6c757d; color: white;
+            border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+        .btn-local:hover { background: #555; }
+
+        .error {
+            background: #ffe0e0; color: #c00; padding: 10px 14px; border-radius: 6px;
+            font-size: 13px; margin-bottom: 16px; display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="login-box">
+    <h1>AppOps</h1>
+    <div class="subtitle">Connectez-vous pour continuer</div>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div id="adfsSection" style="display:none;">
+        <a class="btn-adfs" href="/auth/adfs/login">Se connecter avec le compte entreprise</a>
+        <div class="separator"><span>ou</span></div>
+    </div>
+
+    <div class="form-group">
+        <label>Identifiant</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="form-group">
+        <label>Mot de passe</label>
+        <input type="password" id="password" placeholder="Mot de passe" autocomplete="current-password">
+    </div>
+    <button class="btn-local" onclick="localLogin()">Connexion admin</button>
+</div>
+
+<script>
+(async function() {
+    // Check URL error param
+    const params = new URLSearchParams(location.search);
+    const urlError = params.get('error');
+    if (urlError) showError(decodeURIComponent(urlError));
+
+    // Check if ADFS enabled
+    try {
+        const resp = await fetch('/api/auth/config');
+        const cfg = await resp.json();
+        if (cfg.adfs_enabled) {
+            document.getElementById('adfsSection').style.display = 'block';
+        }
+    } catch(e) {}
+})();
+
+function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+async function localLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) { showError('Identifiant et mot de passe requis'); return; }
+
+    try {
+        const resp = await fetch('/auth/local/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const result = await resp.json();
+        if (result.error) { showError(result.error); return; }
+        location.href = result.redirect || '/';
+    } catch(e) {
+        showError('Erreur de connexion');
+    }
+}
+
+document.getElementById('password').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') localLogin();
+});
+</script>
+</body>
+</html>

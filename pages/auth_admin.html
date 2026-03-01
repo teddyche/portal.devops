@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Authentification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { color: #333; font-size: 22px; }
+        .header a { color: #007bff; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid #ddd; }
+        .tab {
+            padding: 10px 24px; cursor: pointer; font-size: 14px; font-weight: bold;
+            color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px;
+            background: none; border-top: none; border-left: none; border-right: none;
+        }
+        .tab.active { color: #007bff; border-bottom-color: #007bff; }
+        .tab:hover { color: #333; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 16px; }
+        .card h2 { font-size: 16px; color: #333; margin-bottom: 12px; }
+
+        .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: #666; font-weight: bold; }
+        .form-group input, .form-group select {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
+        }
+
+        .btn { padding: 7px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #555; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: #f9f9f9; color: #666; font-weight: bold; }
+        .actions { display: flex; gap: 6px; }
+
+        .empty { text-align: center; padding: 30px; color: #999; font-size: 14px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+        .badge-admin { background: #ffc107; color: #333; }
+        .badge-member { background: #e0e0e0; color: #555; }
+        .badge-superadmin { background: #dc3545; color: white; }
+        .badge-local { background: #6c757d; color: white; }
+        .badge-adfs { background: #007bff; color: white; }
+        .badge-sre { background: #1565c0; color: white; }
+        .badge-cad { background: #6a1b9a; color: white; }
+        .badge-pssit { background: #e65100; color: white; }
+
+        .team-detail { border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px; margin-top: 12px; background: #fafafa; }
+        .team-detail h3 { font-size: 15px; margin-bottom: 10px; color: #333; }
+        .sub-section { margin-top: 12px; }
+        .sub-section h4 { font-size: 13px; color: #666; margin-bottom: 6px; }
+
+        .toggle-section { cursor: pointer; user-select: none; }
+        .toggle-section::before { content: '\25B6'; margin-right: 8px; font-size: 11px; display: inline-block; transition: transform 0.2s; }
+        .toggle-section.open::before { transform: rotate(90deg); }
+
+        .config-section { margin-top: 12px; }
+        .config-section label { display: block; font-size: 12px; color: #666; font-weight: bold; margin-bottom: 4px; }
+        .config-section input { width: 100%; max-width: 500px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; margin-bottom: 10px; }
+        .config-section .check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .config-section .check-row input[type=checkbox] { width: auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Administration - Authentification</h1>
+        <a href="/">&larr; Accueil</a>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('orgs')">Organisations</button>
+        <button class="tab" onclick="switchTab('teams')">Equipes</button>
+        <button class="tab" onclick="switchTab('users')">Utilisateurs</button>
+        <button class="tab" onclick="switchTab('config')">Configuration</button>
+    </div>
+
+    <!-- ORGANISATIONS -->
+    <div class="tab-content active" id="tab-orgs">
+        <div class="card">
+            <h2>Ajouter une organisation</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ID</label>
+                    <input type="text" id="orgId" placeholder="GIP" style="text-transform:uppercase;width:120px;">
+                </div>
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="orgName" placeholder="CA-GIP" style="width:200px;">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="orgDesc" placeholder="Description..." style="width:300px;">
+                </div>
+                <button class="btn btn-primary" onclick="createOrg()">Cr&eacute;er</button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Organisations</h2>
+            <div id="orgsList"></div>
+        </div>
+    </div>
+
+    <!-- EQUIPES -->
+    <div class="tab-content" id="tab-teams">
+        <div class="card">
+            <h2>Ajouter une &eacute;quipe</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ID</label>
+                    <input type="text" id="teamId" placeholder="sre-gip" style="width:150px;">
+                </div>
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="teamName" placeholder="SRE GIP" style="width:200px;">
+                </div>
+                <div class="form-group">
+                    <label>Organisation</label>
+                    <select id="teamOrg" style="width:150px;"></select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="teamDesc" placeholder="Description..." style="width:200px;">
+                </div>
+                <button class="btn btn-primary" onclick="createTeam()">Cr&eacute;er</button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Equipes</h2>
+            <div id="teamsList"></div>
+        </div>
+    </div>
+
+    <!-- UTILISATEURS -->
+    <div class="tab-content" id="tab-users">
+        <div class="card">
+            <h2>Utilisateurs</h2>
+            <div id="usersList"></div>
+        </div>
+    </div>
+
+    <!-- CONFIGURATION -->
+    <div class="tab-content" id="tab-config">
+        <div class="card" id="configCard" style="display:none;">
+            <h2>Configuration ADFS</h2>
+            <div class="config-section">
+                <div class="check-row">
+                    <input type="checkbox" id="cfgAdfsEnabled">
+                    <label style="margin:0;display:inline;">ADFS activ&eacute;</label>
+                </div>
+                <label>Client ID</label>
+                <input type="text" id="cfgClientId" placeholder="appops-client-id">
+                <label>Client Secret</label>
+                <input type="password" id="cfgClientSecret" placeholder="Laisser vide pour ne pas changer">
+                <label>Authority URL</label>
+                <input type="text" id="cfgAuthority" placeholder="https://adfs.example.com/adfs">
+                <label>Redirect URI</label>
+                <input type="text" id="cfgRedirectUri" placeholder="http://localhost:5000/auth/adfs/callback">
+            </div>
+            <h2 style="margin-top:20px;">Compte admin local</h2>
+            <div class="config-section">
+                <label>Identifiant</label>
+                <input type="text" id="cfgAdminUser" placeholder="admin">
+                <label>Nom affich&eacute;</label>
+                <input type="text" id="cfgAdminName" placeholder="Super Admin">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="cfgAdminPwd" placeholder="Laisser vide pour ne pas changer">
+            </div>
+            <div style="margin-top:16px;">
+                <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let orgs = [], teams = [], users = [], availableResources = [], currentUser = null;
+let expandedTeam = null;
+
+async function loadAll() {
+    const [orgR, teamR, userR, resR, meR] = await Promise.all([
+        fetch('/api/auth/organizations'), fetch('/api/auth/teams'),
+        fetch('/api/auth/users'), fetch('/api/auth/available-resources'),
+        fetch('/api/auth/me')
+    ]);
+    orgs = await orgR.json();
+    teams = await teamR.json();
+    users = await userR.json();
+    availableResources = await resR.json();
+    currentUser = await meR.json();
+    renderOrgs();
+    renderTeams();
+    renderUsers();
+    renderOrgSelect();
+    loadConfig();
+}
+
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', t.textContent.trim() === {orgs:'Organisations',teams:'Equipes',users:'Utilisateurs',config:'Configuration'}[name]);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+// === ORGS ===
+
+function renderOrgs() {
+    const c = document.getElementById('orgsList');
+    if (!orgs.length) { c.innerHTML = '<div class="empty">Aucune organisation.</div>'; return; }
+    let h = '<table><thead><tr><th>ID</th><th>Nom</th><th>Description</th><th>Cr&eacute;&eacute;</th><th>Actions</th></tr></thead><tbody>';
+    orgs.forEach(o => {
+        h += '<tr><td><strong>' + o.id + '</strong></td><td>' + (o.name||'-') + '</td><td>' + (o.description||'-') + '</td><td>' + (o.created||'-') + '</td>';
+        h += '<td><div class="actions"><button class="btn btn-danger btn-sm" onclick="deleteOrg(\'' + o.id + '\')">Supprimer</button></div></td></tr>';
+    });
+    h += '</tbody></table>';
+    c.innerHTML = h;
+}
+
+async function createOrg() {
+    const id = document.getElementById('orgId').value.trim().toUpperCase();
+    const name = document.getElementById('orgName').value.trim();
+    const description = document.getElementById('orgDesc').value.trim();
+    if (!id) { alert('ID requis'); return; }
+    const r = await fetch('/api/auth/organizations', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id,name,description}) });
+    const res = await r.json(); if (res.error) { alert(res.error); return; }
+    document.getElementById('orgId').value = '';
+    document.getElementById('orgName').value = '';
+    document.getElementById('orgDesc').value = '';
+    await loadAll();
+}
+
+async function deleteOrg(id) {
+    if (!confirm('Supprimer l\'organisation "' + id + '" et toutes ses \u00e9quipes ?')) return;
+    await fetch('/api/auth/organizations/' + id, { method:'DELETE' });
+    await loadAll();
+}
+
+// === TEAMS ===
+
+function renderOrgSelect() {
+    const s = document.getElementById('teamOrg');
+    s.innerHTML = '<option value="">-- Aucune --</option>' + orgs.map(o => '<option value="' + o.id + '">' + o.name + '</option>').join('');
+}
+
+function renderTeams() {
+    const c = document.getElementById('teamsList');
+    if (!teams.length) { c.innerHTML = '<div class="empty">Aucune \u00e9quipe.</div>'; return; }
+    let h = '';
+    teams.forEach(t => {
+        const orgName = (orgs.find(o => o.id === t.org_id) || {}).name || t.org_id || '-';
+        const isOpen = expandedTeam === t.id;
+        h += '<div class="team-detail">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        h += '<h3 class="toggle-section' + (isOpen?' open':'') + '" onclick="toggleTeam(\'' + t.id + '\')">' + t.name + ' <span style="font-size:12px;color:#999;">(' + t.id + ' / ' + orgName + ')</span></h3>';
+        h += '<div class="actions"><button class="btn btn-danger btn-sm" onclick="deleteTeam(\'' + t.id + '\')">Supprimer</button></div>';
+        h += '</div>';
+        if (isOpen) {
+            // Members
+            h += '<div class="sub-section"><h4>Membres (' + (t.members||[]).length + ')</h4>';
+            h += '<div class="form-row"><div class="form-group"><label>Utilisateur</label><select id="addMember_' + t.id + '" style="width:200px;">';
+            const existingIds = (t.members||[]).map(m => m.user_id);
+            users.filter(u => !existingIds.includes(u.id)).forEach(u => {
+                h += '<option value="' + u.id + '">' + u.display_name + ' (' + u.id + ')</option>';
+            });
+            h += '</select></div><div class="form-group"><label>R\u00f4le</label><select id="addMemberRole_' + t.id + '" style="width:120px;"><option value="member">Membre</option><option value="admin">Admin</option></select></div>';
+            h += '<button class="btn btn-primary btn-sm" onclick="addMember(\'' + t.id + '\')">Ajouter</button></div>';
+            if ((t.members||[]).length) {
+                h += '<table><thead><tr><th>Utilisateur</th><th>R\u00f4le</th><th>Actions</th></tr></thead><tbody>';
+                (t.members||[]).forEach(m => {
+                    const u = users.find(x => x.id === m.user_id) || {};
+                    h += '<tr><td>' + (u.display_name || m.user_id) + ' <span style="color:#999;">(' + m.user_id + ')</span></td>';
+                    h += '<td><span class="badge badge-' + m.role + '">' + m.role + '</span></td>';
+                    h += '<td><div class="actions">';
+                    const newRole = m.role === 'admin' ? 'member' : 'admin';
+                    h += '<button class="btn btn-secondary btn-sm" onclick="toggleMemberRole(\'' + t.id + '\',\'' + m.user_id + '\',\'' + newRole + '\')">' + (m.role === 'admin' ? 'Retirer admin' : 'Rendre admin') + '</button>';
+                    h += '<button class="btn btn-danger btn-sm" onclick="removeMember(\'' + t.id + '\',\'' + m.user_id + '\')">Retirer</button>';
+                    h += '</div></td></tr>';
+                });
+                h += '</tbody></table>';
+            }
+            h += '</div>';
+
+            // Resources
+            h += '<div class="sub-section"><h4>Ressources (' + (t.resources||[]).length + ')</h4>';
+            h += '<div class="form-row"><div class="form-group"><label>Ressource</label><select id="addRes_' + t.id + '" style="width:300px;">';
+            const existingRes = (t.resources||[]).map(r => r.module + ':' + r.resource_id);
+            availableResources.filter(r => !existingRes.includes(r.module + ':' + r.resource_id)).forEach(r => {
+                h += '<option value="' + r.module + ':' + r.resource_id + '">[' + r.module.toUpperCase() + '] ' + r.label + '</option>';
+            });
+            h += '</select></div><button class="btn btn-primary btn-sm" onclick="addResource(\'' + t.id + '\')">Ajouter</button></div>';
+            if ((t.resources||[]).length) {
+                h += '<table><thead><tr><th>Module</th><th>Ressource</th><th>Actions</th></tr></thead><tbody>';
+                (t.resources||[]).forEach(r => {
+                    const label = (availableResources.find(x => x.module === r.module && x.resource_id === r.resource_id) || {}).label || r.resource_id;
+                    h += '<tr><td><span class="badge badge-' + r.module + '">' + r.module.toUpperCase() + '</span></td>';
+                    h += '<td>' + label + ' (' + r.resource_id + ')</td>';
+                    h += '<td><button class="btn btn-danger btn-sm" onclick="removeResource(\'' + t.id + '\',\'' + r.module + '\',\'' + r.resource_id + '\')">Retirer</button></td></tr>';
+                });
+                h += '</tbody></table>';
+            }
+            h += '</div>';
+        }
+        h += '</div>';
+    });
+    c.innerHTML = h;
+}
+
+function toggleTeam(id) { expandedTeam = expandedTeam === id ? null : id; renderTeams(); }
+
+async function createTeam() {
+    const id = document.getElementById('teamId').value.trim().toLowerCase();
+    const name = document.getElementById('teamName').value.trim();
+    const org_id = document.getElementById('teamOrg').value;
+    const description = document.getElementById('teamDesc').value.trim();
+    if (!id) { alert('ID requis'); return; }
+    const r = await fetch('/api/auth/teams', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id,name,org_id,description}) });
+    const res = await r.json(); if (res.error) { alert(res.error); return; }
+    document.getElementById('teamId').value = '';
+    document.getElementById('teamName').value = '';
+    document.getElementById('teamDesc').value = '';
+    await loadAll();
+}
+
+async function deleteTeam(id) {
+    if (!confirm('Supprimer l\'\u00e9quipe "' + id + '" ?')) return;
+    await fetch('/api/auth/teams/' + id, { method:'DELETE' });
+    expandedTeam = null;
+    await loadAll();
+}
+
+async function addMember(teamId) {
+    const sel = document.getElementById('addMember_' + teamId);
+    const roleSel = document.getElementById('addMemberRole_' + teamId);
+    if (!sel || !sel.value) { alert('S\u00e9lectionnez un utilisateur'); return; }
+    await fetch('/api/auth/teams/' + teamId + '/members', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:sel.value, role:roleSel.value}) });
+    await loadAll();
+}
+
+async function removeMember(teamId, userId) {
+    await fetch('/api/auth/teams/' + teamId + '/members/' + userId, { method:'DELETE' });
+    await loadAll();
+}
+
+async function toggleMemberRole(teamId, userId, newRole) {
+    await fetch('/api/auth/teams/' + teamId + '/members/' + userId, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role:newRole}) });
+    await loadAll();
+}
+
+async function addResource(teamId) {
+    const sel = document.getElementById('addRes_' + teamId);
+    if (!sel || !sel.value) { alert('S\u00e9lectionnez une ressource'); return; }
+    const [module, resource_id] = sel.value.split(':');
+    await fetch('/api/auth/teams/' + teamId + '/resources', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({module, resource_id}) });
+    await loadAll();
+}
+
+async function removeResource(teamId, module, resourceId) {
+    await fetch('/api/auth/teams/' + teamId + '/resources', { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({module, resource_id:resourceId}) });
+    await loadAll();
+}
+
+// === USERS ===
+
+function renderUsers() {
+    const c = document.getElementById('usersList');
+    if (!users.length) { c.innerHTML = '<div class="empty">Aucun utilisateur.</div>'; return; }
+    let h = '<table><thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>R\u00f4le</th><th>Derni\u00e8re connexion</th><th>Actions</th></tr></thead><tbody>';
+    users.forEach(u => {
+        h += '<tr><td>' + u.id + '</td><td>' + (u.display_name||'-') + '</td>';
+        h += '<td><span class="badge badge-' + u.type + '">' + u.type + '</span></td>';
+        h += '<td>' + (u.role === 'superadmin' ? '<span class="badge badge-superadmin">superadmin</span>' : u.role) + '</td>';
+        h += '<td>' + (u.last_login || '-') + '</td>';
+        h += '<td><div class="actions">';
+        if (u.id !== 'admin') h += '<button class="btn btn-danger btn-sm" onclick="deleteUser(\'' + u.id + '\')">Supprimer</button>';
+        h += '</div></td></tr>';
+    });
+    h += '</tbody></table>';
+    c.innerHTML = h;
+}
+
+async function deleteUser(id) {
+    if (!confirm('Supprimer l\'utilisateur "' + id + '" ?')) return;
+    await fetch('/api/auth/users/' + id, { method:'DELETE' });
+    await loadAll();
+}
+
+// === CONFIG ===
+
+async function loadConfig() {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        document.getElementById('configCard').style.display = 'none';
+        return;
+    }
+    document.getElementById('configCard').style.display = 'block';
+    const r = await fetch('/api/auth/admin-config');
+    const cfg = await r.json();
+    if (cfg.error) return;
+    document.getElementById('cfgAdfsEnabled').checked = cfg.adfs.enabled;
+    document.getElementById('cfgClientId').value = cfg.adfs.client_id || '';
+    document.getElementById('cfgAuthority').value = cfg.adfs.authority || '';
+    document.getElementById('cfgRedirectUri').value = cfg.adfs.redirect_uri || '';
+    document.getElementById('cfgClientSecret').value = '';
+    document.getElementById('cfgClientSecret').placeholder = cfg.adfs.has_secret ? 'Secret configur\u00e9 (laisser vide pour garder)' : 'Client secret ADFS';
+    document.getElementById('cfgAdminUser').value = cfg.local_admin.username || '';
+    document.getElementById('cfgAdminName').value = cfg.local_admin.display_name || '';
+    document.getElementById('cfgAdminPwd').value = '';
+}
+
+async function saveConfig() {
+    const payload = {
+        adfs: {
+            enabled: document.getElementById('cfgAdfsEnabled').checked,
+            client_id: document.getElementById('cfgClientId').value.trim(),
+            authority: document.getElementById('cfgAuthority').value.trim(),
+            redirect_uri: document.getElementById('cfgRedirectUri').value.trim()
+        },
+        local_admin: {
+            username: document.getElementById('cfgAdminUser').value.trim(),
+            display_name: document.getElementById('cfgAdminName').value.trim()
+        }
+    };
+    const secret = document.getElementById('cfgClientSecret').value;
+    payload.adfs.client_secret = secret || '__UNCHANGED__';
+    const pwd = document.getElementById('cfgAdminPwd').value;
+    if (pwd) payload.local_admin.password = pwd;
+
+    const r = await fetch('/api/auth/admin-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const res = await r.json();
+    if (res.error) { alert(res.error); return; }
+    alert('Configuration enregistr\u00e9e');
+    loadConfig();
+}
+
+loadAll();
+</script>
+</body>
+</html>

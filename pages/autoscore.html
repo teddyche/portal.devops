@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoscore SRE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        .top-bar {
+            display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .app-info { flex: 1; min-width: 200px; }
+        .app-info h1 { font-size: 22px; color: #333; margin-bottom: 4px; }
+        .app-info .details { color: #666; font-size: 14px; }
+
+        .score-summary { display: flex; align-items: center; gap: 30px; }
+        .score-box { text-align: center; padding: 10px 20px; border-radius: 8px; min-width: 100px; }
+        .score-box .label { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .score-box .value { font-size: 32px; font-weight: bold; }
+
+        .note-A, .note-B, .note-C { background: #c8e6c9; }
+        .note-A .value, .note-B .value, .note-C .value { color: #2e7d32; }
+        .note-D, .note-E { background: #fff3e0; }
+        .note-D .value, .note-E .value { color: #e65100; }
+        .note-F, .note-G { background: #ffcdd2; }
+        .note-F .value, .note-G .value { color: #c62828; }
+
+        .radar-container { width: 220px; height: 220px; }
+
+        .buttons-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .buttons-bar button {
+            padding: 10px 24px; border: none; border-radius: 6px;
+            font-size: 14px; cursor: pointer; font-weight: bold;
+        }
+        .buttons-bar a {
+            padding: 10px 24px; border: none; border-radius: 6px;
+            font-size: 14px; cursor: pointer; font-weight: bold;
+            text-decoration: none; display: inline-block;
+        }
+        .btn-save { background: #007bff; color: white; }
+        .btn-save:hover { background: #0056b3; }
+        .btn-back { background: #6c757d; color: white; }
+        .btn-back:hover { background: #555; }
+        .btn-export { background: #28a745; color: white; }
+        .btn-export:hover { background: #218838; }
+
+        .category { background: white; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+        .category-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px; cursor: pointer; user-select: none;
+            color: white; font-weight: bold; font-size: 15px;
+        }
+        .category-header:hover { filter: brightness(1.1); }
+        .category-header .subtotal { font-size: 14px; opacity: 0.9; }
+        .category-header .arrow { transition: transform 0.2s; }
+        .category-header.collapsed .arrow { transform: rotate(-90deg); }
+
+        .cat-autom { background: #1565c0; }
+        .cat-dispo { background: #2e7d32; }
+        .cat-observ { background: #e65100; }
+        .cat-amelior { background: #6a1b9a; }
+        .cat-collab { background: #00838f; }
+
+        .category-body { padding: 0; }
+        .category-body.hidden { display: none; }
+
+        .criterion {
+            display: grid; grid-template-columns: 60px 1fr 280px 60px 200px;
+            gap: 10px; align-items: center;
+            padding: 10px 20px; border-bottom: 1px solid #eee; font-size: 13px;
+        }
+        .criterion:last-child { border-bottom: none; }
+        .criterion:hover { background: #fafafa; }
+        .criterion .code { font-weight: bold; color: #555; }
+        .criterion .question { color: #333; line-height: 1.4; }
+        .criterion select { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 100%; background: white; }
+        .criterion .score-cell { text-align: center; font-weight: bold; font-size: 14px; }
+        .criterion .comment-input { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 100%; }
+
+        .score-0 { color: #c62828; }
+        .score-mid { color: #e65100; }
+        .score-max { color: #2e7d32; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div class="app-info">
+            <h1 id="appName">-</h1>
+            <div class="details">
+                <span id="appCode">-</span> | <span id="appEquipe">-</span>
+            </div>
+        </div>
+        <div class="score-summary">
+            <div class="score-box" id="noteBox">
+                <div class="label">Note</div>
+                <div class="value" id="noteValue">-</div>
+            </div>
+            <div class="score-box" style="background:#e3f2fd;">
+                <div class="label">Score</div>
+                <div class="value" id="scoreValue" style="color:#1565c0;">0</div>
+                <div class="label" id="maxScoreLabel">/ 660</div>
+            </div>
+            <div class="radar-container">
+                <svg id="radarSvg" viewBox="0 0 220 220" width="220" height="220"></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="buttons-bar">
+        <button class="btn-save" onclick="save()">Enregistrer</button>
+        <button class="btn-export" onclick="exportPDF()">Export PDF</button>
+        <a class="btn-back" id="backLink" href="/">Retour au dashboard</a>
+    </div>
+
+    <div id="categoriesContainer"></div>
+</div>
+
+<script>
+let CATEGORIES = [];
+
+// Will be loaded from API — legacy hardcoded block removed
+void 0; /*
+            { id: 'A2', question: "Quel est le pourcentage d'automatisation :", options: [
+                { label: "Moins de 25%", score: 0 },
+                { label: "De 25 \u00e0 50%", score: 2 },
+                { label: "De 50 \u00e0 75%", score: 7 },
+                { label: "Plus de 75 %", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'A3', question: "Quelle est la dur\u00e9e de reconstruction d'une VM ou conteneur :", options: [
+                { label: "Plus de 24h", score: 0 },
+                { label: "De 1h \u00e0 24h", score: 2 },
+                { label: "De 5 min \u00e0 1h", score: 5 },
+                { label: "Moins de 5 min", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'A4', question: "L'ensemble des changements \"standards\" sont automatis\u00e9s :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A5', question: "Le d\u00e9ploiement applicatif est automatis\u00e9 :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A6', question: "Le patching OS et Middleware est automatis\u00e9 :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A7', question: "Les actes d'exploitation sont-ils automatis\u00e9s (reprise, status, arret/relance \u2026) :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A8', question: "Le niveau de toil (charge d'exploitation, processus manuels \u2026) repr\u00e9sente pour l'\u00e9quipe :", options: [
+                { label: "Plus de 75 % de la charge des Ops", score: 0 },
+                { label: "De 50 \u00e0 75%", score: 2 },
+                { label: "De 25 \u00e0 50%", score: 7 },
+                { label: "Moins de 25%", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'A9', question: "Une chaine de CI/CD est utilis\u00e9e en mode :", options: [
+                { label: "Il n'y a pas de chaine de CI/CD (tout se fait manuellement)", score: 0 },
+                { label: "Int\u00e9gration Continue (test, build, package)", score: 2 },
+                { label: "D\u00e9ploiement Continue (en hors-prod)", score: 7 },
+                { label: "D\u00e9ploiement Continue (en prod)", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'A10', question: "La pyramide des tests est respect\u00e9e et d\u00e9clench\u00e9e de mani\u00e8re auto en CI/CD :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A11', question: "La capacit\u00e9 de d\u00e9ploiement en production est de :", options: [
+                { label: "Plusieurs fois par an", score: 0 },
+                { label: "Plusieurs fois par mois", score: 2 },
+                { label: "Plusieurs fois par semaine", score: 7 },
+                { label: "Plusieurs fois par jour", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'A12', question: "Chaque package applicatif est immuable, sign\u00e9 et stock\u00e9 sur Artifactory afin d'\u00eatre d\u00e9ploy\u00e9 de l'int\u00e9gration \u00e0 la production sans modification :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A13', question: "Le code d'automatisation est idempotent :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A14', question: "Le code d'automatisation est valid\u00e9 via des tests unitaires :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A15', question: "Le code d'automatisation est v\u00e9rifi\u00e9 via un linter :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'A16', question: "Les r\u00e8gles de nommage AAP et Artifactory sont respect\u00e9es :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]}
+        ]
+    },
+    {
+        id: 'dispo', name: 'Disponibilit\u00e9', cssClass: 'cat-dispo', max: 100,
+        criteria: [
+            { id: 'D1', question: "La gestion des incidents est structur\u00e9e via la d\u00e9marche ITIL (priorisation, CCO \u2026)", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D2', question: "Le(s) SLA est d\u00e9fini et suivi", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D3', question: "Le(s) SLO est d\u00e9fini et suivi", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D4', question: "Les SLI sont d\u00e9finis et mesur\u00e9s", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D5', question: "L'Error Budget est calcul\u00e9 (delta entre SLA/SLO et SLI)", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D6', question: "L'architecture est HA et les golden rules sont respect\u00e9es", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D7', question: "Les SLA ont \u00e9t\u00e9 respect\u00e9s \u00e0 100% sur les 12 derniers mois", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D8', question: "Les SLO ont \u00e9t\u00e9 respect\u00e9s \u00e0 100% sur les 12 derniers mois", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D9', question: "L'Error Budget est utilis\u00e9 pour arbitrer l'\u00e9quilibre entre stabilit\u00e9 et agilit\u00e9 et 100% des \u00e9volutions pr\u00e9vues ont pu \u00eatre d\u00e9ploy\u00e9es sur les 12 derniers mois", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'D10', question: "Du Chaos Engineering est mis en place afin de tester la r\u00e9silience du service complet et de chaque composant", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]}
+        ]
+    },
+    {
+        id: 'observ', name: 'Observabilit\u00e9', cssClass: 'cat-observ', max: 150,
+        criteria: [
+            { id: 'O1', question: "Les logs sont collect\u00e9s dans un puit de logs :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O2', question: "Les niveaux de logs respectent les bonnes pratiques :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O3', question: "L'application engendre-t-elle des erreurs \"normales\" (r\u00e9currentes et non trait\u00e9es) :", options: [
+                { label: "Oui", score: 0 }, { label: "Non", score: 10 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O4', question: "Un incident est cr\u00e9\u00e9 en cas d'exception applicative :", options: [
+                { label: "Non", score: 0 },
+                { label: "1 incident par Exception (doublons possibles)", score: 5 },
+                { label: "1 incident par s\u00e9rie d'exceptions (\u00e9vitant les doublons)", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'O5', question: "Les m\u00e9triques syst\u00e8mes (cpu, ram, disk) sont collect\u00e9s dans un outil de supervision :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O6', question: "Les m\u00e9triques middleware (tps r\u00e9ponses, latence \u2026) sont collect\u00e9s dans un outil de supervision :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O7', question: "Les m\u00e9triques transactionnel (dur\u00e9e, traffic, taux d'erreur ...) sont collect\u00e9s dans un outil de supervision :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O8', question: "Dynatrace est install\u00e9 :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui en InfraOnly uniquement", score: 2 },
+                { label: "Oui en InfraOnly et FullStack", score: 7 },
+                { label: "Oui tout est en FullStack", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'O9', question: "Un dashboard expose une vue synth\u00e9tique et centralis\u00e9e de l'\u00e9tat du service (m\u00e9triques, erreurs \u2026) :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O10', question: "Un dashboard expose les SLI / SLO / SLA :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O11', question: "Les rootcauses sont d\u00e9tect\u00e9es via un probl\u00e8me g\u00e9n\u00e9r\u00e9 par IA :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O12', question: "Les signaux faibles sont d\u00e9tect\u00e9s de mani\u00e8re pro-active :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O13', question: "Une alerte est envoy\u00e9e aux RA pour chaque anomalie (signaux faibles, erreurs \u2026)", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O14', question: "Certains incidents sont pr\u00e9visibles par la corr\u00e9lation des donn\u00e9es techniques et m\u00e9tier :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'O15', question: "Les principaux incidents sont autor\u00e9m\u00e9di\u00e9s :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]}
+        ]
+    },
+    {
+        id: 'amelior', name: 'Am\u00e9lioration Continue', cssClass: 'cat-amelior', max: 180,
+        criteria: [
+            { id: 'AC1', question: "Les crit\u00e8res d'acceptances de l'application sont d\u00e9finis et respect\u00e9s pour passer en production :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC2', question: "La root-cause des incidents est d\u00e9termin\u00e9e via un postmortem :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui, les incidents P1 \u00e0 P2", score: 5 },
+                { label: "Oui, les incidents P1 \u00e0 P4", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC3', question: "Au moins 20% du temps des Ops est d\u00e9di\u00e9 \u00e0 l'am\u00e9lioration continue :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC4', question: "Une culture sans reproche (blameless) est la norme :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC5', question: "La suppression des interventions manuelles est vis\u00e9e pour chaque \u00e9volution :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC6', question: "La simplicit\u00e9 des processus est vis\u00e9e pour chaque \u00e9volution :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC7', question: "La revue de code est institu\u00e9e dans les pratiques de l'\u00e9quipe :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC8', question: "Le partage de connaissance permet de diffuser les comp\u00e9tences :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC9', question: "Un r\u00e9f\u00e9rentiel des erreurs applicatives et solutions sp\u00e9cifiques est maintenu :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC10', question: "Un catalogue des erreurs / solutions g\u00e9n\u00e9riques est maintenu et partag\u00e9 :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC11', question: "Un processus de pilotage du toil est mis en place :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC12', question: "Le nombre d'incidents est mesur\u00e9 :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui et la tendance est en hausse", score: 3 },
+                { label: "Oui et la tendance est stable ou en baisse", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC13', question: "Le nombre d'astreintes est mesur\u00e9 :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui et la tendance est en hausse", score: 3 },
+                { label: "Oui et la tendance est stable ou en baisse", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC14', question: "La dette technique est mesur\u00e9e :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui et la tendance est en hausse", score: 3 },
+                { label: "Oui et la tendance est stable ou en baisse", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC15', question: "Le taux d'obsolescence est mesur\u00e9 :", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui et la tendance est en hausse", score: 3 },
+                { label: "Oui et la tendance est stable ou en baisse", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC16', question: "La documentation est pr\u00e9cise, compl\u00e8te, bien organis\u00e9e et accessible :", options: [
+                { label: "Non", score: 0 },
+                { label: "Partiellement", score: 3 },
+                { label: "Oui", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC17', question: "Le marquage syst\u00e9matique des faux-positifs et faux n\u00e9gatifs est r\u00e9alis\u00e9 :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'AC18', question: "Une alerte est remont\u00e9e au management si les moyens ne permettent pas d'atteindre les objectifs :", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]}
+        ]
+    },
+    {
+        id: 'collab', name: 'Collaboration', cssClass: 'cat-collab', max: 70,
+        criteria: [
+            { id: 'C1', question: "Les Dev et les Ops travaillent dans la m\u00eame \u00e9quipe", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui mais des diff\u00e9rences perdurent (outils unifi\u00e9s, habilitations, p\u00e9rim\u00e8tre de responsabilit\u00e9s ...)", score: 3 },
+                { label: "Oui et il n'y a pas de diff\u00e9rence entre les Dev et les Ops", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'C2', question: "Les d\u00e9veloppeurs et les OPS sont colocalis\u00e9s", options: [
+                { label: "Non", score: 0 },
+                { label: "Oui, partiellement", score: 5 },
+                { label: "Oui, dans le m\u00eame bureau", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'C3', question: "L'ensemble des caf\u00e9s d\u00e9couvertes SRE ont \u00e9t\u00e9 suivis par l'\u00e9quipe", options: [
+                { label: "0 % de l'\u00e9quipe", score: 0 },
+                { label: "25% de l'\u00e9quipe", score: 2 },
+                { label: "50% de l'\u00e9quipe", score: 5 },
+                { label: "75% de l'\u00e9quipe", score: 7 },
+                { label: "100% de l'\u00e9quipe", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'C4', question: "La formation SRE Niveau 1 a \u00e9t\u00e9 suivie par l'\u00e9quipe", options: [
+                { label: "0 % de l'\u00e9quipe", score: 0 },
+                { label: "25% de l'\u00e9quipe", score: 2 },
+                { label: "50% de l'\u00e9quipe", score: 5 },
+                { label: "75% de l'\u00e9quipe", score: 7 },
+                { label: "100% de l'\u00e9quipe", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'C5', question: "L'ensemble des niveaux cibles (par profils) ont \u00e9t\u00e9 atteints par l'\u00e9quipe", options: [
+                { label: "0 % de l'\u00e9quipe", score: 0 },
+                { label: "25% de l'\u00e9quipe", score: 2 },
+                { label: "50% de l'\u00e9quipe", score: 5 },
+                { label: "75% de l'\u00e9quipe", score: 7 },
+                { label: "100% de l'\u00e9quipe", score: 10 },
+                { label: "n/a", score: 10 }
+            ]},
+            { id: 'C6', question: "L'arbre de d\u00e9cision d'appel au support AppOps est connu et respect\u00e9", options: [
+                { label: "Oui", score: 10 }, { label: "Non", score: 0 }, { label: "n/a", score: 10 }
+            ]},
+            { id: 'C7', question: "La posture SRE est en place dans l'\u00e9quipe", options: [
+                { label: "Aucun r\u00e9f\u00e9rent SRE", score: 0 },
+                { label: "Un r\u00e9f\u00e9rent SRE est identifi\u00e9", score: 2 },
+                { label: "Un r\u00e9f\u00e9rent SRE porte le sujet dans l'\u00e9quipe", score: 5 },
+                { label: "L'ensemble de l'\u00e9quipe est autonome sur le SRE", score: 10 },
+                { label: "n/a", score: 10 }
+            ]}
+        ]
+    }
+];
+
+*/ // end legacy block
+
+// Extract cluster ID from URL path: /cluster/<id>/autoscore
+const pathParts = window.location.pathname.split('/');
+const clusterId = pathParts[2];
+let appData = [];
+let appIndex = -1;
+let appCode = '';
+
+document.getElementById('backLink').href = '/cluster/' + clusterId;
+
+async function init() {
+    const params = new URLSearchParams(window.location.search);
+    appIndex = parseInt(params.get('index'));
+    if (isNaN(appIndex)) { alert('Index manquant'); return; }
+
+    // Load autoscore config (categories) from API
+    const configResp = await fetch('/api/cluster/' + clusterId + '/autoscore-config');
+    const asConfig = await configResp.json();
+    CATEGORIES = (asConfig.categories || []).map(cat => {
+        const max = (cat.criteria || []).reduce((sum, cr) => {
+            return sum + Math.max(0, ...(cr.options || []).map(o => o.score));
+        }, 0);
+        return {
+            id: cat.id,
+            name: cat.name,
+            cssClass: 'cat-dynamic',
+            color: cat.color || '#6c757d',
+            max: max,
+            criteria: cat.criteria || []
+        };
+    });
+    // Update max score label
+    const totalMax = CATEGORIES.reduce((s, c) => s + c.max, 0);
+    document.getElementById('maxScoreLabel').textContent = '/ ' + totalMax;
+
+    const resp = await fetch('/api/cluster/' + clusterId + '/data');
+    appData = await resp.json();
+    if (appIndex < 0 || appIndex >= appData.length) { alert('Index invalide'); return; }
+
+    const app = appData[appIndex];
+    appCode = app.code || '';
+    document.getElementById('appName').textContent = app.nom || '-';
+    document.getElementById('appCode').textContent = app.code || '-';
+    document.getElementById('appEquipe').textContent = app.equipe || '-';
+
+    renderCategories();
+
+    // Load autoscore from separate file
+    if (appCode) {
+        const asResp = await fetch('/api/cluster/' + clusterId + '/autoscore/' + appCode);
+        const asData = await asResp.json();
+        if (asData && asData.answers) {
+            loadAnswers(asData);
+        }
+    }
+
+    recalcAll();
+}
+
+function renderCategories() {
+    const container = document.getElementById('categoriesContainer');
+    CATEGORIES.forEach(cat => {
+        const div = document.createElement('div');
+        div.className = 'category';
+        const header = document.createElement('div');
+        header.className = 'category-header';
+        header.style.backgroundColor = cat.color || '#6c757d';
+        header.innerHTML = '<span>' + cat.name + ' (' + cat.criteria.length + ' crit\u00e8res)</span>' +
+            '<span><span class="subtotal" id="subtotal-' + cat.id + '">0 / ' + cat.max + '</span> <span class="arrow">\u25BC</span></span>';
+        const body = document.createElement('div');
+        body.className = 'category-body';
+        header.onclick = () => { header.classList.toggle('collapsed'); body.classList.toggle('hidden'); };
+
+        cat.criteria.forEach(cr => {
+            const row = document.createElement('div');
+            row.className = 'criterion';
+            const select = document.createElement('select');
+            select.id = 'select-' + cr.id;
+            select.onchange = () => recalcAll();
+            cr.options.forEach((opt, i) => {
+                const o = document.createElement('option');
+                o.value = i;
+                o.textContent = opt.label + ' (' + opt.score + ' pts)';
+                select.appendChild(o);
+            });
+            const scoreSpan = document.createElement('span');
+            scoreSpan.className = 'score-cell';
+            scoreSpan.id = 'score-' + cr.id;
+            const commentInput = document.createElement('input');
+            commentInput.type = 'text';
+            commentInput.className = 'comment-input';
+            commentInput.id = 'comment-' + cr.id;
+            commentInput.placeholder = 'Commentaire...';
+            row.innerHTML = '<span class="code">' + cr.id + '</span><span class="question">' + cr.question + '</span>';
+            row.appendChild(select);
+            row.appendChild(scoreSpan);
+            row.appendChild(commentInput);
+            body.appendChild(row);
+        });
+        div.appendChild(header);
+        div.appendChild(body);
+        container.appendChild(div);
+    });
+}
+
+function loadAnswers(asData) {
+    const answers = asData.answers || {};
+    const comments = asData.comments || {};
+    CATEGORIES.forEach(cat => {
+        cat.criteria.forEach(cr => {
+            const sel = document.getElementById('select-' + cr.id);
+            if (answers[cr.id]) {
+                const idx = cr.options.findIndex(o => o.label === answers[cr.id]);
+                if (idx >= 0) sel.value = idx;
+            }
+            const com = document.getElementById('comment-' + cr.id);
+            if (comments[cr.id]) com.value = comments[cr.id];
+        });
+    });
+}
+
+function getScore(criterionId) {
+    const cat = CATEGORIES.find(c => c.criteria.some(cr => cr.id === criterionId));
+    const cr = cat.criteria.find(c => c.id === criterionId);
+    const sel = document.getElementById('select-' + criterionId);
+    return cr.options[parseInt(sel.value)].score;
+}
+
+function calculateNote(score) {
+    const totalMax = CATEGORIES.reduce((s, c) => s + c.max, 0) || 660;
+    if (score >= totalMax * 0.909) return 'A';
+    if (score >= totalMax * 0.833) return 'B';
+    if (score >= totalMax * 0.757) return 'C';
+    if (score >= totalMax * 0.606) return 'D';
+    if (score >= totalMax * 0.454) return 'E';
+    if (score >= totalMax * 0.303) return 'F';
+    return 'G';
+}
+
+function recalcAll() {
+    let total = 0;
+    const catScores = [];
+    CATEGORIES.forEach(cat => {
+        let subtotal = 0;
+        cat.criteria.forEach(cr => {
+            const s = getScore(cr.id);
+            subtotal += s;
+            const scoreEl = document.getElementById('score-' + cr.id);
+            scoreEl.textContent = s;
+            const maxScore = Math.max(...cr.options.map(o => o.score));
+            scoreEl.className = 'score-cell ' + (s === 0 ? 'score-0' : s >= maxScore ? 'score-max' : 'score-mid');
+        });
+        total += subtotal;
+        catScores.push({ name: cat.name, score: subtotal, max: cat.max });
+        document.getElementById('subtotal-' + cat.id).textContent = subtotal + ' / ' + cat.max;
+    });
+    document.getElementById('scoreValue').textContent = total;
+    const note = calculateNote(total);
+    document.getElementById('noteValue').textContent = note;
+    document.getElementById('noteBox').className = 'score-box note-' + note;
+    drawRadar(catScores);
+}
+
+function drawRadar(catScores) {
+    const svg = document.getElementById('radarSvg');
+    const cx = 110, cy = 110, r = 85;
+    const n = catScores.length;
+    const angleStep = (2 * Math.PI) / n;
+    const startAngle = -Math.PI / 2;
+    function polar(angle, radius) { return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)]; }
+    let html = '';
+    for (let level = 2; level <= 10; level += 2) {
+        const gr = r * level / 10;
+        let points = [];
+        for (let i = 0; i < n; i++) points.push(polar(startAngle + i * angleStep, gr).join(','));
+        html += '<polygon points="' + points.join(' ') + '" fill="none" stroke="#ddd" stroke-width="0.5"/>';
+    }
+    const shortNames = catScores.map(c => c.name.length > 6 ? c.name.substring(0, 5) + '.' : c.name);
+    for (let i = 0; i < n; i++) {
+        const [x, y] = polar(startAngle + i * angleStep, r);
+        html += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x + '" y2="' + y + '" stroke="#ccc" stroke-width="0.5"/>';
+        const [lx, ly] = polar(startAngle + i * angleStep, r + 18);
+        html += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#666">' + shortNames[i] + '</text>';
+    }
+    let maxPoints = [];
+    for (let i = 0; i < n; i++) maxPoints.push(polar(startAngle + i * angleStep, r).join(','));
+    html += '<polygon points="' + maxPoints.join(' ') + '" fill="rgba(200,200,200,0.15)" stroke="#bbb" stroke-width="1"/>';
+    let scorePoints = [];
+    for (let i = 0; i < n; i++) {
+        const norm = catScores[i].max > 0 ? catScores[i].score / catScores[i].max : 0;
+        scorePoints.push(polar(startAngle + i * angleStep, r * norm).join(','));
+    }
+    html += '<polygon points="' + scorePoints.join(' ') + '" fill="rgba(21,101,192,0.3)" stroke="#1565c0" stroke-width="2"/>';
+    for (let i = 0; i < n; i++) {
+        const norm = catScores[i].max > 0 ? catScores[i].score / catScores[i].max : 0;
+        const [dx, dy] = polar(startAngle + i * angleStep, r * norm);
+        html += '<circle cx="' + dx + '" cy="' + dy + '" r="3" fill="#1565c0"/>';
+    }
+    svg.innerHTML = html;
+}
+
+async function save() {
+    const answers = {};
+    const comments = {};
+    CATEGORIES.forEach(cat => {
+        cat.criteria.forEach(cr => {
+            const sel = document.getElementById('select-' + cr.id);
+            answers[cr.id] = cr.options[parseInt(sel.value)].label;
+            const com = document.getElementById('comment-' + cr.id).value.trim();
+            if (com) comments[cr.id] = com;
+        });
+    });
+
+    let total = 0;
+    CATEGORIES.forEach(cat => {
+        cat.criteria.forEach(cr => { total += getScore(cr.id); });
+    });
+
+    const payload = {
+        answers: answers,
+        comments: comments,
+        date: new Date().toISOString().slice(0, 10),
+        score: total,
+        note: calculateNote(total)
+    };
+
+    await fetch('/api/cluster/' + clusterId + '/autoscore/' + appCode, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    alert('Autoscore enregistr\u00e9 !');
+}
+
+var LOGO_BASE64 = "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";
+
+function exportPDF() {
+    try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageW = 210, pageH = 297;
+    const marginL = 15, marginR = 15, contentW = pageW - marginL - marginR;
+    let y = 0;
+    let pageNum = 1;
+    const totalScore = parseInt(document.getElementById('scoreValue').textContent) || 0;
+    const note = document.getElementById('noteValue').textContent || '-';
+    const appNameText = document.getElementById('appName').textContent || '-';
+    const appCodeText = document.getElementById('appCode').textContent || '-';
+    const appEquipeText = document.getElementById('appEquipe').textContent || '-';
+    const today = new Date().toISOString().slice(0, 10);
+
+    const catColors = {};
+    CATEGORIES.forEach(cat => {
+        const hex = cat.color || '#6c757d';
+        const r = parseInt(hex.substring(1, 3), 16);
+        const g = parseInt(hex.substring(3, 5), 16);
+        const b = parseInt(hex.substring(5, 7), 16);
+        catColors[cat.id] = [r, g, b];
+    });
+
+    function noteColor(n) {
+        if ('ABC'.includes(n)) return [46, 125, 50];
+        if ('DE'.includes(n)) return [230, 81, 0];
+        return [198, 40, 40];
+    }
+
+    function addFooter(pn) {
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Page ' + pn, pageW / 2, pageH - 8, { align: 'center' });
+        doc.text('AppOps - Autoscore SRE', marginL, pageH - 8);
+        doc.text(today, pageW - marginR, pageH - 8, { align: 'right' });
+    }
+
+    function checkPage(needed) {
+        if (y + needed > pageH - 20) {
+            doc.addPage();
+            pageNum++;
+            y = 15;
+        }
+    }
+
+    // === Logo ===
+    var logoData = 'data:image/jpeg;base64,' + LOGO_BASE64;
+    doc.addImage(logoData, 'JPEG', pageW - marginR - 25, 10, 25, 25);
+
+    // === PAGE 1 : Header ===
+    y = 20;
+    doc.setFontSize(20);
+    doc.setTextColor(33, 33, 33);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Autoscore SRE', marginL, y);
+    y += 10;
+    doc.setFontSize(16);
+    doc.setTextColor(21, 101, 192);
+    doc.text(appNameText, marginL, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Code : ' + appCodeText + '   |   Equipe : ' + appEquipeText + '   |   Cluster : ' + clusterId, marginL, y);
+    y += 6;
+    doc.text('Date : ' + today, marginL, y);
+    y += 3;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(marginL, y, pageW - marginR, y);
+    y += 10;
+
+    // === Score + Note boxes ===
+    var nc = noteColor(note);
+    doc.setFillColor(nc[0], nc[1], nc[2]);
+    doc.roundedRect(marginL, y, 35, 22, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'normal');
+    doc.text('NOTE', marginL + 17.5, y + 7, { align: 'center' });
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text(note, marginL + 17.5, y + 18, { align: 'center' });
+
+    doc.setFillColor(227, 242, 253);
+    doc.roundedRect(marginL + 40, y, 45, 22, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(21, 101, 192);
+    doc.setFont('helvetica', 'normal');
+    doc.text('SCORE', marginL + 62.5, y + 7, { align: 'center' });
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    var pdfTotalMax = CATEGORIES.reduce(function(s, c) { return s + c.max; }, 0) || 660;
+    doc.text(totalScore + ' / ' + pdfTotalMax, marginL + 62.5, y + 18, { align: 'center' });
+
+    // === Radar chart ===
+    var radarCx = marginL + 140, radarCy = y + 11, radarR = 22;
+    var catScores = [];
+    CATEGORIES.forEach(function(cat) {
+        var sub = 0;
+        cat.criteria.forEach(function(cr) { sub += getScore(cr.id); });
+        catScores.push({ name: cat.name, score: sub, max: cat.max });
+    });
+    var nn = catScores.length;
+    var angleStep = (2 * Math.PI) / nn;
+    var startAngle = -Math.PI / 2;
+
+    function polar(angle, radius) {
+        return [radarCx + radius * Math.cos(angle), radarCy + radius * Math.sin(angle)];
+    }
+
+    // Grid pentagons
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.2);
+    for (var level = 2; level <= 10; level += 2) {
+        var gr = radarR * level / 10;
+        var pts = [];
+        for (var i = 0; i < nn; i++) pts.push(polar(startAngle + i * angleStep, gr));
+        for (var i = 0; i < nn; i++) {
+            var next = (i + 1) % nn;
+            doc.line(pts[i][0], pts[i][1], pts[next][0], pts[next][1]);
+        }
+    }
+
+    // Axes + labels
+    var shortNames = catScores.map(function(c) { return c.name.length > 6 ? c.name.substring(0, 5) + '.' : c.name; });
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    for (var i = 0; i < nn; i++) {
+        var ep = polar(startAngle + i * angleStep, radarR);
+        doc.line(radarCx, radarCy, ep[0], ep[1]);
+        var lp = polar(startAngle + i * angleStep, radarR + 6);
+        doc.text(shortNames[i], lp[0], lp[1] + 1, { align: 'center' });
+    }
+
+    // Score polygon (outline only, no opacity needed)
+    var scorePts = [];
+    for (var i = 0; i < nn; i++) {
+        var norm = catScores[i].max > 0 ? catScores[i].score / catScores[i].max : 0;
+        scorePts.push(polar(startAngle + i * angleStep, radarR * norm));
+    }
+
+    // Fill polygon using triangle fan
+    doc.setFillColor(187, 222, 251);
+    for (var i = 0; i < nn; i++) {
+        var next = (i + 1) % nn;
+        doc.triangle(
+            radarCx, radarCy,
+            scorePts[i][0], scorePts[i][1],
+            scorePts[next][0], scorePts[next][1],
+            'F'
+        );
+    }
+
+    // Polygon outline
+    doc.setDrawColor(21, 101, 192);
+    doc.setLineWidth(0.6);
+    for (var i = 0; i < nn; i++) {
+        var next = (i + 1) % nn;
+        doc.line(scorePts[i][0], scorePts[i][1], scorePts[next][0], scorePts[next][1]);
+    }
+
+    // Dots
+    for (var i = 0; i < nn; i++) {
+        doc.setFillColor(21, 101, 192);
+        doc.circle(scorePts[i][0], scorePts[i][1], 1, 'F');
+    }
+
+    y += 30;
+
+    // === Category summary table ===
+    y += 5;
+    doc.setFontSize(12);
+    doc.setTextColor(33, 33, 33);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resume par categorie', marginL, y);
+    y += 6;
+
+    var tableStartY = y;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(marginL, y, contentW, 7, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Categorie', marginL + 3, y + 5);
+    doc.text('Score', marginL + 100, y + 5, { align: 'center' });
+    doc.text('Max', marginL + 125, y + 5, { align: 'center' });
+    doc.text('%', marginL + 150, y + 5, { align: 'center' });
+    y += 7;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    catScores.forEach(function(cs, idx) {
+        if (idx % 2 === 1) {
+            doc.setFillColor(248, 248, 248);
+            doc.rect(marginL, y, contentW, 7, 'F');
+        }
+        doc.setTextColor(60, 60, 60);
+        doc.setFont('helvetica', 'normal');
+        doc.text(cs.name, marginL + 3, y + 5);
+        doc.text(cs.score.toString(), marginL + 100, y + 5, { align: 'center' });
+        doc.text(cs.max.toString(), marginL + 125, y + 5, { align: 'center' });
+        var pct = cs.max > 0 ? Math.round(cs.score / cs.max * 100) : 0;
+        var pctColor = pct >= 75 ? [46, 125, 50] : pct >= 50 ? [230, 81, 0] : [198, 40, 40];
+        doc.setTextColor(pctColor[0], pctColor[1], pctColor[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text(pct + '%', marginL + 150, y + 5, { align: 'center' });
+        y += 7;
+    });
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(marginL, tableStartY, contentW, 7 * (catScores.length + 1));
+
+    y += 10;
+
+    // === Detail per category ===
+    CATEGORIES.forEach(function(cat) {
+        var color = catColors[cat.id] || [100, 100, 100];
+        var catSub = 0;
+        cat.criteria.forEach(function(cr) { catSub += getScore(cr.id); });
+
+        checkPage(25);
+
+        // Category header banner
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(marginL, y, contentW, 9, 2, 2, 'F');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text(cat.name, marginL + 4, y + 6.5);
+        doc.text(catSub + ' / ' + cat.max, pageW - marginR - 4, y + 6.5, { align: 'right' });
+        y += 12;
+
+        // Table header
+        doc.setFillColor(245, 245, 245);
+        doc.rect(marginL, y, contentW, 6, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Code', marginL + 2, y + 4);
+        doc.text('Critere', marginL + 15, y + 4);
+        doc.text('Reponse', marginL + 108, y + 4);
+        doc.text('Pts', marginL + 155, y + 4, { align: 'center' });
+        doc.text('Commentaire', marginL + 162, y + 4);
+        y += 6;
+
+        cat.criteria.forEach(function(cr, crIdx) {
+            var sel = document.getElementById('select-' + cr.id);
+            var selectedOpt = cr.options[parseInt(sel.value)];
+            var crScore = selectedOpt.score;
+            var answer = selectedOpt.label;
+            var comment = document.getElementById('comment-' + cr.id).value.trim();
+            var maxScore = Math.max.apply(null, cr.options.map(function(o) { return o.score; }));
+
+            var questionLines = doc.splitTextToSize(cr.question, 90);
+            var answerLines = doc.splitTextToSize(answer, 45);
+            var commentLines = comment ? doc.splitTextToSize(comment, 18) : [];
+            var maxLines = Math.max(questionLines.length, answerLines.length, commentLines.length || 0);
+            var rowH = Math.max(6, maxLines * 3.5 + 2.5);
+
+            checkPage(rowH + 2);
+
+            if (crIdx % 2 === 0) {
+                doc.setFillColor(250, 250, 250);
+                doc.rect(marginL, y, contentW, rowH, 'F');
+            }
+
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(80, 80, 80);
+            doc.text(cr.id, marginL + 2, y + 4);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            doc.text(questionLines, marginL + 15, y + 4);
+
+            doc.setTextColor(60, 60, 60);
+            doc.setFontSize(6.5);
+            doc.text(answerLines, marginL + 108, y + 4);
+
+            var sColor = crScore === 0 ? [198, 40, 40] : crScore >= maxScore ? [46, 125, 50] : [230, 81, 0];
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(sColor[0], sColor[1], sColor[2]);
+            doc.text(crScore.toString(), marginL + 155, y + 4, { align: 'center' });
+
+            if (comment) {
+                doc.setFontSize(6);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(120, 120, 120);
+                doc.text(commentLines, marginL + 162, y + 4);
+            }
+
+            doc.setDrawColor(230, 230, 230);
+            doc.setLineWidth(0.1);
+            doc.line(marginL, y + rowH, pageW - marginR, y + rowH);
+
+            y += rowH;
+        });
+
+        y += 8;
+    });
+
+    // Add footers to all pages
+    var totalPages = doc.internal.getNumberOfPages();
+    for (var p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        addFooter(p);
+    }
+
+    doc.save('Autoscore_' + appCodeText + '_' + today + '.pdf');
+
+    } catch (e) {
+        alert('Erreur export PDF : ' + e.message);
+        console.error(e);
+    }
+}
+
+init();
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>

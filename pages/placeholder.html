@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppOps</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { text-align: center; padding: 40px; }
+        .icon { font-size: 64px; margin-bottom: 24px; color: #bbb; }
+        h1 { color: #333; font-size: 28px; margin-bottom: 12px; }
+        p { color: #888; font-size: 16px; margin-bottom: 32px; }
+        a {
+            display: inline-block; padding: 12px 28px; background: #6c757d; color: white;
+            text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;
+        }
+        a:hover { background: #555; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="icon">&#9881;</div>
+    <h1 id="appName"></h1>
+    <p>Cette application est en cours de d&eacute;veloppement.</p>
+    <a href="/">&larr; Retour &agrave; l'accueil</a>
+</div>
+<script>
+    const names = { '/ldap-checker': 'LDAP CHECKER', '/cad': 'CAD' };
+    document.getElementById('appName').textContent = names[location.pathname] || 'Application';
+    document.title = 'AppOps - ' + (names[location.pathname] || 'Application');
+</script>
+
+<script>
+(async function(){
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) return;
+        const u = await r.json();
+        const bar = document.createElement('div');
+        bar.id = 'auth-bar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';
+        bar.innerHTML = '<span>' + u.display_name + '</span>'
+            + (u.role === 'superadmin' || u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+            + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">D\u00e9connexion</a>';
+        document.body.style.paddingTop = '32px';
+        document.body.prepend(bar);
+    } catch(e) {}
+})();
+</script>
+</body>
+</html>
