@@ -8,7 +8,7 @@ import re
 import shutil
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 
@@ -57,8 +57,11 @@ def load_json(path: str) -> Optional[Any]:
         return data
     if not os.path.exists(path):
         return None
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return None
     _cache_set(path, data)
     return data
 
@@ -90,7 +93,7 @@ def soft_delete_dir(src_dir: str, kind: str, trash_dir: str) -> None:
     if not os.path.exists(src_dir):
         return
     os.makedirs(trash_dir, exist_ok=True)
-    ts = datetime.utcnow().strftime('%Y%m%dT%H%M%S')
+    ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')
     name = f'{ts}_{kind}_{os.path.basename(src_dir)}'
     dest = os.path.join(trash_dir, name)
     shutil.move(src_dir, dest)

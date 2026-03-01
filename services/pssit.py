@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 import requests as http_requests
@@ -240,7 +240,7 @@ def launch_pssit_workflow(
         'id': uuid.uuid4().hex[:8],
         'action': action,
         'envId': env_id,
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
         'awxJobId': None,
         'awxJobUrl': None,
         'status': 'pending',
@@ -289,12 +289,16 @@ def get_pssit_job_status(
     awx_url = awx.get('url', '').rstrip('/')
     awx_token = awx.get('token', '')
 
-    resp = http_requests.get(
-        f'{awx_url}/api/v2/workflow_jobs/{awx_job_id}/',
-        headers={'Authorization': f'Bearer {awx_token}'},
-        timeout=15,
-        verify=env_config.get('ssl_verify', ssl_verify),
-    )
+    try:
+        resp = http_requests.get(
+            f'{awx_url}/api/v2/workflow_jobs/{awx_job_id}/',
+            headers={'Authorization': f'Bearer {awx_token}'},
+            timeout=15,
+            verify=env_config.get('ssl_verify', ssl_verify),
+        )
+    except http_requests.RequestException as exc:
+        logger.warning('AWX job status request failed: %s', exc)
+        raise ServiceError('AWX indisponible', 502) from exc
     if resp.status_code != 200:
         raise ServiceError(f'AWX returned {resp.status_code}', 502)
 
@@ -366,7 +370,7 @@ def schedule_pssit_action(
         'action': action,
         'envId': env_id,
         'scheduledAt': scheduled_dt,
-        'createdAt': datetime.utcnow().isoformat() + 'Z',
+        'createdAt': datetime.now(timezone.utc).isoformat() + 'Z',
         'status': 'active',
     }
     path = os.path.join(_app_dir(datas_dir, app_id), 'schedules.json')

@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 
 import bcrypt
+from crypto import encrypt_token, decrypt_token
 
 auth_admin_bp = Blueprint('auth_admin', __name__)
 
@@ -381,7 +382,8 @@ def api_save_auth_admin_config():
         if 'client_id' in adfs:
             cfg_adfs['client_id'] = adfs['client_id']
         if 'client_secret' in adfs and adfs['client_secret'] != '__UNCHANGED__':
-            cfg_adfs['client_secret'] = adfs['client_secret']
+            from flask import current_app
+            cfg_adfs['client_secret'] = encrypt_token(adfs['client_secret'], current_app.secret_key)
         if 'authority' in adfs:
             cfg_adfs['authority'] = adfs['authority']
         if 'redirect_uri' in adfs:

@@ -253,27 +253,21 @@ def require_auth():
             return redirect('/login')
 
     # Resource-level access for module routes
-    if path.startswith('/cluster/') or path.startswith('/api/cluster/'):
-        parts = path.split('/')
-        cluster_id = parts[2] if len(parts) > 2 else None
-        if cluster_id and not check_access(user_id, 'sre', cluster_id):
-            abort(403)
-
-    elif path.startswith('/cad/workspace/') or path.startswith('/api/cad/workspace/'):
-        parts = path.split('/')
-        ws_id = parts[3] if len(parts) > 3 else None
-        if ws_id and not check_access(user_id, 'cad', ws_id):
-            abort(403)
-
-    elif path.startswith('/pssit/app/') or path.startswith('/api/pssit/app/'):
-        parts = path.split('/')
-        app_id = parts[3] if len(parts) > 3 else None
-        if app_id and not check_access(user_id, 'pssit', app_id):
-            abort(403)
-
-    elif path in ('/auth-admin',):
-        if user.get('role') != 'superadmin' and not is_admin(user_id):
-            abort(403)
+    import re as _re
+    _checks = [
+        (_re.match(r'^(?:/api)?/cluster/([A-Za-z0-9_-]+)', path), 'sre'),
+        (_re.match(r'^(?:/api)?/cad/workspace/([A-Za-z0-9_-]+)', path), 'cad'),
+        (_re.match(r'^(?:/api)?/pssit/app/([A-Za-z0-9_-]+)', path), 'pssit'),
+    ]
+    for _m, _module in _checks:
+        if _m:
+            if not check_access(user_id, _module, _m.group(1)):
+                abort(403)
+            break
+    else:
+        if path in ('/auth-admin',):
+            if user.get('role') != 'superadmin' and not is_admin(user_id):
+                abort(403)
 
     return None
 
@@ -377,10 +371,14 @@ def adfs_callback():
     token_url = f"{authority}/oauth2/token"
 
     try:
+        from flask import current_app
+        from crypto import decrypt_token
+        raw_secret = adfs.get('client_secret', '')
+        client_secret = decrypt_token(raw_secret, current_app.secret_key)
         resp = http_requests.post(token_url, data={
             'grant_type': 'authorization_code',
             'client_id': adfs['client_id'],
-            'client_secret': adfs.get('client_secret', ''),
+            'client_secret': client_secret,
             'code': code,
             'redirect_uri': adfs['redirect_uri']
         }, timeout=15, verify=get_ssl_verify())
@@ -395,7 +393,8 @@ def adfs_callback():
         try:
             claims = verify_id_token(id_token, adfs)
         except Exception as jwt_err:
-            return redirect('/login?error=' + urllib.parse.quote(f'JWT invalide : {jwt_err}'))
+            logger.warning('JWT validation échouée : %s', jwt_err)
+            return redirect('/login?error=adfs_error')
 
     except Exception:
         return redirect('/login?error=adfs_error')
@@ -439,6 +438,8 @@ def adfs_callback():
 
     session['user_id'] = user_id
     next_url = session.pop('next_url', '/')
+    if not next_url.startswith('/'):
+        next_url = '/'
     return redirect(next_url)
 
 
