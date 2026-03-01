@@ -207,25 +207,71 @@ Le dashboard et le board partagent un systeme de clic droit sur les lignes/carte
 
 ## Installation et lancement
 
-```bash
-# Cloner le projet
-git clone <repo-url>
-cd appops
+### Installation offline (VM RHEL8 sans acces internet)
 
-# Creer le virtualenv
+Les dependances Python sont incluses dans le dossier `vendor/` sous forme de wheels pre-compiles pour Linux x86_64. Aucun acces internet necessaire.
+
+```bash
+# Transferer le zip du repo sur la VM
+unzip portal.devops-main.zip
+cd portal.devops-main
+
+# Creer le virtualenv (Python 3.9+ requis, RHEL8 a Python 3.8/3.9 via dnf)
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Installer les dependances
-pip install flask requests bcrypt
+# Installer les dependances OFFLINE depuis vendor/
+pip install --no-index --find-links=vendor/ -r requirements.txt
 
-# (Optionnel) Migrer les donnees legacy
-python migrate.py
+# Creer le dossier de donnees initial
+mkdir -p datas/auth
+cp -n datas_example/auth/* datas/auth/ 2>/dev/null || true
 
 # Lancer
 python dashboard.py
 # → http://localhost:5000
 # Login par defaut : admin / admin
+```
+
+> **Note RHEL8** : si Python 3.9+ n'est pas installe, l'installer via :
+> ```bash
+> sudo dnf install python39
+> python3.9 -m venv .venv
+> ```
+
+### Installation avec internet
+
+```bash
+git clone https://github.com/teddyche/portal.devops.git
+cd portal.devops
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+python dashboard.py
+```
+
+### Lancer en arriere-plan (production)
+
+```bash
+# Avec nohup
+nohup python dashboard.py > appops.log 2>&1 &
+
+# Ou avec systemd (creer /etc/systemd/system/appops.service)
+# [Unit]
+# Description=AppOps Dashboard
+# After=network.target
+#
+# [Service]
+# Type=simple
+# User=appops
+# WorkingDirectory=/opt/appops
+# ExecStart=/opt/appops/.venv/bin/python dashboard.py
+# Restart=always
+#
+# [Install]
+# WantedBy=multi-user.target
 ```
 
 ## Configuration ADFS
