@@ -342,6 +342,7 @@ def api_get_auth_admin_config():
 
     config = _load('config.json') or {}
     # Hide sensitive fields
+    ssl_val = config.get('ssl_verify', True)
     safe = {
         'adfs': {
             'enabled': config.get('adfs', {}).get('enabled', False),
@@ -349,12 +350,14 @@ def api_get_auth_admin_config():
             'authority': config.get('adfs', {}).get('authority', ''),
             'redirect_uri': config.get('adfs', {}).get('redirect_uri', ''),
             'scopes': config.get('adfs', {}).get('scopes', []),
-            'has_secret': bool(config.get('adfs', {}).get('client_secret', ''))
+            'has_secret': bool(config.get('adfs', {}).get('client_secret', '')),
+            'jwks_uri': config.get('adfs', {}).get('jwks_uri', '')
         },
         'local_admin': {
             'username': config.get('local_admin', {}).get('username', 'admin'),
             'display_name': config.get('local_admin', {}).get('display_name', 'Super Admin')
-        }
+        },
+        'ssl_verify': ssl_val   # True, False, ou chemin string vers CA bundle
     }
     return jsonify(safe)
 
@@ -385,6 +388,29 @@ def api_save_auth_admin_config():
             cfg_adfs['redirect_uri'] = adfs['redirect_uri']
         if 'scopes' in adfs:
             cfg_adfs['scopes'] = adfs['scopes']
+        if 'jwks_uri' in adfs:
+            jwks = adfs['jwks_uri'].strip()
+            if jwks:
+                cfg_adfs['jwks_uri'] = jwks
+            else:
+                cfg_adfs.pop('jwks_uri', None)
+
+    # Update SSL verify
+    if 'ssl_verify' in body:
+        val = body['ssl_verify']
+        # Accepte True, False, ou un chemin string vers un CA bundle
+        if isinstance(val, bool):
+            config['ssl_verify'] = val
+        elif isinstance(val, str):
+            stripped = val.strip()
+            if stripped.lower() == 'true':
+                config['ssl_verify'] = True
+            elif stripped.lower() == 'false':
+                config['ssl_verify'] = False
+            elif stripped:
+                config['ssl_verify'] = stripped  # chemin CA bundle
+            else:
+                config['ssl_verify'] = True
 
     # Update local admin
     if 'local_admin' in body:

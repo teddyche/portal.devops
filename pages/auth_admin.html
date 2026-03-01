@@ -173,6 +173,22 @@
                 <input type="text" id="cfgAuthority" placeholder="https://adfs.example.com/adfs">
                 <label>Redirect URI</label>
                 <input type="text" id="cfgRedirectUri" placeholder="http://localhost:5000/auth/adfs/callback">
+                <label style="margin-top:12px;">JWKS URI <span style="font-weight:normal;color:#888;">(optionnel — auto-détecté via /.well-known/openid-configuration)</span></label>
+                <input type="text" id="cfgJwksUri" placeholder="https://adfs.example.com/adfs/discovery/keys">
+            </div>
+            <h2 style="margin-top:20px;">Sécurité SSL</h2>
+            <div class="config-section">
+                <label>Vérification des certificats</label>
+                <select id="cfgSslVerify" onchange="toggleCaPath()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+                    <option value="true">Vérification standard — CA système (recommandé)</option>
+                    <option value="false">Désactivée — ignorer les erreurs SSL (non recommandé)</option>
+                    <option value="custom">CA bundle personnalisé</option>
+                </select>
+                <div id="cfgCaPathRow" style="display:none;margin-top:8px;">
+                    <label>Chemin vers le CA bundle</label>
+                    <input type="text" id="cfgCaPath" placeholder="/etc/pki/tls/certs/ca-bundle.crt" style="width:100%;">
+                </div>
+                <small style="color:#888;display:block;margin-top:6px;">Appliqué à tous les appels HTTPS sortants : ADFS, AWX (Ansible Tower), JFrog Artifactory.</small>
             </div>
             <h2 style="margin-top:20px;">Compte admin local</h2>
             <div class="config-section">
@@ -428,23 +444,51 @@ async function loadConfig() {
     document.getElementById('cfgRedirectUri').value = cfg.adfs.redirect_uri || '';
     document.getElementById('cfgClientSecret').value = '';
     document.getElementById('cfgClientSecret').placeholder = cfg.adfs.has_secret ? 'Secret configur\u00e9 (laisser vide pour garder)' : 'Client secret ADFS';
+    document.getElementById('cfgJwksUri').value = cfg.adfs.jwks_uri || '';
     document.getElementById('cfgAdminUser').value = cfg.local_admin.username || '';
     document.getElementById('cfgAdminName').value = cfg.local_admin.display_name || '';
     document.getElementById('cfgAdminPwd').value = '';
+    // ssl_verify : True, False, ou chemin string
+    const sslVal = cfg.ssl_verify;
+    const sel = document.getElementById('cfgSslVerify');
+    if (sslVal === true || sslVal === 'true') {
+        sel.value = 'true';
+    } else if (sslVal === false || sslVal === 'false') {
+        sel.value = 'false';
+    } else if (typeof sslVal === 'string' && sslVal) {
+        sel.value = 'custom';
+        document.getElementById('cfgCaPath').value = sslVal;
+    } else {
+        sel.value = 'true';
+    }
+    toggleCaPath();
+}
+
+function toggleCaPath() {
+    const sel = document.getElementById('cfgSslVerify');
+    document.getElementById('cfgCaPathRow').style.display = sel.value === 'custom' ? 'block' : 'none';
 }
 
 async function saveConfig() {
+    const sslSel = document.getElementById('cfgSslVerify').value;
+    let sslVerifyVal;
+    if (sslSel === 'true')        sslVerifyVal = true;
+    else if (sslSel === 'false')  sslVerifyVal = false;
+    else                          sslVerifyVal = document.getElementById('cfgCaPath').value.trim() || true;
+
     const payload = {
         adfs: {
             enabled: document.getElementById('cfgAdfsEnabled').checked,
             client_id: document.getElementById('cfgClientId').value.trim(),
             authority: document.getElementById('cfgAuthority').value.trim(),
-            redirect_uri: document.getElementById('cfgRedirectUri').value.trim()
+            redirect_uri: document.getElementById('cfgRedirectUri').value.trim(),
+            jwks_uri: document.getElementById('cfgJwksUri').value.trim()
         },
         local_admin: {
             username: document.getElementById('cfgAdminUser').value.trim(),
             display_name: document.getElementById('cfgAdminName').value.trim()
-        }
+        },
+        ssl_verify: sslVerifyVal
     };
     const secret = document.getElementById('cfgClientSecret').value;
     payload.adfs.client_secret = secret || '__UNCHANGED__';
