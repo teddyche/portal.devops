@@ -71,11 +71,39 @@
         .toggle-section::before { content: '\25B6'; margin-right: 8px; font-size: 11px; display: inline-block; transition: transform 0.2s; }
         .toggle-section.open::before { transform: rotate(90deg); }
 
-        .config-section { margin-top: 12px; }
-        .config-section label { display: block; font-size: 12px; color: #666; font-weight: bold; margin-bottom: 4px; }
-        .config-section input { width: 100%; max-width: 500px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; margin-bottom: 10px; }
-        .config-section .check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        /* Config blocks */
+        .config-block { border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 16px; overflow: hidden; }
+        .config-block-header {
+            padding: 12px 18px; font-weight: bold; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px; user-select: none;
+            border-left: 5px solid #ccc; background: #f9f9f9;
+        }
+        .config-block-header:hover { background: #f0f0f0; }
+        .config-block-header .block-arrow { margin-left: auto; transition: transform .2s; font-size: 11px; color: #999; }
+        .config-block.collapsed .block-arrow { transform: rotate(-90deg); }
+        .config-block-body { padding: 18px 20px; }
+        .config-block.collapsed .config-block-body { display: none; }
+        .block-adfs   { border-left-color: #1565c0; }
+        .block-ssl    { border-left-color: #546e7a; }
+        .block-admin  { border-left-color: #e65100; }
+        .block-ldap   { border-left-color: #6a1b9a; }
+        .block-smtp   { border-left-color: #2e7d32; }
+        .block-count  { background: #ede7f6; color: #6a1b9a; font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: bold; }
+
+        /* Config fields */
+        .config-section { margin-top: 0; }
+        .config-section label { display: block; font-size: 12px; color: #666; font-weight: bold; margin-bottom: 4px; margin-top: 10px; }
+        .config-section input, .config-section select { width: 100%; max-width: 500px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; margin-bottom: 2px; }
+        .config-section .check-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 10px; }
         .config-section .check-row input[type=checkbox] { width: auto; }
+
+        /* LDAP servers */
+        .ldap-server-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 6px; background: #fafafa; flex-wrap: wrap; }
+        .ldap-server-row .srv-name { font-weight: bold; font-size: 13px; flex: 0 0 160px; }
+        .ldap-server-row .srv-host { font-size: 12px; color: #555; flex: 1; }
+        .ldap-server-row .srv-dn   { font-size: 11px; color: #999; flex: 1; }
+        .ldap-add-form { background: #f3e5f5; border: 1px dashed #ce93d8; border-radius: 8px; padding: 16px; margin-top: 12px; }
+        .ldap-add-form h4 { margin-bottom: 12px; color: #6a1b9a; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -158,95 +186,152 @@
 
     <!-- CONFIGURATION -->
     <div class="tab-content" id="tab-config">
-        <div class="card" id="configCard" style="display:none;">
-            <h2>Configuration ADFS</h2>
-            <div class="config-section">
-                <div class="check-row">
-                    <input type="checkbox" id="cfgAdfsEnabled">
-                    <label style="margin:0;display:inline;">ADFS activ&eacute;</label>
-                </div>
-                <label>Client ID</label>
-                <input type="text" id="cfgClientId" placeholder="appops-client-id">
-                <label>Client Secret</label>
-                <input type="password" id="cfgClientSecret" placeholder="Laisser vide pour ne pas changer">
-                <label>Authority URL</label>
-                <input type="text" id="cfgAuthority" placeholder="https://adfs.example.com/adfs">
-                <label>Redirect URI</label>
-                <input type="text" id="cfgRedirectUri" placeholder="http://localhost:5000/auth/adfs/callback">
-                <label style="margin-top:12px;">JWKS URI <span style="font-weight:normal;color:#888;">(optionnel — auto-détecté via /.well-known/openid-configuration)</span></label>
-                <input type="text" id="cfgJwksUri" placeholder="https://adfs.example.com/adfs/discovery/keys">
-            </div>
-            <h2 style="margin-top:20px;">Sécurité SSL</h2>
-            <div class="config-section">
-                <label>Vérification des certificats</label>
-                <select id="cfgSslVerify" onchange="toggleCaPath()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
-                    <option value="true">Vérification standard — CA système (recommandé)</option>
-                    <option value="false">Désactivée — ignorer les erreurs SSL (non recommandé)</option>
-                    <option value="custom">CA bundle personnalisé</option>
-                </select>
-                <div id="cfgCaPathRow" style="display:none;margin-top:8px;">
-                    <label>Chemin vers le CA bundle</label>
-                    <input type="text" id="cfgCaPath" placeholder="/etc/pki/tls/certs/ca-bundle.crt" style="width:100%;">
-                </div>
-                <small style="color:#888;display:block;margin-top:6px;">Appliqué à tous les appels HTTPS sortants : ADFS, AWX (Ansible Tower), JFrog Artifactory.</small>
-            </div>
-            <h2 style="margin-top:20px;">Compte admin local</h2>
-            <div class="config-section">
-                <label>Identifiant</label>
-                <input type="text" id="cfgAdminUser" placeholder="admin">
-                <label>Nom affich&eacute;</label>
-                <input type="text" id="cfgAdminName" placeholder="Super Admin">
-                <label>Nouveau mot de passe</label>
-                <input type="password" id="cfgAdminPwd" placeholder="Laisser vide pour ne pas changer">
-            </div>
+        <div id="configCard" style="display:none;">
 
-            <h2 style="margin-top:20px;">LDAP / Active Directory</h2>
-            <div class="config-section">
-                <label>Serveur LDAP <span style="font-weight:normal;color:#888;">(ex : ldaps://ZOE.GCA)</span></label>
-                <input type="text" id="cfgLdapHost" placeholder="ldaps://monserveur.ad">
-                <label>Base DN <span style="font-weight:normal;color:#888;">(ex : DC=zoe,DC=gca)</span></label>
-                <input type="text" id="cfgLdapBaseDn" placeholder="DC=mondomaine,DC=local">
-                <label>Bind DN template <span style="font-weight:normal;color:#888;">(optionnel — laisser vide pour UPN auto : login@domaine)</span></label>
-                <input type="text" id="cfgLdapBindTpl" placeholder="{username}@mondomaine.local  ou  CN={username},OU=Users,DC=...">
-                <div class="check-row" style="margin-top:4px;">
-                    <input type="checkbox" id="cfgLdapTls">
-                    <label style="margin:0;display:inline;">V&eacute;rifier le certificat TLS</label>
+            <!-- ADFS -->
+            <div class="config-block">
+                <div class="config-block-header block-adfs" onclick="toggleBlock(this)">
+                    🔐 ADFS — Authentification f&eacute;d&eacute;r&eacute;e
+                    <span class="block-arrow">▼</span>
                 </div>
-                <small style="color:#888;display:block;margin-top:4px;">D&eacute;sactiver la v&eacute;rification TLS si le serveur utilise un certificat auto-sign&eacute; (interne).</small>
-            </div>
-
-            <h2 style="margin-top:20px;">SMTP — Envoi de mails</h2>
-            <div class="config-section">
-                <div class="check-row">
-                    <input type="checkbox" id="cfgSmtpEnabled">
-                    <label style="margin:0;display:inline;">SMTP activ&eacute;</label>
-                </div>
-                <label>Serveur SMTP</label>
-                <input type="text" id="cfgSmtpHost" placeholder="smtp.mondomaine.local">
-                <div style="display:flex;gap:12px;max-width:500px;">
-                    <div style="flex:1;">
-                        <label>Port</label>
-                        <input type="number" id="cfgSmtpPort" placeholder="587" style="width:100%;">
-                    </div>
-                    <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:10px;">
+                <div class="config-block-body">
+                    <div class="config-section">
                         <div class="check-row">
-                            <input type="checkbox" id="cfgSmtpTls">
-                            <label style="margin:0;display:inline;">STARTTLS</label>
+                            <input type="checkbox" id="cfgAdfsEnabled">
+                            <label style="margin:0;display:inline;">ADFS activ&eacute;</label>
+                        </div>
+                        <label>Client ID</label>
+                        <input type="text" id="cfgClientId" placeholder="appops-client-id">
+                        <label>Client Secret</label>
+                        <input type="password" id="cfgClientSecret" placeholder="Laisser vide pour ne pas changer">
+                        <label>Authority URL</label>
+                        <input type="text" id="cfgAuthority" placeholder="https://adfs.example.com/adfs">
+                        <label>Redirect URI</label>
+                        <input type="text" id="cfgRedirectUri" placeholder="http://localhost:5000/auth/adfs/callback">
+                        <label>JWKS URI <span style="font-weight:normal;color:#888;">(optionnel — auto-d&eacute;tect&eacute; via /.well-known/openid-configuration)</span></label>
+                        <input type="text" id="cfgJwksUri" placeholder="https://adfs.example.com/adfs/discovery/keys">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SSL -->
+            <div class="config-block">
+                <div class="config-block-header block-ssl" onclick="toggleBlock(this)">
+                    🔒 S&eacute;curit&eacute; SSL
+                    <span class="block-arrow">▼</span>
+                </div>
+                <div class="config-block-body">
+                    <div class="config-section">
+                        <label>V&eacute;rification des certificats</label>
+                        <select id="cfgSslVerify" onchange="toggleCaPath()" style="max-width:500px;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;width:100%;">
+                            <option value="true">V&eacute;rification standard — CA syst&egrave;me (recommand&eacute;)</option>
+                            <option value="false">D&eacute;sactiv&eacute;e — ignorer les erreurs SSL (non recommand&eacute;)</option>
+                            <option value="custom">CA bundle personnalis&eacute;</option>
+                        </select>
+                        <div id="cfgCaPathRow" style="display:none;margin-top:8px;">
+                            <label>Chemin vers le CA bundle</label>
+                            <input type="text" id="cfgCaPath" placeholder="/etc/pki/tls/certs/ca-bundle.crt">
+                        </div>
+                        <small style="color:#888;display:block;margin-top:6px;">Appliqu&eacute; &agrave; tous les appels HTTPS sortants : ADFS, AWX, JFrog Artifactory.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin local -->
+            <div class="config-block">
+                <div class="config-block-header block-admin" onclick="toggleBlock(this)">
+                    👤 Compte admin local
+                    <span class="block-arrow">▼</span>
+                </div>
+                <div class="config-block-body">
+                    <div class="config-section">
+                        <label>Identifiant</label>
+                        <input type="text" id="cfgAdminUser" placeholder="admin">
+                        <label>Nom affich&eacute;</label>
+                        <input type="text" id="cfgAdminName" placeholder="Super Admin">
+                        <label>Nouveau mot de passe</label>
+                        <input type="password" id="cfgAdminPwd" placeholder="Laisser vide pour ne pas changer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- LDAP multi-serveurs -->
+            <div class="config-block">
+                <div class="config-block-header block-ldap" onclick="toggleBlock(this)">
+                    🗂️ LDAP / Active Directory
+                    <span class="block-count" id="ldap-count">0 serveur</span>
+                    <span class="block-arrow">▼</span>
+                </div>
+                <div class="config-block-body">
+                    <div id="ldap-servers-list"></div>
+                    <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="showLdapForm()">+ Ajouter un serveur LDAP</button>
+                    <div id="ldap-add-form" class="ldap-add-form" style="display:none;">
+                        <h4 id="ldap-form-title">Ajouter un serveur LDAP</h4>
+                        <input type="hidden" id="ldapEditId">
+                        <div class="config-section">
+                            <label>ID <span style="font-weight:normal;color:#888;">(identifiant technique, ex&nbsp;: zoe, prod)</span></label>
+                            <input type="text" id="ldapFrmId" placeholder="zoe" style="max-width:200px;">
+                            <label>Nom affich&eacute;</label>
+                            <input type="text" id="ldapFrmName" placeholder="AD ZOE">
+                            <label>Serveur LDAP <span style="font-weight:normal;color:#888;">(ex : ldaps://ZOE.GCA)</span></label>
+                            <input type="text" id="ldapFrmHost" placeholder="ldaps://monserveur.ad">
+                            <label>Base DN <span style="font-weight:normal;color:#888;">(ex : DC=zoe,DC=gca)</span></label>
+                            <input type="text" id="ldapFrmBaseDn" placeholder="DC=mondomaine,DC=local">
+                            <label>Bind DN template <span style="font-weight:normal;color:#888;">(optionnel — vide = UPN auto : login@domaine)</span></label>
+                            <input type="text" id="ldapFrmBindTpl" placeholder="{username}@mondomaine.local">
+                            <div class="check-row">
+                                <input type="checkbox" id="ldapFrmTls">
+                                <label style="margin:0;display:inline;">V&eacute;rifier le certificat TLS</label>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:12px;">
+                            <button class="btn btn-success btn-sm" onclick="saveLdapServer()">Enregistrer</button>
+                            <button class="btn btn-secondary btn-sm" onclick="cancelLdapForm()">Annuler</button>
                         </div>
                     </div>
                 </div>
-                <label>Identifiant SMTP</label>
-                <input type="text" id="cfgSmtpUser" placeholder="portail-devops@mondomaine.local">
-                <label>Mot de passe SMTP</label>
-                <input type="password" id="cfgSmtpPwd" placeholder="Laisser vide pour ne pas changer">
-                <label>Adresse exp&eacute;diteur</label>
-                <input type="text" id="cfgSmtpFrom" placeholder="portail-devops@mondomaine.local">
-                <label>Nom exp&eacute;diteur</label>
-                <input type="text" id="cfgSmtpName" placeholder="Portal DevOps">
             </div>
 
-            <div style="margin-top:16px;">
-                <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
+            <!-- SMTP -->
+            <div class="config-block">
+                <div class="config-block-header block-smtp" onclick="toggleBlock(this)">
+                    📧 SMTP — Envoi de mails
+                    <span class="block-arrow">▼</span>
+                </div>
+                <div class="config-block-body">
+                    <div class="config-section">
+                        <div class="check-row">
+                            <input type="checkbox" id="cfgSmtpEnabled">
+                            <label style="margin:0;display:inline;">SMTP activ&eacute;</label>
+                        </div>
+                        <label>Serveur SMTP</label>
+                        <input type="text" id="cfgSmtpHost" placeholder="smtp.mondomaine.local">
+                        <div style="display:flex;gap:12px;max-width:500px;">
+                            <div style="flex:1;">
+                                <label>Port</label>
+                                <input type="number" id="cfgSmtpPort" placeholder="587" style="width:100%;">
+                            </div>
+                            <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:4px;">
+                                <div class="check-row">
+                                    <input type="checkbox" id="cfgSmtpTls">
+                                    <label style="margin:0;display:inline;">STARTTLS</label>
+                                </div>
+                            </div>
+                        </div>
+                        <label>Identifiant SMTP</label>
+                        <input type="text" id="cfgSmtpUser" placeholder="portail-devops@mondomaine.local">
+                        <label>Mot de passe SMTP</label>
+                        <input type="password" id="cfgSmtpPwd" placeholder="Laisser vide pour ne pas changer">
+                        <label>Adresse exp&eacute;diteur</label>
+                        <input type="text" id="cfgSmtpFrom" placeholder="portail-devops@mondomaine.local">
+                        <label>Nom exp&eacute;diteur</label>
+                        <input type="text" id="cfgSmtpName" placeholder="Portal DevOps">
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 Enregistrer la configuration</button>
             </div>
         </div>
     </div>
@@ -475,6 +560,12 @@ async function deleteUser(id) {
 
 // === CONFIG ===
 
+function toggleBlock(header) {
+    header.closest('.config-block').classList.toggle('collapsed');
+}
+
+let _ldapServers = [];
+
 async function loadConfig() {
     if (!currentUser || currentUser.role !== 'superadmin') {
         document.getElementById('configCard').style.display = 'none';
@@ -484,6 +575,8 @@ async function loadConfig() {
     const r = await fetch('/api/auth/admin-config');
     const cfg = await r.json();
     if (cfg.error) return;
+
+    // ADFS
     document.getElementById('cfgAdfsEnabled').checked = cfg.adfs.enabled;
     document.getElementById('cfgClientId').value = cfg.adfs.client_id || '';
     document.getElementById('cfgAuthority').value = cfg.adfs.authority || '';
@@ -491,15 +584,25 @@ async function loadConfig() {
     document.getElementById('cfgClientSecret').value = '';
     document.getElementById('cfgClientSecret').placeholder = cfg.adfs.has_secret ? 'Secret configur\u00e9 (laisser vide pour garder)' : 'Client secret ADFS';
     document.getElementById('cfgJwksUri').value = cfg.adfs.jwks_uri || '';
+
+    // SSL
+    const sslVal = cfg.ssl_verify;
+    const sel = document.getElementById('cfgSslVerify');
+    if (sslVal === true || sslVal === 'true')          sel.value = 'true';
+    else if (sslVal === false || sslVal === 'false')   sel.value = 'false';
+    else if (typeof sslVal === 'string' && sslVal)   { sel.value = 'custom'; document.getElementById('cfgCaPath').value = sslVal; }
+    else                                               sel.value = 'true';
+    toggleCaPath();
+
+    // Admin local
     document.getElementById('cfgAdminUser').value = cfg.local_admin.username || '';
     document.getElementById('cfgAdminName').value = cfg.local_admin.display_name || '';
     document.getElementById('cfgAdminPwd').value = '';
-    // LDAP
-    const ldap = cfg.ldap || {};
-    document.getElementById('cfgLdapHost').value = ldap.host || '';
-    document.getElementById('cfgLdapBaseDn').value = ldap.base_dn || '';
-    document.getElementById('cfgLdapBindTpl').value = ldap.bind_dn_template || '';
-    document.getElementById('cfgLdapTls').checked = !!ldap.tls_verify;
+
+    // LDAP servers
+    _ldapServers = cfg.ldap_servers || [];
+    renderLdapServers();
+
     // SMTP
     const smtp = cfg.smtp || {};
     document.getElementById('cfgSmtpEnabled').checked = !!smtp.enabled;
@@ -511,33 +614,98 @@ async function loadConfig() {
     document.getElementById('cfgSmtpPwd').placeholder = smtp.has_password ? 'Configur\u00e9 (laisser vide pour garder)' : 'Mot de passe SMTP';
     document.getElementById('cfgSmtpFrom').value = smtp.from_address || '';
     document.getElementById('cfgSmtpName').value = smtp.from_name || 'Portal DevOps';
-    // ssl_verify : True, False, ou chemin string
-    const sslVal = cfg.ssl_verify;
-    const sel = document.getElementById('cfgSslVerify');
-    if (sslVal === true || sslVal === 'true') {
-        sel.value = 'true';
-    } else if (sslVal === false || sslVal === 'false') {
-        sel.value = 'false';
-    } else if (typeof sslVal === 'string' && sslVal) {
-        sel.value = 'custom';
-        document.getElementById('cfgCaPath').value = sslVal;
-    } else {
-        sel.value = 'true';
-    }
-    toggleCaPath();
 }
 
 function toggleCaPath() {
-    const sel = document.getElementById('cfgSslVerify');
-    document.getElementById('cfgCaPathRow').style.display = sel.value === 'custom' ? 'block' : 'none';
+    document.getElementById('cfgCaPathRow').style.display =
+        document.getElementById('cfgSslVerify').value === 'custom' ? 'block' : 'none';
 }
+
+// ── LDAP Servers ──────────────────────────────────────────────────────────────
+
+function renderLdapServers() {
+    const list = document.getElementById('ldap-servers-list');
+    const count = document.getElementById('ldap-count');
+    const n = _ldapServers.length;
+    count.textContent = n + ' serveur' + (n > 1 ? 's' : '');
+    if (!n) { list.innerHTML = '<div style="color:#999;font-size:13px;padding:4px 0;">Aucun serveur configur\u00e9.</div>'; return; }
+    list.innerHTML = _ldapServers.map(s => `
+      <div class="ldap-server-row">
+        <div class="srv-name">🗂️ ${esc2(s.name || s.id)}</div>
+        <div class="srv-host">${esc2(s.host)}</div>
+        <div class="srv-dn">${esc2(s.base_dn)}${s.tls_verify ? ' 🔒' : ''}</div>
+        <div class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="editLdapServer('${esc2(s.id)}')">Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteLdapServer('${esc2(s.id)}')">Supprimer</button>
+        </div>
+      </div>`).join('');
+}
+
+function esc2(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function showLdapForm(editId = null) {
+    document.getElementById('ldap-add-form').style.display = 'block';
+    document.getElementById('ldap-form-title').textContent = editId ? 'Modifier le serveur' : 'Ajouter un serveur LDAP';
+    document.getElementById('ldapEditId').value = editId || '';
+    if (editId) {
+        const s = _ldapServers.find(x => x.id === editId) || {};
+        document.getElementById('ldapFrmId').value = s.id || '';
+        document.getElementById('ldapFrmId').readOnly = true;
+        document.getElementById('ldapFrmName').value = s.name || '';
+        document.getElementById('ldapFrmHost').value = s.host || '';
+        document.getElementById('ldapFrmBaseDn').value = s.base_dn || '';
+        document.getElementById('ldapFrmBindTpl').value = s.bind_dn_template || '';
+        document.getElementById('ldapFrmTls').checked = !!s.tls_verify;
+    } else {
+        ['ldapFrmId','ldapFrmName','ldapFrmHost','ldapFrmBaseDn','ldapFrmBindTpl'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('ldapFrmId').readOnly = false;
+        document.getElementById('ldapFrmTls').checked = false;
+    }
+}
+
+function editLdapServer(id) { showLdapForm(id); }
+
+function cancelLdapForm() {
+    document.getElementById('ldap-add-form').style.display = 'none';
+    document.getElementById('ldapEditId').value = '';
+}
+
+function saveLdapServer() {
+    const editId = document.getElementById('ldapEditId').value;
+    const id = document.getElementById('ldapFrmId').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+    const host = document.getElementById('ldapFrmHost').value.trim();
+    if (!id || !host) { alert('ID et Serveur LDAP sont obligatoires'); return; }
+    const srv = {
+        id, name: document.getElementById('ldapFrmName').value.trim() || id,
+        host, base_dn: document.getElementById('ldapFrmBaseDn').value.trim(),
+        bind_dn_template: document.getElementById('ldapFrmBindTpl').value.trim(),
+        tls_verify: document.getElementById('ldapFrmTls').checked
+    };
+    if (editId) {
+        const idx = _ldapServers.findIndex(x => x.id === editId);
+        if (idx >= 0) _ldapServers[idx] = srv; else _ldapServers.push(srv);
+    } else {
+        if (_ldapServers.find(x => x.id === id)) { alert('Un serveur avec cet ID existe d\u00e9j\u00e0'); return; }
+        _ldapServers.push(srv);
+    }
+    cancelLdapForm();
+    renderLdapServers();
+}
+
+function deleteLdapServer(id) {
+    if (!confirm('Supprimer le serveur "' + id + '" ?')) return;
+    _ldapServers = _ldapServers.filter(s => s.id !== id);
+    renderLdapServers();
+}
+
+// ── Save all config ───────────────────────────────────────────────────────────
 
 async function saveConfig() {
     const sslSel = document.getElementById('cfgSslVerify').value;
     let sslVerifyVal;
-    if (sslSel === 'true')        sslVerifyVal = true;
-    else if (sslSel === 'false')  sslVerifyVal = false;
-    else                          sslVerifyVal = document.getElementById('cfgCaPath').value.trim() || true;
+    if (sslSel === 'true')       sslVerifyVal = true;
+    else if (sslSel === 'false') sslVerifyVal = false;
+    else                         sslVerifyVal = document.getElementById('cfgCaPath').value.trim() || true;
 
     const payload = {
         adfs: {
@@ -545,44 +713,33 @@ async function saveConfig() {
             client_id: document.getElementById('cfgClientId').value.trim(),
             authority: document.getElementById('cfgAuthority').value.trim(),
             redirect_uri: document.getElementById('cfgRedirectUri').value.trim(),
-            jwks_uri: document.getElementById('cfgJwksUri').value.trim()
+            jwks_uri: document.getElementById('cfgJwksUri').value.trim(),
+            client_secret: document.getElementById('cfgClientSecret').value || '__UNCHANGED__'
         },
         local_admin: {
             username: document.getElementById('cfgAdminUser').value.trim(),
             display_name: document.getElementById('cfgAdminName').value.trim()
         },
-        ssl_verify: sslVerifyVal
+        ssl_verify: sslVerifyVal,
+        ldap_servers: _ldapServers,
+        smtp: {
+            enabled: document.getElementById('cfgSmtpEnabled').checked,
+            host: document.getElementById('cfgSmtpHost').value.trim(),
+            port: parseInt(document.getElementById('cfgSmtpPort').value) || 587,
+            use_tls: document.getElementById('cfgSmtpTls').checked,
+            username: document.getElementById('cfgSmtpUser').value.trim(),
+            password: document.getElementById('cfgSmtpPwd').value || '__UNCHANGED__',
+            from_address: document.getElementById('cfgSmtpFrom').value.trim(),
+            from_name: document.getElementById('cfgSmtpName').value.trim()
+        }
     };
-    const secret = document.getElementById('cfgClientSecret').value;
-    payload.adfs.client_secret = secret || '__UNCHANGED__';
-    const pwd = document.getElementById('cfgAdminPwd').value;
-    if (pwd) payload.local_admin.password = pwd;
-
-    // LDAP
-    payload.ldap = {
-        host: document.getElementById('cfgLdapHost').value.trim(),
-        base_dn: document.getElementById('cfgLdapBaseDn').value.trim(),
-        bind_dn_template: document.getElementById('cfgLdapBindTpl').value.trim(),
-        tls_verify: document.getElementById('cfgLdapTls').checked
-    };
-
-    // SMTP
-    const smtpPwd = document.getElementById('cfgSmtpPwd').value;
-    payload.smtp = {
-        enabled: document.getElementById('cfgSmtpEnabled').checked,
-        host: document.getElementById('cfgSmtpHost').value.trim(),
-        port: parseInt(document.getElementById('cfgSmtpPort').value) || 587,
-        use_tls: document.getElementById('cfgSmtpTls').checked,
-        username: document.getElementById('cfgSmtpUser').value.trim(),
-        password: smtpPwd || '__UNCHANGED__',
-        from_address: document.getElementById('cfgSmtpFrom').value.trim(),
-        from_name: document.getElementById('cfgSmtpName').value.trim()
-    };
+    const adminPwd = document.getElementById('cfgAdminPwd').value;
+    if (adminPwd) payload.local_admin.password = adminPwd;
 
     const r = await fetch('/api/auth/admin-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const res = await r.json();
     if (res.error) { alert(res.error); return; }
-    alert('Configuration enregistr\u00e9e');
+    alert('Configuration enregistr\u00e9e \u2705');
     loadConfig();
 }
 

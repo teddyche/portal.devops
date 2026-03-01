@@ -110,6 +110,12 @@ tr:hover td { background:#fff8f4; }
       Entrez vos identifiants AD pour effectuer des recherches LDAP.
       Ils sont utilisés uniquement pour cette session.
     </p>
+    <div id="server-select-row" class="form-row" style="margin-bottom:12px;display:none;">
+      <div class="form-group" style="flex:none;min-width:240px;">
+        <label>Domaine AD</label>
+        <select id="ldap-server-select" style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;"></select>
+      </div>
+    </div>
     <div class="form-row">
       <div class="form-group">
         <label>Nom d'utilisateur AD</label>
@@ -254,12 +260,23 @@ tr:hover td { background:#fff8f4; }
   } catch(e){}
 })();
 
-// ── LDAP auth ──────────────────────────────────────────────────────────────
+// ── LDAP servers + auth ────────────────────────────────────────────────────
+async function loadLdapServers() {
+  try {
+    const r = await fetch('/api/ldap/servers');
+    const servers = await r.json();
+    const sel = document.getElementById('ldap-server-select');
+    const row = document.getElementById('server-select-row');
+    sel.innerHTML = servers.map(s => `<option value="${s.id}">${s.name || s.id}</option>`).join('');
+    row.style.display = servers.length > 1 ? '' : 'none';
+  } catch(e) {}
+}
+
 async function checkLdapAuth() {
   try {
     const r = await fetch('/api/ldap/check-auth');
     const d = await r.json();
-    if (d.authenticated) showInterface(d.username);
+    if (d.authenticated) showInterface(d.username, d.server_name);
     else showLogin();
   } catch(e) { showLogin(); }
 }
@@ -270,16 +287,18 @@ function showLogin() {
   document.getElementById('ldap-session-info').style.display = 'none';
 }
 
-function showInterface(username) {
+function showInterface(username, serverName) {
   document.getElementById('login-panel').style.display = 'none';
   document.getElementById('search-interface').style.display = '';
   document.getElementById('ldap-session-info').style.display = '';
-  document.getElementById('ldap-username-label').textContent = username;
+  const label = username + (serverName ? ' · ' + serverName : '');
+  document.getElementById('ldap-username-label').textContent = label;
 }
 
 async function ldapLogin() {
   const username = document.getElementById('ldap-user-input').value.trim();
   const password = document.getElementById('ldap-pass-input').value;
+  const server_id = document.getElementById('ldap-server-select').value || '';
   const btn = document.getElementById('btn-login');
   const errDiv = document.getElementById('login-error');
   if (!username || !password) { errDiv.textContent = 'Remplissez les deux champs.'; errDiv.style.display=''; return; }
@@ -288,12 +307,12 @@ async function ldapLogin() {
   try {
     const r = await fetch('/api/ldap/auth', {
       method: 'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({username, password})
+      body: JSON.stringify({username, password, server_id})
     });
     const d = await r.json();
-    if (d.success) { showInterface(d.username); document.getElementById('ldap-pass-input').value=''; }
+    if (d.success) { showInterface(d.username, d.server_name); document.getElementById('ldap-pass-input').value=''; }
     else { errDiv.textContent = d.error || 'Identifiants invalides'; errDiv.style.display=''; }
-  } catch(e) { errDiv.textContent = 'Erreur réseau'; errDiv.style.display=''; }
+  } catch(e) { errDiv.textContent = 'Erreur r\u00e9seau'; errDiv.style.display=''; }
   btn.disabled = false; btn.textContent = 'Connexion';
 }
 
@@ -304,6 +323,7 @@ async function ldapLogout() {
 
 document.getElementById('ldap-pass-input').addEventListener('keydown', e => { if(e.key==='Enter') ldapLogin(); });
 document.getElementById('ldap-user-input').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('ldap-pass-input').focus(); });
+loadLdapServers();
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function switchTab(name) {

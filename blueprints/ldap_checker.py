@@ -30,10 +30,22 @@ ldap_bp = Blueprint('ldap', __name__)
 logger = logging.getLogger(__name__)
 _audit = logging.getLogger('audit')
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# ── Config multi-serveurs ─────────────────────────────────────────────────────
 
-def _cfg() -> dict:
-    return get_auth_config().get('ldap', {})
+def _get_servers() -> list[dict]:
+    """Retourne la liste des serveurs LDAP configurés (avec migration ancien format)."""
+    config = get_auth_config()
+    servers = config.get('ldap_servers', [])
+    if not servers and config.get('ldap'):
+        old = config['ldap']
+        servers = [{'id': 'default', 'name': 'AD Principal', **old}]
+    return servers
+
+def _cfg_for(server_id: str) -> dict:
+    """Retourne la config d'un serveur précis (ou le premier disponible)."""
+    servers = _get_servers()
+    s = next((s for s in servers if s['id'] == server_id), None)
+    return s if s is not None else (servers[0] if servers else {})
 
 def _host(c: dict) -> str:
     return c.get('host', 'ldaps://domain.com')
@@ -140,40 +152,57 @@ def _require_ldap() -> Any:
         return api_error('Authentification LDAP requise', 401)
     return None
 
+@ldap_bp.route('/api/ldap/servers', methods=['GET'])
+def get_ldap_servers():
+    """Liste des serveurs LDAP disponibles (pour le sélecteur de connexion)."""
+    servers = _get_servers()
+    return jsonify([{'id': s['id'], 'name': s.get('name', s['id'])} for s in servers])
+
 @ldap_bp.route('/api/ldap/auth', methods=['POST'])
 def ldap_auth():
     """Teste les credentials AD et les stocke en session Flask."""
     body = request.get_json(force=True, silent=True) or {}
     username = (body.get('username') or '').strip()
     password = body.get('password') or ''
+    server_id = (body.get('server_id') or '').strip()
     if not username or not password:
         return api_error('username et password requis')
 
-    c = _cfg()
+    # Résolution du serveur (fallback sur le premier si id inconnu)
+    if not server_id:
+        servers = _get_servers()
+        server_id = servers[0]['id'] if servers else 'default'
+    c = _cfg_for(server_id)
+
     cmd = _base_cmd(c, username, password) + [
         '-b', _base_dn(c), '-s', 'base', '(objectClass=*)', 'dn'
     ]
     ok, err_msg = _run(cmd, _env(c), timeout=10)
     if not ok:
-        _audit.warning('ldap_auth_failed portal_user=%s ldap_user=%s err=%s', _uid(), username, err_msg)
-        logger.warning('LDAP auth failed for %s — bind_dn=%s — err: %s', username, _bind_dn(c, username), err_msg)
+        _audit.warning('ldap_auth_failed portal_user=%s ldap_user=%s server=%s err=%s', _uid(), username, server_id, err_msg)
+        logger.warning('LDAP auth failed for %s on %s — bind_dn=%s — err: %s', username, server_id, _bind_dn(c, username), err_msg)
         return api_error(f'Authentification AD échouée : {err_msg}', 401)
 
     session['ldap_user'] = username
     session['ldap_pass'] = password
-    _audit.info('ldap_auth_ok portal_user=%s ldap_user=%s', _uid(), username)
-    return jsonify({'success': True, 'username': username})
+    session['ldap_server_id'] = server_id
+    _audit.info('ldap_auth_ok portal_user=%s ldap_user=%s server=%s', _uid(), username, server_id)
+    return jsonify({'success': True, 'username': username, 'server_id': server_id, 'server_name': c.get('name', server_id)})
 
 @ldap_bp.route('/api/ldap/check-auth', methods=['GET'])
 def ldap_check_auth():
     if 'ldap_user' in session:
-        return jsonify({'authenticated': True, 'username': session['ldap_user']})
+        server_id = session.get('ldap_server_id', '')
+        c = _cfg_for(server_id)
+        return jsonify({'authenticated': True, 'username': session['ldap_user'],
+                        'server_id': server_id, 'server_name': c.get('name', server_id)})
     return jsonify({'authenticated': False})
 
 @ldap_bp.route('/api/ldap/logout', methods=['POST'])
 def ldap_logout():
     session.pop('ldap_user', None)
     session.pop('ldap_pass', None)
+    session.pop('ldap_server_id', None)
     return jsonify({'success': True})
 
 # ── Helpers communs ───────────────────────────────────────────────────────────
@@ -209,7 +238,7 @@ def search_groups():
     if not pattern:
         return api_error('pattern requis')
 
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
         f'(&(objectClass=group)(CN={pattern}))',
@@ -257,7 +286,7 @@ def search_users():
     }
     ldap_filter = filters.get(by, filters['all'])
 
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c), ldap_filter,
         'cn', 'sAMAccountName', 'mail', 'department', 'title',
@@ -282,7 +311,7 @@ def search_user_groups():
     if not username:
         return api_error('username requis')
 
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
         f'(&(objectClass=person)(|(sAMAccountName={username})(cn={username})))',
@@ -321,7 +350,7 @@ def search_group_members():
     if not group_cn:
         return api_error('group requis')
 
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     # 1. Résoudre le DN du groupe
     cmd_g = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c), f'(&(objectClass=group)(CN={group_cn}))', 'dn', 'cn', 'description',
@@ -366,7 +395,7 @@ def search_computers():
     if not pattern:
         return api_error('pattern requis')
 
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
         f'(&(objectClass=computer)(CN={pattern}))',
@@ -393,7 +422,7 @@ def last_sync():
     """Date de dernière synchronisation AD (nTDSDSA.whenChanged)."""
     if (err := _require_ldap()) is not None:
         return err
-    c = _cfg()
+    c = _cfg_for(session.get('ldap_server_id', ''))
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', f'CN=Configuration,{_base_dn(c)}',
         '(objectClass=nTDSDSA)',

@@ -322,6 +322,24 @@ def api_delete_user(user_id):
 
 # === Auth Config (superadmin only) ===
 
+def _migrate_ldap_servers(config: dict) -> list:
+    """Retourne la liste des serveurs LDAP. Migre l'ancien format 'ldap' si besoin."""
+    servers = config.get('ldap_servers', [])
+    if not servers and config.get('ldap'):
+        old = config['ldap']
+        servers = [{
+            'id': 'default',
+            'name': 'AD Principal',
+            'host': old.get('host', ''),
+            'base_dn': old.get('base_dn', ''),
+            'bind_dn_template': old.get('bind_dn_template', ''),
+            'tls_verify': old.get('tls_verify', False),
+        }]
+    return [{'id': s['id'], 'name': s.get('name', s['id']),
+             'host': s.get('host', ''), 'base_dn': s.get('base_dn', ''),
+             'bind_dn_template': s.get('bind_dn_template', ''),
+             'tls_verify': s.get('tls_verify', False)} for s in servers]
+
 @auth_admin_bp.route('/api/auth/admin-config', methods=['GET'])
 def api_get_auth_admin_config():
     from auth import get_user_by_id
@@ -333,7 +351,6 @@ def api_get_auth_admin_config():
     config = _load('config.json') or {}
     # Hide sensitive fields
     ssl_val = config.get('ssl_verify', True)
-    ldap = config.get('ldap', {})
     smtp = config.get('smtp', {})
     safe = {
         'adfs': {
@@ -350,12 +367,7 @@ def api_get_auth_admin_config():
             'display_name': config.get('local_admin', {}).get('display_name', 'Super Admin')
         },
         'ssl_verify': ssl_val,
-        'ldap': {
-            'host': ldap.get('host', ''),
-            'base_dn': ldap.get('base_dn', ''),
-            'bind_dn_template': ldap.get('bind_dn_template', ''),
-            'tls_verify': ldap.get('tls_verify', False)
-        },
+        'ldap_servers': _migrate_ldap_servers(config),
         'smtp': {
             'enabled': smtp.get('enabled', False),
             'host': smtp.get('host', ''),
@@ -432,19 +444,24 @@ def api_save_auth_admin_config():
         if 'password' in la and la['password']:
             cfg_la['password_hash'] = bcrypt.hashpw(la['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-    # Update LDAP
-    if 'ldap' in body:
-        ldap = body['ldap']
-        cfg_ldap = config.setdefault('ldap', {})
-        for key in ('host', 'base_dn', 'bind_dn_template'):
-            if key in ldap:
-                val = ldap[key].strip() if isinstance(ldap[key], str) else ldap[key]
-                if val:
-                    cfg_ldap[key] = val
-                else:
-                    cfg_ldap.pop(key, None)  # vide = supprimer la clé (fallback auto)
-        if 'tls_verify' in ldap:
-            cfg_ldap['tls_verify'] = bool(ldap['tls_verify'])
+    # Update LDAP servers (liste complète, remplace l'ancienne)
+    if 'ldap_servers' in body:
+        validated = []
+        for s in body['ldap_servers']:
+            sid = re.sub(r'[^a-z0-9_-]', '', str(s.get('id', '')).strip().lower())
+            host = str(s.get('host', '')).strip()
+            if not sid or not host:
+                continue
+            validated.append({
+                'id': sid,
+                'name': str(s.get('name', sid)).strip(),
+                'host': host,
+                'base_dn': str(s.get('base_dn', '')).strip(),
+                'bind_dn_template': str(s.get('bind_dn_template', '')).strip(),
+                'tls_verify': bool(s.get('tls_verify', False)),
+            })
+        config['ldap_servers'] = validated
+        config.pop('ldap', None)  # Supprime l'ancienne clé unique si elle existe
 
     # Update SMTP
     if 'smtp' in body:
