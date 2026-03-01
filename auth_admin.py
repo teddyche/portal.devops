@@ -333,6 +333,8 @@ def api_get_auth_admin_config():
     config = _load('config.json') or {}
     # Hide sensitive fields
     ssl_val = config.get('ssl_verify', True)
+    ldap = config.get('ldap', {})
+    smtp = config.get('smtp', {})
     safe = {
         'adfs': {
             'enabled': config.get('adfs', {}).get('enabled', False),
@@ -347,7 +349,23 @@ def api_get_auth_admin_config():
             'username': config.get('local_admin', {}).get('username', 'admin'),
             'display_name': config.get('local_admin', {}).get('display_name', 'Super Admin')
         },
-        'ssl_verify': ssl_val   # True, False, ou chemin string vers CA bundle
+        'ssl_verify': ssl_val,
+        'ldap': {
+            'host': ldap.get('host', ''),
+            'base_dn': ldap.get('base_dn', ''),
+            'bind_dn_template': ldap.get('bind_dn_template', ''),
+            'tls_verify': ldap.get('tls_verify', False)
+        },
+        'smtp': {
+            'enabled': smtp.get('enabled', False),
+            'host': smtp.get('host', ''),
+            'port': smtp.get('port', 587),
+            'use_tls': smtp.get('use_tls', True),
+            'username': smtp.get('username', ''),
+            'has_password': bool(smtp.get('password', '')),
+            'from_address': smtp.get('from_address', ''),
+            'from_name': smtp.get('from_name', 'Portal DevOps')
+        }
     }
     return jsonify(safe)
 
@@ -413,6 +431,39 @@ def api_save_auth_admin_config():
             cfg_la['display_name'] = la['display_name']
         if 'password' in la and la['password']:
             cfg_la['password_hash'] = bcrypt.hashpw(la['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    # Update LDAP
+    if 'ldap' in body:
+        ldap = body['ldap']
+        cfg_ldap = config.setdefault('ldap', {})
+        for key in ('host', 'base_dn', 'bind_dn_template'):
+            if key in ldap:
+                val = ldap[key].strip() if isinstance(ldap[key], str) else ldap[key]
+                if val:
+                    cfg_ldap[key] = val
+                else:
+                    cfg_ldap.pop(key, None)  # vide = supprimer la clé (fallback auto)
+        if 'tls_verify' in ldap:
+            cfg_ldap['tls_verify'] = bool(ldap['tls_verify'])
+
+    # Update SMTP
+    if 'smtp' in body:
+        smtp = body['smtp']
+        cfg_smtp = config.setdefault('smtp', {})
+        if 'enabled' in smtp:
+            cfg_smtp['enabled'] = bool(smtp['enabled'])
+        for key in ('host', 'username', 'from_address', 'from_name'):
+            if key in smtp:
+                cfg_smtp[key] = smtp[key].strip() if isinstance(smtp[key], str) else smtp[key]
+        if 'port' in smtp:
+            try:
+                cfg_smtp['port'] = int(smtp['port'])
+            except (ValueError, TypeError):
+                pass
+        if 'use_tls' in smtp:
+            cfg_smtp['use_tls'] = bool(smtp['use_tls'])
+        if 'password' in smtp and smtp['password'] != '__UNCHANGED__':
+            cfg_smtp['password'] = smtp['password']  # stocké en clair (interne)
 
     _save('config.json', config)
     return jsonify({'success': True})

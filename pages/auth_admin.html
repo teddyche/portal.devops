@@ -199,6 +199,52 @@
                 <label>Nouveau mot de passe</label>
                 <input type="password" id="cfgAdminPwd" placeholder="Laisser vide pour ne pas changer">
             </div>
+
+            <h2 style="margin-top:20px;">LDAP / Active Directory</h2>
+            <div class="config-section">
+                <label>Serveur LDAP <span style="font-weight:normal;color:#888;">(ex : ldaps://ZOE.GCA)</span></label>
+                <input type="text" id="cfgLdapHost" placeholder="ldaps://monserveur.ad">
+                <label>Base DN <span style="font-weight:normal;color:#888;">(ex : DC=zoe,DC=gca)</span></label>
+                <input type="text" id="cfgLdapBaseDn" placeholder="DC=mondomaine,DC=local">
+                <label>Bind DN template <span style="font-weight:normal;color:#888;">(optionnel — laisser vide pour UPN auto : login@domaine)</span></label>
+                <input type="text" id="cfgLdapBindTpl" placeholder="{username}@mondomaine.local  ou  CN={username},OU=Users,DC=...">
+                <div class="check-row" style="margin-top:4px;">
+                    <input type="checkbox" id="cfgLdapTls">
+                    <label style="margin:0;display:inline;">V&eacute;rifier le certificat TLS</label>
+                </div>
+                <small style="color:#888;display:block;margin-top:4px;">D&eacute;sactiver la v&eacute;rification TLS si le serveur utilise un certificat auto-sign&eacute; (interne).</small>
+            </div>
+
+            <h2 style="margin-top:20px;">SMTP — Envoi de mails</h2>
+            <div class="config-section">
+                <div class="check-row">
+                    <input type="checkbox" id="cfgSmtpEnabled">
+                    <label style="margin:0;display:inline;">SMTP activ&eacute;</label>
+                </div>
+                <label>Serveur SMTP</label>
+                <input type="text" id="cfgSmtpHost" placeholder="smtp.mondomaine.local">
+                <div style="display:flex;gap:12px;max-width:500px;">
+                    <div style="flex:1;">
+                        <label>Port</label>
+                        <input type="number" id="cfgSmtpPort" placeholder="587" style="width:100%;">
+                    </div>
+                    <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:10px;">
+                        <div class="check-row">
+                            <input type="checkbox" id="cfgSmtpTls">
+                            <label style="margin:0;display:inline;">STARTTLS</label>
+                        </div>
+                    </div>
+                </div>
+                <label>Identifiant SMTP</label>
+                <input type="text" id="cfgSmtpUser" placeholder="portail-devops@mondomaine.local">
+                <label>Mot de passe SMTP</label>
+                <input type="password" id="cfgSmtpPwd" placeholder="Laisser vide pour ne pas changer">
+                <label>Adresse exp&eacute;diteur</label>
+                <input type="text" id="cfgSmtpFrom" placeholder="portail-devops@mondomaine.local">
+                <label>Nom exp&eacute;diteur</label>
+                <input type="text" id="cfgSmtpName" placeholder="Portal DevOps">
+            </div>
+
             <div style="margin-top:16px;">
                 <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
             </div>
@@ -448,6 +494,23 @@ async function loadConfig() {
     document.getElementById('cfgAdminUser').value = cfg.local_admin.username || '';
     document.getElementById('cfgAdminName').value = cfg.local_admin.display_name || '';
     document.getElementById('cfgAdminPwd').value = '';
+    // LDAP
+    const ldap = cfg.ldap || {};
+    document.getElementById('cfgLdapHost').value = ldap.host || '';
+    document.getElementById('cfgLdapBaseDn').value = ldap.base_dn || '';
+    document.getElementById('cfgLdapBindTpl').value = ldap.bind_dn_template || '';
+    document.getElementById('cfgLdapTls').checked = !!ldap.tls_verify;
+    // SMTP
+    const smtp = cfg.smtp || {};
+    document.getElementById('cfgSmtpEnabled').checked = !!smtp.enabled;
+    document.getElementById('cfgSmtpHost').value = smtp.host || '';
+    document.getElementById('cfgSmtpPort').value = smtp.port || 587;
+    document.getElementById('cfgSmtpTls').checked = smtp.use_tls !== false;
+    document.getElementById('cfgSmtpUser').value = smtp.username || '';
+    document.getElementById('cfgSmtpPwd').value = '';
+    document.getElementById('cfgSmtpPwd').placeholder = smtp.has_password ? 'Configur\u00e9 (laisser vide pour garder)' : 'Mot de passe SMTP';
+    document.getElementById('cfgSmtpFrom').value = smtp.from_address || '';
+    document.getElementById('cfgSmtpName').value = smtp.from_name || 'Portal DevOps';
     // ssl_verify : True, False, ou chemin string
     const sslVal = cfg.ssl_verify;
     const sel = document.getElementById('cfgSslVerify');
@@ -494,6 +557,27 @@ async function saveConfig() {
     payload.adfs.client_secret = secret || '__UNCHANGED__';
     const pwd = document.getElementById('cfgAdminPwd').value;
     if (pwd) payload.local_admin.password = pwd;
+
+    // LDAP
+    payload.ldap = {
+        host: document.getElementById('cfgLdapHost').value.trim(),
+        base_dn: document.getElementById('cfgLdapBaseDn').value.trim(),
+        bind_dn_template: document.getElementById('cfgLdapBindTpl').value.trim(),
+        tls_verify: document.getElementById('cfgLdapTls').checked
+    };
+
+    // SMTP
+    const smtpPwd = document.getElementById('cfgSmtpPwd').value;
+    payload.smtp = {
+        enabled: document.getElementById('cfgSmtpEnabled').checked,
+        host: document.getElementById('cfgSmtpHost').value.trim(),
+        port: parseInt(document.getElementById('cfgSmtpPort').value) || 587,
+        use_tls: document.getElementById('cfgSmtpTls').checked,
+        username: document.getElementById('cfgSmtpUser').value.trim(),
+        password: smtpPwd || '__UNCHANGED__',
+        from_address: document.getElementById('cfgSmtpFrom').value.trim(),
+        from_name: document.getElementById('cfgSmtpName').value.trim()
+    };
 
     const r = await fetch('/api/auth/admin-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const res = await r.json();
