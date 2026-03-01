@@ -43,8 +43,27 @@ def load_json(path):
 
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    tmp = path + '.tmp'
+    try:
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+TRASH_DIR = os.path.join(DATAS_DIR, '_trash')
+
+def soft_delete_dir(src_dir, kind):
+    """Move src_dir to datas/_trash/<timestamp>_<kind>_<basename>/ instead of deleting it."""
+    if not os.path.exists(src_dir):
+        return
+    os.makedirs(TRASH_DIR, exist_ok=True)
+    ts = datetime.utcnow().strftime('%Y%m%dT%H%M%S')
+    name = f'{ts}_{kind}_{os.path.basename(src_dir)}'
+    dest = os.path.join(TRASH_DIR, name)
+    shutil.move(src_dir, dest)
 
 def get_cluster_dir(cluster_id):
     return os.path.join(DATAS_DIR, cluster_id)
@@ -277,8 +296,7 @@ def api_delete_cluster(cluster_id):
     save_json(CLUSTERS_FILE, clusters)
 
     cluster_dir = get_cluster_dir(cluster_id)
-    if os.path.exists(cluster_dir):
-        shutil.rmtree(cluster_dir)
+    soft_delete_dir(cluster_dir, 'cluster')
     return jsonify({'success': True})
 
 
@@ -441,8 +459,7 @@ def api_delete_pssit_app(app_id):
     save_json(PSSIT_APPS_FILE, apps)
 
     app_dir = get_pssit_app_dir(app_id)
-    if os.path.exists(app_dir):
-        shutil.rmtree(app_dir)
+    soft_delete_dir(app_dir, 'pssit_app')
     return jsonify({'success': True})
 
 
@@ -662,7 +679,10 @@ def api_pssit_schedule(app_id, env_id):
     awx_token = awx.get('token', '')
     schedule_name = f'pssit-{app_id}-{env_id}-{action}-{uuid.uuid4().hex[:6]}'
 
-    dt = datetime.fromisoformat(scheduled_dt.replace('Z', '+00:00') if 'Z' in scheduled_dt else scheduled_dt)
+    try:
+        dt = datetime.fromisoformat(scheduled_dt.replace('Z', '+00:00') if 'Z' in scheduled_dt else scheduled_dt)
+    except (ValueError, AttributeError):
+        return jsonify({'error': 'Format de date invalide, attendu ISO 8601'}), 400
     dtstart = dt.strftime('%Y%m%dT%H%M%SZ')
 
     try:
@@ -810,8 +830,7 @@ def api_delete_cad_workspace(ws_id):
     save_json(CAD_WORKSPACES_FILE, workspaces)
 
     ws_dir = get_cad_ws_dir(ws_id)
-    if os.path.exists(ws_dir):
-        shutil.rmtree(ws_dir)
+    soft_delete_dir(ws_dir, 'cad_workspace')
     return jsonify({'success': True})
 
 
