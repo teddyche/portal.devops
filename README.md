@@ -1,4 +1,4 @@
-# AppOps
+# portal.devops
 
 Plateforme multi-modules pour les operations applicatives CA-GIP. Dashboard configurable, scoring automatise, orchestration de workflows, le tout avec authentification ADFS et controle d'acces par equipe.
 
