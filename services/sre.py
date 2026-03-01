@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any, Optional
 
 from services import store
+from services.base import entity_exists, filter_by_resources, remove_from_list
 from services.store import ServiceError
 
 
@@ -37,16 +38,12 @@ def _default_autoscore_config() -> dict:
 # === Clusters CRUD ===
 
 def cluster_exists(datas_dir: str, cluster_id: str) -> bool:
-    clusters: list[dict] = store.load_json(_clusters_file(datas_dir)) or []
-    return any(c['id'] == cluster_id for c in clusters)
+    return entity_exists(_clusters_file(datas_dir), cluster_id)
 
 
 def get_clusters(datas_dir: str, user_resources: Optional[list[dict]] = None) -> list[dict]:
     clusters: list[dict] = store.load_json(_clusters_file(datas_dir)) or []
-    if user_resources is not None:
-        allowed = {r['resource_id'] for r in user_resources if r['module'] == 'sre'}
-        clusters = [c for c in clusters if c['id'] in allowed]
-    return clusters
+    return filter_by_resources(clusters, user_resources, 'sre')
 
 
 def create_cluster(datas_dir: str, body: dict) -> None:
@@ -86,12 +83,7 @@ def update_cluster(datas_dir: str, cluster_id: str, body: dict) -> None:
 
 
 def delete_cluster(datas_dir: str, cluster_id: str) -> None:
-    cf = _clusters_file(datas_dir)
-    clusters: list[dict] = store.load_json(cf) or []
-    if not any(c['id'] == cluster_id for c in clusters):
-        raise ServiceError('Cluster non trouvé', 404)
-    clusters = [c for c in clusters if c['id'] != cluster_id]
-    store.save_json(cf, clusters)
+    remove_from_list(_clusters_file(datas_dir), cluster_id, 'Cluster non trouvé')
     store.soft_delete_dir(_cluster_dir(datas_dir, cluster_id), 'cluster', _trash_dir(datas_dir))
 
 

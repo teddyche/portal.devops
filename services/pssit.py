@@ -5,6 +5,7 @@ historique, planifications, proxy AWX/JFrog.
 import json
 import logging
 import os
+import re
 import uuid
 from datetime import date, datetime, timezone
 from typing import Any, Optional
@@ -14,16 +15,42 @@ import requests as http_requests
 from crypto import decrypt_token, encrypt_token, mask_token
 from services import store
 from services.store import ServiceError
+from services.base import entity_exists, filter_by_resources, remove_from_list
 
 logger = logging.getLogger(__name__)
 
 _HISTORY_MAX = 100
+_PARAMS_MAX_KEYS = 20
+_PARAMS_MAX_VALUE_LEN = 512
+_ALLOWED_PARAM_KEY = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 
 AWX_STATUS_MAP = {
     'new': 'pending', 'pending': 'pending', 'waiting': 'pending',
     'running': 'running', 'successful': 'successful',
     'failed': 'failed', 'error': 'error', 'canceled': 'canceled',
 }
+
+
+# === Validation params AWX ===
+
+def _validate_params(params: Any) -> dict:
+    """Valide la structure, les types et la taille du dict params AWX."""
+    if params is None:
+        return {}
+    if not isinstance(params, dict):
+        raise ServiceError('params doit être un objet JSON', 400)
+    if len(params) > _PARAMS_MAX_KEYS:
+        raise ServiceError(f'params limité à {_PARAMS_MAX_KEYS} clés', 400)
+    validated: dict = {}
+    for k, v in params.items():
+        if not isinstance(k, str) or not _ALLOWED_PARAM_KEY.match(k):
+            raise ServiceError(f'Clé params invalide : {k!r}', 400)
+        if not isinstance(v, (str, int, float, bool)):
+            raise ServiceError(f'Valeur params invalide pour {k!r} : type non supporté', 400)
+        if isinstance(v, str) and len(v) > _PARAMS_MAX_VALUE_LEN:
+            raise ServiceError(f'Valeur params trop longue pour {k!r}', 400)
+        validated[k] = v
+    return validated
 
 
 # === Helpers chemins ===
@@ -43,16 +70,12 @@ def _trash_dir(datas_dir: str) -> str:
 # === Apps CRUD ===
 
 def pssit_app_exists(datas_dir: str, app_id: str) -> bool:
-    apps: list[dict] = store.load_json(_apps_file(datas_dir)) or []
-    return any(a['id'] == app_id for a in apps)
+    return entity_exists(_apps_file(datas_dir), app_id)
 
 
 def get_pssit_apps(datas_dir: str, user_resources: Optional[list[dict]] = None) -> list[dict]:
     apps: list[dict] = store.load_json(_apps_file(datas_dir)) or []
-    if user_resources is not None:
-        allowed = {r['resource_id'] for r in user_resources if r['module'] == 'pssit'}
-        apps = [a for a in apps if a['id'] in allowed]
-    return apps
+    return filter_by_resources(apps, user_resources, 'pssit')
 
 
 def create_pssit_app(datas_dir: str, body: dict) -> None:
@@ -92,12 +115,7 @@ def update_pssit_app(datas_dir: str, app_id: str, body: dict) -> None:
 
 
 def delete_pssit_app(datas_dir: str, app_id: str) -> None:
-    af = _apps_file(datas_dir)
-    apps: list[dict] = store.load_json(af) or []
-    if not any(a['id'] == app_id for a in apps):
-        raise ServiceError('Application non trouvée', 404)
-    apps = [a for a in apps if a['id'] != app_id]
-    store.save_json(af, apps)
+    remove_from_list(_apps_file(datas_dir), app_id, 'Application non trouvée')
     store.soft_delete_dir(_app_dir(datas_dir, app_id), 'pssit_app', _trash_dir(datas_dir))
 
 
@@ -152,9 +170,10 @@ def get_pssit_env_config(datas_dir: str, app_id: str, env_id: str, secret_key: s
 
 # === Historique ===
 
-def get_pssit_history(datas_dir: str, app_id: str) -> list[dict]:
+def get_pssit_history(datas_dir: str, app_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
     path = os.path.join(_app_dir(datas_dir, app_id), 'history.json')
-    return store.load_json(path) or []
+    history: list[dict] = store.load_json(path) or []
+    return history[offset:offset + limit]
 
 
 def add_pssit_history(datas_dir: str, app_id: str, entry: dict) -> dict:
@@ -223,9 +242,9 @@ def launch_pssit_workflow(
         raise ServiceError('Environnement non trouvé', 404)
 
     action = body.get('action')
-    params = body.get('params', {})
     if action not in ('stop', 'start', 'status', 'deploy', 'patch'):
         raise ServiceError('Action invalide')
+    params = _validate_params(body.get('params', {}))
 
     awx = env_config.get('awx', {})
     template_id = awx.get('workflows', {}).get(action)

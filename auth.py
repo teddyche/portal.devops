@@ -1,4 +1,5 @@
 from flask import Blueprint, request, session, redirect, jsonify, g, send_file, abort
+import hashlib
 import json
 import logging
 import os
@@ -7,9 +8,22 @@ import base64
 import urllib.parse
 import secrets
 from datetime import datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 _audit = logging.getLogger('audit')
+
+# Erreurs ADFS autorisées dans les redirections (whitelist anti-XSS)
+_ADFS_SAFE_ERRORS = frozenset({
+    'access_denied', 'invalid_request', 'unauthorized_client',
+    'unsupported_response_type', 'invalid_scope', 'server_error',
+    'temporarily_unavailable', 'too_many_requests',
+})
+
+
+def _hash_for_log(username: str) -> str:
+    """Retourne un identifiant court non-réversible pour les logs d'audit."""
+    return hashlib.sha256(username.encode()).hexdigest()[:8]
 
 import bcrypt
 import requests as http_requests
@@ -37,23 +51,23 @@ _JWKS_TTL   = 3600    # 1 heure
 def get_auth_config():
     return _load('config.json') or {}
 
-def get_users():
+def get_users() -> list[dict]:
     return _load('users.json') or []
 
-def save_users(users):
+def save_users(users: list[dict]) -> None:
     _save('users.json', users)
 
-def get_teams():
+def get_teams() -> list[dict]:
     return _load('teams.json') or []
 
-def get_user_by_id(user_id):
+def get_user_by_id(user_id: str) -> Optional[dict]:
     return next((u for u in get_users() if u['id'] == user_id), None)
 
 def get_user_teams(user_id):
     teams = get_teams()
     return [t for t in teams if any(m['user_id'] == user_id for m in t.get('members', []))]
 
-def get_user_resources(user_id):
+def get_user_resources(user_id: str) -> Optional[list[dict]]:
     user = get_user_by_id(user_id)
     if not user:
         return []
@@ -66,13 +80,13 @@ def get_user_resources(user_id):
                 resources.append(res)
     return resources
 
-def check_access(user_id, module, resource_id):
+def check_access(user_id: str, module: str, resource_id: str) -> bool:
     resources = get_user_resources(user_id)
     if resources is None:
         return True  # superadmin
     return any(r.get('module') == module and r.get('resource_id') == resource_id for r in resources)
 
-def is_admin(user_id):
+def is_admin(user_id: str) -> bool:
     user = get_user_by_id(user_id)
     if not user:
         return False
@@ -89,10 +103,14 @@ def is_admin(user_id):
 
 # === SSL verify ===
 
-def get_ssl_verify():
+def get_ssl_verify() -> bool | str:
     """Retourne la valeur ssl_verify depuis datas/auth/config.json (True par défaut).
-    Accepte True, False, ou un chemin vers un CA bundle."""
-    return get_auth_config().get('ssl_verify', True)
+    Accepte True, False, ou un chemin absolu vers un CA bundle existant."""
+    val = get_auth_config().get('ssl_verify', True)
+    if isinstance(val, str) and not os.path.isfile(val):
+        logger.warning('CA bundle introuvable : %s — SSL verify forcé à True', val)
+        return True
+    return val
 
 
 # === JWT / JWKS ===
@@ -164,11 +182,13 @@ def verify_id_token(id_token, adfs_config):
         raise ValueError('Token expiré')
 
     client_id = adfs_config.get('client_id', '')
+    if not client_id:
+        raise ValueError('client_id ADFS non configuré')
     aud = payload.get('aud', '')
     if isinstance(aud, list):
-        if client_id and client_id not in aud:
+        if client_id not in aud:
             raise ValueError('Audience invalide')
-    elif aud and client_id and aud != client_id:
+    elif aud != client_id:
         raise ValueError('Audience invalide')
 
     return payload
@@ -280,7 +300,7 @@ def local_login():
     allowed, retry_after = _rl_check(username)
     if not allowed:
         minutes = max(1, retry_after // 60)
-        _audit.warning('login_blocked user=%s ip=%s retry_after=%d', username, request.remote_addr, retry_after)
+        _audit.warning('login_blocked user=%s ip=%s retry_after=%d', _hash_for_log(username), request.remote_addr, retry_after)
         return jsonify({'error': f'Compte verrouillé. Réessayez dans {minutes} minute(s).'}), 429
 
     config = get_auth_config()
@@ -288,17 +308,21 @@ def local_login():
 
     if username != local.get('username', ''):
         _rl_fail(username)
-        _audit.warning('login_failed user=%s ip=%s reason=unknown_user', username, request.remote_addr)
+        _audit.warning('login_failed user=%s ip=%s reason=unknown_user', _hash_for_log(username), request.remote_addr)
         return jsonify({'error': 'Identifiants invalides'}), 401
 
     stored_hash = local.get('password_hash', '')
-    if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+    try:
+        pwd_ok = bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+    except (ValueError, TypeError):
+        pwd_ok = False
+    if not pwd_ok:
         _rl_fail(username)
-        _audit.warning('login_failed user=%s ip=%s reason=wrong_password', username, request.remote_addr)
+        _audit.warning('login_failed user=%s ip=%s reason=wrong_password', _hash_for_log(username), request.remote_addr)
         return jsonify({'error': 'Identifiants invalides'}), 401
 
     _rl_success(username)
-    _audit.info('login_success user=%s ip=%s', username, request.remote_addr)
+    _audit.info('login_success user=%s ip=%s', _hash_for_log(username), request.remote_addr)
 
     # Ensure admin user exists
     users = get_users()
@@ -345,6 +369,13 @@ def adfs_login():
 
 @auth_bp.route('/auth/adfs/callback')
 def adfs_callback():
+    # Rate limiting par IP pour ralentir les abus du callback OAuth
+    remote_ip = request.remote_addr or 'unknown'
+    allowed, _ = _rl_check(remote_ip)
+    if not allowed:
+        _audit.warning('adfs_callback_blocked ip=%s', remote_ip)
+        return redirect('/login?error=too_many_requests')
+
     config = get_auth_config()
     adfs = config.get('adfs', {})
     if not adfs.get('enabled'):
@@ -352,12 +383,16 @@ def adfs_callback():
 
     error = request.args.get('error')
     if error:
-        return redirect('/login?error=' + urllib.parse.quote(request.args.get('error_description', error)))
+        # Whitelist anti-XSS : on n'injecte jamais error_description dans l'URL
+        safe_error = error if error in _ADFS_SAFE_ERRORS else 'adfs_error'
+        _rl_fail(remote_ip)
+        return redirect(f'/login?error={urllib.parse.quote(safe_error)}')
 
     code = request.args.get('code', '')
     state = request.args.get('state', '')
 
     if state != session.pop('oauth_state', ''):
+        _rl_fail(remote_ip)
         return redirect('/login?error=state_mismatch')
 
     # Exchange code for token
@@ -388,11 +423,13 @@ def adfs_callback():
             claims = verify_id_token(id_token, adfs)
         except Exception as jwt_err:
             logger.warning('JWT validation échouée : %s', jwt_err)
-            _audit.warning('adfs_jwt_failed ip=%s reason=%s', request.remote_addr, type(jwt_err).__name__)
+            _audit.warning('adfs_jwt_failed ip=%s reason=%s', remote_ip, type(jwt_err).__name__)
+            _rl_fail(remote_ip)
             return redirect('/login?error=adfs_error')
 
     except Exception:
-        _audit.warning('adfs_callback_error ip=%s', request.remote_addr)
+        _audit.warning('adfs_callback_error ip=%s', remote_ip)
+        _rl_fail(remote_ip)
         return redirect('/login?error=adfs_error')
 
     # Extract user info
@@ -432,6 +469,7 @@ def adfs_callback():
         users.append(user)
     save_users(users)
 
+    _rl_success(remote_ip)
     session['user_id'] = user_id
     next_url = session.pop('next_url', '/')
     if not next_url.startswith('/'):

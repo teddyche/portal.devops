@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any, Optional
 
 from services import store
+from services.base import entity_exists, filter_by_resources, remove_from_list
 from services.store import ServiceError
 
 
@@ -31,16 +32,12 @@ def _default_cad_config() -> dict:
 # === Workspaces CRUD ===
 
 def cad_ws_exists(datas_dir: str, ws_id: str) -> bool:
-    workspaces: list[dict] = store.load_json(_workspaces_file(datas_dir)) or []
-    return any(w['id'] == ws_id for w in workspaces)
+    return entity_exists(_workspaces_file(datas_dir), ws_id)
 
 
 def get_cad_workspaces(datas_dir: str, user_resources: Optional[list[dict]] = None) -> list[dict]:
     workspaces: list[dict] = store.load_json(_workspaces_file(datas_dir)) or []
-    if user_resources is not None:
-        allowed = {r['resource_id'] for r in user_resources if r['module'] == 'cad'}
-        workspaces = [w for w in workspaces if w['id'] in allowed]
-    return workspaces
+    return filter_by_resources(workspaces, user_resources, 'cad')
 
 
 def create_cad_workspace(datas_dir: str, body: dict) -> None:
@@ -79,12 +76,7 @@ def update_cad_workspace(datas_dir: str, ws_id: str, body: dict) -> None:
 
 
 def delete_cad_workspace(datas_dir: str, ws_id: str) -> None:
-    wf = _workspaces_file(datas_dir)
-    workspaces: list[dict] = store.load_json(wf) or []
-    if not any(w['id'] == ws_id for w in workspaces):
-        raise ServiceError('Workspace non trouvé', 404)
-    workspaces = [w for w in workspaces if w['id'] != ws_id]
-    store.save_json(wf, workspaces)
+    remove_from_list(_workspaces_file(datas_dir), ws_id, 'Workspace non trouvé')
     store.soft_delete_dir(_ws_dir(datas_dir, ws_id), 'cad_workspace', _trash_dir(datas_dir))
 
 

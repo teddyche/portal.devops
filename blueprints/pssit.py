@@ -2,9 +2,13 @@
 Blueprint PSSIT : routes API pour les apps, configs, historique,
 planifications, proxy AWX et JFrog.
 """
+import logging
+
 from flask import Blueprint, abort, current_app, jsonify, request
 
 import services.pssit as pssit_service
+
+logger = logging.getLogger(__name__)
 from auth import get_ssl_verify
 from blueprints import _require_json
 from services.store import ServiceError
@@ -80,7 +84,12 @@ def api_save_pssit_config(app_id: str):
 def api_get_pssit_history(app_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
-    return jsonify(pssit_service.get_pssit_history(_dd(), app_id))
+    try:
+        limit = max(1, min(200, int(request.args.get('limit', 50))))
+        offset = max(0, int(request.args.get('offset', 0)))
+    except (ValueError, TypeError):
+        limit, offset = 50, 0
+    return jsonify(pssit_service.get_pssit_history(_dd(), app_id, limit=limit, offset=offset))
 
 
 @pssit_bp.route('/api/pssit/app/<app_id>/schedules', methods=['GET'])
@@ -123,8 +132,9 @@ def api_pssit_job_status(app_id: str, env_id: str, awx_job_id: int):
         return jsonify(result)
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
-    except Exception as e:
-        return jsonify({'error': str(e)}), 502
+    except Exception:
+        logger.exception('Erreur inattendue lors de get_pssit_job_status app=%s env=%s job=%s', app_id, env_id, awx_job_id)
+        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502
 
 
 @pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/schedule', methods=['POST'])
@@ -136,8 +146,9 @@ def api_pssit_schedule(app_id: str, env_id: str):
         return jsonify(entry)
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
-    except Exception as e:
-        return jsonify({'error': str(e)}), 502
+    except Exception:
+        logger.exception('Erreur inattendue lors de schedule_pssit_action app=%s env=%s', app_id, env_id)
+        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502
 
 
 # === Proxy JFrog ===
@@ -151,5 +162,6 @@ def api_pssit_artifacts(app_id: str, env_id: str):
         return jsonify(artifacts)
     except ServiceError as e:
         return jsonify({'error': e.message}), e.status
-    except Exception as e:
-        return jsonify({'error': str(e)}), 502
+    except Exception:
+        logger.exception('Erreur inattendue lors de get_pssit_artifacts app=%s env=%s', app_id, env_id)
+        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502

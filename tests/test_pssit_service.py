@@ -115,7 +115,8 @@ def test_add_pssit_history_caps_at_100(datas_dir):
     for i in range(105):
         pssit.add_pssit_history(datas_dir, 'MYAPP', {'id': str(i)})
     store._cache.clear()
-    history = pssit.get_pssit_history(datas_dir, 'MYAPP')
+    # limit=100 pour vérifier le cap _HISTORY_MAX, sans être limité par la pagination
+    history = pssit.get_pssit_history(datas_dir, 'MYAPP', limit=100)
     assert len(history) == 100
 
 

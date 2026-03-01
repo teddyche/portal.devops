@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 _PREFIX_V1 = 'enc:'   # SHA-256 — legacy
 _PREFIX_V2 = 'enc2:'  # PBKDF2-HMAC-SHA256
 _PBKDF2_SALT = b'portal.devops.v2'
-_PBKDF2_ITER = 480_000
+_PBKDF2_ITER = 600_000
 
 
 def _fernet_v1(secret_key: str) -> Fernet:
