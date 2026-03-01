@@ -107,7 +107,7 @@ DEFAULT_CAD_CONFIG = {
                 {"field": "nom", "label": "Nom", "type": "text", "hasLink": True, "filterable": True},
                 {"field": "code", "label": "Code", "type": "text", "filterable": True},
                 {"field": "equipe", "label": "\u00c9quipe", "type": "text", "filterable": True},
-                {"field": "domaine", "label": "Domaine", "type": "toggle", "values": ["", "Paiement", "Cr\u00e9dit", "\u00c9pargne", "Assurance", "RH", "Transverse"], "filterable": True},
+                {"field": "domaine", "label": "Domaine", "type": "toggle", "values": ["", "Mon\u00e9tique", "Flux", "Transverse", "Interne"], "filterable": True},
                 {"field": "criticite", "label": "Criticit\u00e9", "type": "toggle", "values": ["", "C1", "C2", "C3", "C4"], "filterable": True, "format": "priority"}
             ]
         },
@@ -188,7 +188,7 @@ DEFAULT_CAD_CONFIG = {
         {"field": "nom", "type": "input", "placeholder": "Nom", "required": True},
         {"field": "code", "type": "input", "placeholder": "Code", "required": True},
         {"field": "equipe", "type": "input", "placeholder": "\u00c9quipe", "required": True},
-        {"field": "domaine", "type": "select", "placeholder": "-- Domaine --", "options": ["Paiement", "Cr\u00e9dit", "\u00c9pargne", "Assurance", "RH", "Transverse"]},
+        {"field": "domaine", "type": "select", "placeholder": "-- Domaine --", "options": ["Mon\u00e9tique", "Flux", "Transverse", "Interne"]},
         {"field": "criticite", "type": "select", "placeholder": "-- Criticit\u00e9 --", "options": ["C1", "C2", "C3", "C4"]}
     ]
 }

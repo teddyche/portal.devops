@@ -9,7 +9,7 @@
         { "field": "equipe", "label": "Équipe",  "type": "text",   "filterable": true },
         {
           "field": "domaine", "label": "Domaine", "type": "toggle", "filterable": true,
-          "values": ["","Paiement","Crédit","Épargne","Assurance","RH","Transverse"]
+          "values": ["","Monétique","Flux","Transverse","Interne"]
         },
         {
           "field": "statut", "label": "Statut", "type": "toggle", "filterable": true,
