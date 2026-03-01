@@ -1,0 +1,42 @@
+{
+  "addRowFields": [
+    { "field": "nom",   "placeholder": "Nom",    "required": true, "type": "input" },
+    { "field": "code",  "placeholder": "Code",   "required": true, "type": "input" },
+    { "field": "equipe","placeholder": "Équipe", "required": true, "type": "input" },
+    {
+      "field": "os",
+      "placeholder": "-- OS --",
+      "type": "select",
+      "options": ["UNIX","WINDOWS","MAINFRAME","KUBE"]
+    },
+    {
+      "field": "zone",
+      "placeholder": "-- Zone --",
+      "type": "select",
+      "options": ["PROD","PREPROD","INT","DEV"]
+    }
+  ],
+  "groupColors": {
+    "blue":   { "header": "#42a5f5", "subHeader": "#64b5f6", "cell": "#bbdefb" },
+    "green":  { "header": "#66bb6a", "subHeader": "#81c784", "cell": "#c8e6c9" },
+    "grey":   { "header": "#6c757d", "subHeader": "#9e9e9e", "cell": "#e0e0e0" },
+    "pink":   { "header": "#ec407a", "subHeader": "#f06292", "cell": "#f8bbd0" },
+    "yellow": { "header": "#fdd835", "subHeader": "#ffeb3b", "cell": "#fff9c4" }
+  },
+  "groups": [
+    {
+      "name": "SERVEURS",
+      "color": "grey",
+      "columns": [
+        { "field": "nom",   "label": "Nom",    "type": "text",   "hasLink": true, "filterable": true },
+        { "field": "code",  "label": "Code",   "type": "text",   "filterable": true },
+        { "field": "equipe","label": "Équipe", "type": "text",   "filterable": true },
+        { "field": "os",    "label": "OS",     "type": "select", "filterable": true,
+          "options": ["UNIX","WINDOWS","MAINFRAME","KUBE"] },
+        { "field": "zone",  "label": "Zone",   "type": "select", "filterable": true,
+          "options": ["PROD","PREPROD","INT","DEV"] }
+      ],
+      "rows": []
+    }
+  ]
+}

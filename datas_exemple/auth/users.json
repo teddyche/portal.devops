@@ -1,0 +1,9 @@
+[
+  {
+    "id": "admin",
+    "type": "local",
+    "display_name": "Super Admin",
+    "role": "superadmin",
+    "created": "2026-01-01"
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "environments": [
+    {
+      "id": "INT",
+      "name": "Intégration",
+      "order": 1,
+      "awx": {
+        "url": "https://awx.exemple.com",
+        "token": "",
+        "workflows": {}
+      },
+      "jfrog": {
+        "url": "https://artifactory.exemple.com",
+        "token": "",
+        "repo": "generic.monapp",
+        "path": "generic/monapp"
+      },
+      "extraParams": {}
+    },
+    {
+      "id": "PROD",
+      "name": "Production",
+      "order": 2,
+      "awx": {
+        "url": "https://awx.exemple.com",
+        "token": "",
+        "workflows": {}
+      },
+      "jfrog": {
+        "url": "https://artifactory.exemple.com",
+        "token": "",
+        "repo": "generic.monapp",
+        "path": "generic/monapp"
+      },
+      "extraParams": {}
+    }
+  ]
+}

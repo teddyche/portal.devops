@@ -1,0 +1,8 @@
+{
+  "intervals": [
+    { "label": "Hebdo",    "days": 7  },
+    { "label": "Mensuel",  "days": 30 },
+    { "label": "Annuel",   "days": 365 }
+  ],
+  "categories": []
+}

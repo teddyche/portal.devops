@@ -1,0 +1,22 @@
+{
+  "adfs": {
+    "enabled": false,
+    "client_id": "",
+    "client_secret": "",
+    "authority": "https://adfs.example.com/adfs",
+    "redirect_uri": "http://localhost:5000/auth/adfs/callback",
+    "scopes": ["openid", "profile", "email"]
+  },
+  "local_admin": {
+    "username": "admin",
+    "password_hash": "$2b$12$bxPg1NpIjTprcHo3YZLHLOyw65Olr5dFipq3IJ2D53MmkKXOHfPf2",
+    "display_name": "Super Admin"
+  },
+  "secret_key": "e6e238dd1fd3b4355773d04d011b46cf9495df6f9a185e6fb96d726ba4d31400",
+  "ldap": {
+    "host": "ldaps://domain.exemple.com",
+    "base_dn": "DC=domain,DC=exemple,DC=com",
+    "bind_dn_template": "CN={username},OU=Utilisateurs,DC=domain,DC=exemple,DC=com",
+    "tls_verify": false
+  }
+}
