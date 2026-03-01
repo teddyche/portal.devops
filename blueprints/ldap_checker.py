@@ -417,6 +417,72 @@ def search_computers():
     return jsonify({'count': len(results), 'results': results})
 
 
+@ldap_bp.route('/api/ldap/compare-users', methods=['POST'])
+def compare_users():
+    """Diff des groupes AD entre deux utilisateurs (memberOf direct)."""
+    if (err := _require_ldap()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    uname1 = (body.get('user1') or '').strip()
+    uname2 = (body.get('user2') or '').strip()
+    if not uname1 or not uname2:
+        return api_error('user1 et user2 requis')
+
+    c = _cfg_for(session.get('ldap_server_id', ''))
+
+    def _fetch(uname: str):
+        """Retourne (info_dict, {cn_lower: {cn, dn}}) ou (None, None/erreur)."""
+        cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
+            '-b', _base_dn(c),
+            f'(&(objectClass=person)(|(sAMAccountName={uname})(cn={uname})))',
+            'cn', 'sAMAccountName', 'mail', 'memberOf',
+        ]
+        ok, out = _run(cmd, _env(c))
+        if not ok:
+            return None, out
+        entries = parse_ldif(out)
+        if not entries:
+            return None, None
+        e = entries[0]
+        raw = e.get('memberOf', [])
+        if isinstance(raw, str):
+            raw = [raw]
+        groups = {}
+        for g in raw:
+            if not g:
+                continue
+            cn = g.split(',')[0].replace('CN=', '').replace('cn=', '')
+            groups[cn.lower()] = {'cn': cn, 'dn': g}
+        return {'cn': e.get('cn', ''), 'username': e.get('sAMAccountName', ''), 'email': e.get('mail', '')}, groups
+
+    info1, grps1 = _fetch(uname1)
+    if info1 is None:
+        return api_error(f'Utilisateur "{uname1}" introuvable', 404) if grps1 is None else api_error(grps1, 500)
+
+    info2, grps2 = _fetch(uname2)
+    if info2 is None:
+        return api_error(f'Utilisateur "{uname2}" introuvable', 404) if grps2 is None else api_error(grps2, 500)
+
+    comparison = []
+    for k in sorted(set(grps1) | set(grps2)):
+        g1, g2 = grps1.get(k), grps2.get(k)
+        in1, in2 = bool(g1), bool(g2)
+        entry = g1 or g2
+        status = 'common' if in1 and in2 else ('user1_only' if in1 else 'user2_only')
+        comparison.append({'cn': entry['cn'], 'dn': entry['dn'], 'in_user1': in1, 'in_user2': in2, 'status': status})
+
+    return jsonify({
+        'user1': info1, 'user2': info2,
+        'comparison': comparison,
+        'stats': {
+            'total':      len(comparison),
+            'common':     sum(1 for x in comparison if x['status'] == 'common'),
+            'user1_only': sum(1 for x in comparison if x['status'] == 'user1_only'),
+            'user2_only': sum(1 for x in comparison if x['status'] == 'user2_only'),
+        }
+    })
+
+
 @ldap_bp.route('/api/ldap/last-sync', methods=['GET'])
 def last_sync():
     """Date de dernière synchronisation AD (nTDSDSA.whenChanged)."""

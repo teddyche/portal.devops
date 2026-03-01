@@ -89,6 +89,45 @@ tr:hover td { background:#fff8f4; }
 /* Synchro */
 .sync-table td:first-child { font-size:11px; color:#777; word-break:break-all; }
 .sync-table td.date { font-weight:bold; color:#333; }
+
+/* ── Comparer 2 users ──────────────────────────────────────────────────────── */
+.cmp-inputs { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:6px; }
+.cmp-inputs .form-group { flex:1; min-width:160px; }
+.cmp-vs-lbl { font-size:16px; font-weight:bold; color:#ccc; padding-bottom:9px; }
+.cmp-banner { display:flex; align-items:stretch; margin:16px 0; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0; }
+.cmp-user-col { flex:1; padding:14px 18px; }
+.cmp-user-col.u1 { background:#fff8f4; }
+.cmp-user-col.u2 { background:#f0f7ff; }
+.cmp-sep { display:flex; align-items:center; justify-content:center; padding:0 16px; background:#f5f5f5; color:#bbb; font-weight:bold; font-size:14px; border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0; }
+.cmp-uname  { font-size:15px; font-weight:bold; color:#333; }
+.cmp-ucn    { font-size:12px; color:#666; margin-top:2px; }
+.cmp-umail  { font-size:11px; color:#999; margin-top:1px; }
+.cmp-ubadge { display:inline-block; margin-top:8px; font-size:11px; font-weight:bold; padding:2px 10px; border-radius:10px; }
+.u1 .cmp-ubadge { background:#ffe0cc; color:#e65100; }
+.u2 .cmp-ubadge { background:#bbdefb; color:#1565c0; }
+.cmp-stats { display:grid; grid-template-columns:repeat(4,1fr); margin-bottom:14px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; text-align:center; }
+.cmp-stat { padding:12px 6px; background:white; }
+.cmp-stat + .cmp-stat { border-left:1px solid #e0e0e0; }
+.cmp-stat .csn { font-size:22px; font-weight:bold; }
+.cmp-stat .csl { font-size:10px; color:#999; margin-top:2px; }
+.cs-total  { background:#f9f9f9; } .cs-total  .csn { color:#555; }
+.cs-common .csn { color:#388e3c; }
+.cs-u1     .csn { color:#e65100; }
+.cs-u2     .csn { color:#1565c0; }
+.cmp-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+.cmp-pill { padding:4px 14px; border-radius:20px; border:1px solid #ddd; background:white; cursor:pointer; font-size:12px; }
+.cmp-pill:hover { background:#f5f5f5; }
+.cmp-pill.on { background:#e65100; color:white; border-color:#e65100; }
+.cmp-table tr.c-common  td { background:#f9fbe7; }
+.cmp-table tr.c-u1only  td { background:#fff3e0; }
+.cmp-table tr.c-u2only  td { background:#e8f4fd; }
+.cmp-chk  { font-weight:bold; font-size:15px; }
+.c-common .cmp-chk { color:#2e7d32; }
+.c-u1only .cmp-chk { color:#e65100; }
+.c-u2only .cmp-chk { color:#1565c0; }
+.cmp-dash { color:#ddd; font-size:14px; }
+.th-u1 { color:#e65100 !important; }
+.th-u2 { color:#1565c0 !important; }
 </style>
 </head>
 <body>
@@ -141,6 +180,7 @@ tr:hover td { background:#fff8f4; }
       <div class="tab" onclick="switchTab('group-members')">📁→👤 Membres d'un groupe</div>
       <div class="tab" onclick="switchTab('computers')">💻 Ordinateurs</div>
       <div class="tab" onclick="switchTab('sync')">🔄 Synchro AD</div>
+      <div class="tab" onclick="switchTab('compare')">⚖️ Comparer users</div>
     </div>
 
     <!-- Tab: Groupes -->
@@ -228,6 +268,26 @@ tr:hover td { background:#fff8f4; }
     <div class="tab-content search-panel" id="tab-sync">
       <button class="btn-primary" onclick="fetchSync()">🔄 Récupérer la date de synchro</button>
       <div id="sync-results"></div>
+    </div>
+
+    <!-- Tab: Comparer 2 users -->
+    <div class="tab-content search-panel" id="tab-compare">
+      <div class="cmp-inputs">
+        <div class="form-group">
+          <label>Utilisateur 1</label>
+          <input type="text" id="cmp-u1" placeholder="ex: jean.dupont"
+            onkeydown="if(event.key==='Enter') compareUsers()">
+        </div>
+        <div class="cmp-vs-lbl">VS</div>
+        <div class="form-group">
+          <label>Utilisateur 2</label>
+          <input type="text" id="cmp-u2" placeholder="ex: marie.martin"
+            onkeydown="if(event.key==='Enter') compareUsers()">
+        </div>
+        <button class="btn-primary" onclick="compareUsers()">Comparer</button>
+      </div>
+      <div class="search-hint">Recherche par sAMAccountName ou CN exact — idéal pour diagnostiquer les droits manquants</div>
+      <div id="cmp-results"></div>
     </div>
 
   </div><!-- /search-interface -->
@@ -327,7 +387,7 @@ loadLdapServers();
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i === ['groups','users','user-groups','group-members','computers','sync'].indexOf(name)));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i === ['groups','users','user-groups','group-members','computers','sync','compare'].indexOf(name)));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
 }
@@ -581,6 +641,120 @@ async function fetchSync() {
     html += '</tbody></table></div></div>';
     el.innerHTML = html;
   } catch(e) { showError(el, e.message); }
+}
+
+// ── Comparer 2 users ───────────────────────────────────────────────────────
+let _cmpData = null, _cmpFilter = 'all';
+
+async function compareUsers() {
+  const u1 = document.getElementById('cmp-u1').value.trim();
+  const u2 = document.getElementById('cmp-u2').value.trim();
+  if (!u1 || !u2) return;
+  const el = document.getElementById('cmp-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/compare-users', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user1: u1, user2: u2})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _cmpData = d;
+    _cmpFilter = 'all';
+    renderCompare(el, d);
+  } catch(e) { showError(el, e.message); }
+}
+
+function renderCompare(el, d) {
+  const u1 = d.user1, u2 = d.user2, s = d.stats;
+  const pl = n => n > 1 ? 's' : '';
+
+  let html = `
+  <div class="cmp-banner">
+    <div class="cmp-user-col u1">
+      <div class="cmp-uname">👤 ${esc(u1.cn || u1.username)}</div>
+      <div class="cmp-ucn">${esc(u1.username)}</div>
+      <div class="cmp-umail">${esc(u1.email)}</div>
+      <span class="cmp-ubadge">${s.user1_only} groupe${pl(s.user1_only)} unique${pl(s.user1_only)}</span>
+    </div>
+    <div class="cmp-sep">VS</div>
+    <div class="cmp-user-col u2">
+      <div class="cmp-uname">👤 ${esc(u2.cn || u2.username)}</div>
+      <div class="cmp-ucn">${esc(u2.username)}</div>
+      <div class="cmp-umail">${esc(u2.email)}</div>
+      <span class="cmp-ubadge">${s.user2_only} groupe${pl(s.user2_only)} unique${pl(s.user2_only)}</span>
+    </div>
+  </div>
+  <div class="cmp-stats">
+    <div class="cmp-stat cs-total"><div class="csn">${s.total}</div><div class="csl">Total groupes</div></div>
+    <div class="cmp-stat cs-common"><div class="csn">${s.common}</div><div class="csl">En commun</div></div>
+    <div class="cmp-stat cs-u1"><div class="csn">${s.user1_only}</div><div class="csl">Uniq. ${esc(u1.username)}</div></div>
+    <div class="cmp-stat cs-u2"><div class="csn">${s.user2_only}</div><div class="csl">Uniq. ${esc(u2.username)}</div></div>
+  </div>
+  <div class="cmp-toolbar">
+    <span style="font-size:12px;color:#888;">Afficher :</span>
+    <button class="cmp-pill${_cmpFilter==='all'?' on':''}" onclick="setCmpFilter('all')">Tous (${s.total})</button>
+    <button class="cmp-pill${_cmpFilter==='diff'?' on':''}" onclick="setCmpFilter('diff')">⚡ Diff&eacute;rences (${s.user1_only+s.user2_only})</button>
+    <button class="cmp-pill${_cmpFilter==='common'?' on':''}" onclick="setCmpFilter('common')">Communs (${s.common})</button>
+    <button class="btn-copy" style="margin-left:auto;" onclick="copyCmpCSV()">📋 Copier CSV</button>
+  </div>`;
+
+  const rows = d.comparison.filter(r =>
+    _cmpFilter === 'diff'   ? r.status !== 'common' :
+    _cmpFilter === 'common' ? r.status === 'common'  : true
+  );
+
+  if (!rows.length) {
+    html += '<div class="no-results">Aucun r\u00e9sultat pour ce filtre</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  const trim = (s, n) => s.length > n ? s.slice(0, n-1) + '\u2026' : s;
+  const th1 = trim(u1.username, 20);
+  const th2 = trim(u2.username, 20);
+
+  html += `<div class="table-wrap"><table class="cmp-table">
+    <thead><tr>
+      <th>Groupe AD</th>
+      <th class="th-u1" title="${esc(u1.cn)}" style="text-align:center;min-width:110px;">👤 ${esc(th1)}</th>
+      <th class="th-u2" title="${esc(u2.cn)}" style="text-align:center;min-width:110px;">👤 ${esc(th2)}</th>
+    </tr></thead><tbody>`;
+
+  for (const r of rows) {
+    const cls = r.status === 'common' ? 'c-common' : (r.status === 'user1_only' ? 'c-u1only' : 'c-u2only');
+    const c1 = r.in_user1 ? '<span class="cmp-chk">\u2713</span>' : '<span class="cmp-dash">\u2014</span>';
+    const c2 = r.in_user2 ? '<span class="cmp-chk">\u2713</span>' : '<span class="cmp-dash">\u2014</span>';
+    html += `<tr class="${cls}">
+      <td><strong>${esc(r.cn)}</strong></td>
+      <td style="text-align:center;">${c1}</td>
+      <td style="text-align:center;">${c2}</td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function setCmpFilter(f) {
+  _cmpFilter = f;
+  if (_cmpData) renderCompare(document.getElementById('cmp-results'), _cmpData);
+}
+
+function copyCmpCSV() {
+  if (!_cmpData) return;
+  const d = _cmpData;
+  const lines = [
+    ['Groupe', d.user1.username, d.user2.username, 'Statut'].join('\t'),
+    ...d.comparison.map(r => [
+      r.cn,
+      r.in_user1 ? '\u2713' : '',
+      r.in_user2 ? '\u2713' : '',
+      r.status === 'common'     ? 'Commun'
+        : r.status === 'user1_only' ? `Uniq. ${d.user1.username}`
+        : `Uniq. ${d.user2.username}`
+    ].join('\t'))
+  ].join('\n');
+  navigator.clipboard.writeText(lines).then(() => alert('CSV copi\u00e9 dans le presse-papier !'));
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
