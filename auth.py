@@ -1,17 +1,33 @@
 from flask import Blueprint, request, session, redirect, jsonify, g, send_file, abort
 import json
 import os
+import time
+import base64
 import urllib.parse
 import secrets
 from datetime import datetime
 
 import bcrypt
 import requests as http_requests
+from cryptography.hazmat.primitives.asymmetric import padding as _asym_padding
+from cryptography.hazmat.primitives import hashes as _hashes
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.backends import default_backend
 
 auth_bp = Blueprint('auth', __name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AUTH_DIR = os.path.join(BASE_DIR, 'datas', 'auth')
+
+# === Rate limiting (in-memory, reset au redémarrage) ===
+_login_attempts = {}   # {username: {'count', 'locked_until', 'window_start'}}
+_MAX_ATTEMPTS  = 5
+_LOCKOUT_SEC   = 900   # 15 minutes
+_WINDOW_SEC    = 300   # fenêtre de 5 minutes
+
+# === Cache JWKS ===
+_jwks_cache = {}       # {uri: (jwks_dict, fetched_at)}
+_JWKS_TTL   = 3600    # 1 heure
 
 def _load(name):
     path = os.path.join(AUTH_DIR, name)
@@ -76,6 +92,120 @@ def is_admin(user_id):
         for m in t.get('members', [])
         if m['user_id'] == user_id
     )
+
+
+# === SSL verify ===
+
+def get_ssl_verify():
+    """Retourne la valeur ssl_verify depuis datas/auth/config.json (True par défaut).
+    Accepte True, False, ou un chemin vers un CA bundle."""
+    return get_auth_config().get('ssl_verify', True)
+
+
+# === JWT / JWKS ===
+
+def _b64url_decode(s):
+    return base64.urlsafe_b64decode(s + '=' * (-len(s) % 4))
+
+
+def _fetch_jwks(uri):
+    now = time.time()
+    cached = _jwks_cache.get(uri)
+    if cached and now - cached[1] < _JWKS_TTL:
+        return cached[0]
+    resp = http_requests.get(uri, timeout=10, verify=get_ssl_verify())
+    resp.raise_for_status()
+    jwks = resp.json()
+    _jwks_cache[uri] = (jwks, now)
+    return jwks
+
+
+def verify_id_token(id_token, adfs_config):
+    """Vérifie la signature RS256 du JWT ADFS via JWKS et retourne les claims."""
+    parts = id_token.split('.')
+    if len(parts) != 3:
+        raise ValueError('Format JWT invalide')
+
+    header  = json.loads(_b64url_decode(parts[0]))
+    payload = json.loads(_b64url_decode(parts[1]))
+    sig     = _b64url_decode(parts[2])
+
+    if header.get('alg') != 'RS256':
+        raise ValueError(f'Algorithme non supporté : {header.get("alg")}')
+
+    # Détermine l'URI JWKS (override explicite ou découverte OIDC)
+    jwks_uri = adfs_config.get('jwks_uri')
+    if not jwks_uri:
+        authority = adfs_config['authority'].rstrip('/')
+        try:
+            disc = http_requests.get(
+                f'{authority}/.well-known/openid-configuration',
+                timeout=10, verify=get_ssl_verify()
+            ).json()
+            jwks_uri = disc['jwks_uri']
+        except Exception:
+            jwks_uri = f'{authority}/adfs/discovery/keys'
+
+    jwks = _fetch_jwks(jwks_uri)
+    kid  = header.get('kid')
+    keys = jwks.get('keys', [])
+    key_data = next((k for k in keys if k.get('kid') == kid), None)
+    if key_data is None and len(keys) == 1:
+        key_data = keys[0]
+    if key_data is None:
+        raise ValueError(f'Clé JWKS introuvable (kid={kid})')
+
+    n = int.from_bytes(_b64url_decode(key_data['n']), 'big')
+    e = int.from_bytes(_b64url_decode(key_data['e']), 'big')
+    pub_key = RSAPublicNumbers(e, n).public_key(default_backend())
+    pub_key.verify(
+        sig,
+        f'{parts[0]}.{parts[1]}'.encode(),
+        _asym_padding.PKCS1v15(),
+        _hashes.SHA256()
+    )
+
+    now = time.time()
+    if payload.get('exp', now + 1) < now:
+        raise ValueError('Token expiré')
+
+    client_id = adfs_config.get('client_id', '')
+    aud = payload.get('aud', '')
+    if isinstance(aud, list):
+        if client_id and client_id not in aud:
+            raise ValueError('Audience invalide')
+    elif aud and client_id and aud != client_id:
+        raise ValueError('Audience invalide')
+
+    return payload
+
+
+# === Rate limiting ===
+
+def _rl_check(username):
+    """Retourne (allowed: bool, retry_after_seconds: int)."""
+    now = time.time()
+    e = _login_attempts.get(username, {})
+    if now < e.get('locked_until', 0):
+        return False, int(e['locked_until'] - now)
+    if now - e.get('window_start', now) > _WINDOW_SEC:
+        _login_attempts.pop(username, None)
+    return True, 0
+
+
+def _rl_fail(username):
+    now = time.time()
+    e = _login_attempts.get(username, {})
+    if not e or now - e.get('window_start', now) > _WINDOW_SEC:
+        e = {'count': 0, 'locked_until': 0, 'window_start': now}
+    e['count'] += 1
+    if e['count'] >= _MAX_ATTEMPTS:
+        e['locked_until'] = now + _LOCKOUT_SEC
+    _login_attempts[username] = e
+
+
+def _rl_success(username):
+    _login_attempts.pop(username, None)
 
 
 # === Public routes ===
@@ -159,15 +289,24 @@ def local_login():
     username = body.get('username', '').strip()
     password = body.get('password', '')
 
+    allowed, retry_after = _rl_check(username)
+    if not allowed:
+        minutes = max(1, retry_after // 60)
+        return jsonify({'error': f'Compte verrouillé. Réessayez dans {minutes} minute(s).'}), 429
+
     config = get_auth_config()
     local = config.get('local_admin', {})
 
     if username != local.get('username', ''):
+        _rl_fail(username)
         return jsonify({'error': 'Identifiants invalides'}), 401
 
     stored_hash = local.get('password_hash', '')
     if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+        _rl_fail(username)
         return jsonify({'error': 'Identifiants invalides'}), 401
+
+    _rl_success(username)
 
     # Ensure admin user exists
     users = get_users()
@@ -240,7 +379,7 @@ def adfs_callback():
             'client_secret': adfs.get('client_secret', ''),
             'code': code,
             'redirect_uri': adfs['redirect_uri']
-        }, timeout=15, verify=False)
+        }, timeout=15, verify=get_ssl_verify())
 
         if resp.status_code != 200:
             return redirect('/login?error=token_exchange_failed')
@@ -248,15 +387,11 @@ def adfs_callback():
         tokens = resp.json()
         id_token = tokens.get('id_token', '')
 
-        # Decode ID token (no signature verification for now — ADFS is trusted)
-        import base64
-        parts = id_token.split('.')
-        if len(parts) >= 2:
-            payload = parts[1]
-            payload += '=' * (4 - len(payload) % 4)
-            claims = json.loads(base64.urlsafe_b64decode(payload))
-        else:
-            return redirect('/login?error=invalid_token')
+        # Vérifie la signature RS256 via JWKS et valide les claims
+        try:
+            claims = verify_id_token(id_token, adfs)
+        except Exception as jwt_err:
+            return redirect('/login?error=' + urllib.parse.quote(f'JWT invalide : {jwt_err}'))
 
     except Exception:
         return redirect('/login?error=adfs_error')

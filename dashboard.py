@@ -8,6 +8,7 @@ from datetime import date, datetime
 
 import requests as http_requests
 from crypto import encrypt_token, decrypt_token, mask_token
+from auth import get_ssl_verify
 
 app = Flask(__name__, static_folder='img', static_url_path='/img')
 
@@ -524,7 +525,7 @@ def api_cancel_pssit_schedule(app_id, schedule_id):
                 http_requests.delete(
                     f'{awx_url}/api/v2/schedules/{awx_sid}/',
                     headers={'Authorization': f'Bearer {awx_token}'},
-                    timeout=15, verify=False
+                    timeout=15, verify=env_config.get('ssl_verify', get_ssl_verify())
                 )
             except Exception:
                 pass
@@ -578,7 +579,7 @@ def api_pssit_launch(app_id, env_id):
             f'{awx_url}/api/v2/workflow_job_templates/{template_id}/launch/',
             headers={'Authorization': f'Bearer {awx_token}', 'Content-Type': 'application/json'},
             json={'extra_vars': json.dumps(extra_vars)} if extra_vars else {},
-            timeout=30, verify=False
+            timeout=30, verify=env_config.get('ssl_verify', get_ssl_verify())
         )
         if resp.status_code in (200, 201):
             job_data = resp.json()
@@ -612,7 +613,7 @@ def api_pssit_job_status(app_id, env_id, awx_job_id):
         resp = http_requests.get(
             f'{awx_url}/api/v2/workflow_jobs/{awx_job_id}/',
             headers={'Authorization': f'Bearer {awx_token}'},
-            timeout=15, verify=False
+            timeout=15, verify=env_config.get('ssl_verify', get_ssl_verify())
         )
         if resp.status_code == 200:
             job = resp.json()
@@ -673,7 +674,7 @@ def api_pssit_schedule(app_id, env_id):
                 'rrule': f'DTSTART:{dtstart} RRULE:FREQ=MINUTELY;INTERVAL=1;COUNT=1',
                 'extra_data': env_config.get('extraParams', {})
             },
-            timeout=30, verify=False
+            timeout=30, verify=env_config.get('ssl_verify', get_ssl_verify())
         )
         if resp.status_code in (200, 201):
             awx_data = resp.json()
@@ -723,7 +724,7 @@ def api_pssit_artifacts(app_id, env_id):
             api_path,
             headers={'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token},
             params={'list': '', 'deep': '0', 'listFolders': '0'},
-            timeout=15, verify=False
+            timeout=15, verify=env_config.get('ssl_verify', get_ssl_verify())
         )
         if resp.status_code == 200:
             data = resp.json()
