@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LDAP Checker — AppOps</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:Arial,sans-serif; background:#f5f5f5; padding:20px; padding-top:52px; }
+.container { max-width:1100px; margin:0 auto; }
+
+/* Header */
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+.page-header h1 { font-size:22px; color:#333; }
+.ldap-session { font-size:13px; color:#555; display:flex; align-items:center; gap:10px; }
+.ldap-session span { font-weight:bold; color:#e65100; }
+.btn-sm { padding:4px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px; }
+.btn-logout-ldap { background:#ef9a9a; color:#b71c1c; }
+.btn-logout-ldap:hover { background:#e57373; }
+
+/* Login panel */
+#login-panel { background:white; border-radius:12px; padding:28px 32px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1); border-top:4px solid #e65100;
+    max-width:440px; margin:40px auto; }
+#login-panel h2 { color:#e65100; margin-bottom:20px; font-size:18px; }
+.form-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+.form-group { display:flex; flex-direction:column; gap:4px; flex:1; min-width:150px; }
+.form-group label { font-size:12px; font-weight:bold; color:#555; }
+.form-group input { padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+.form-group input:focus { outline:none; border-color:#e65100; }
+.btn-primary { background:#e65100; color:white; padding:8px 18px;
+    border:none; border-radius:6px; cursor:pointer; font-size:14px; white-space:nowrap; }
+.btn-primary:hover { background:#bf360c; }
+.btn-primary:disabled { background:#ccc; cursor:not-allowed; }
+.login-error { color:#c62828; font-size:13px; margin-top:10px; }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; margin-bottom:0; flex-wrap:wrap; }
+.tab { padding:8px 18px; background:white; border:1px solid #ddd; border-bottom:none;
+    border-radius:8px 8px 0 0; cursor:pointer; font-size:13px; color:#666;
+    transition:background .15s, color .15s; }
+.tab:hover { background:#fff3e0; color:#e65100; }
+.tab.active { background:#e65100; color:white; border-color:#e65100; font-weight:bold; }
+
+/* Search panel */
+.search-panel { background:white; border-radius:0 8px 8px 8px; padding:24px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+.search-bar { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:6px; }
+.search-bar .form-group { min-width:200px; flex:2; }
+.search-bar .form-group.narrow { flex:1; min-width:140px; }
+.search-bar input, .search-bar select {
+    padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; width:100%; }
+.search-bar input:focus, .search-bar select:focus { outline:none; border-color:#e65100; }
+.search-hint { font-size:11px; color:#999; margin-bottom:16px; }
+
+/* Results */
+.results-header { display:flex; align-items:center; justify-content:space-between;
+    margin:20px 0 10px; }
+.results-count { font-size:13px; color:#555; }
+.results-count strong { color:#e65100; }
+.btn-copy { background:#fff; border:1px solid #ccc; padding:5px 14px;
+    border-radius:4px; cursor:pointer; font-size:12px; }
+.btn-copy:hover { background:#f5f5f5; }
+
+/* Table */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:#f5f5f5; padding:9px 12px; text-align:left;
+    font-weight:bold; color:#444; border-bottom:2px solid #e65100; white-space:nowrap; }
+td { padding:8px 12px; border-bottom:1px solid #eee; vertical-align:middle; }
+tr:hover td { background:#fff8f4; }
+.disabled-row td { color:#aaa; font-style:italic; }
+.badge-disabled { background:#ffcdd2; color:#c62828; font-size:10px;
+    padding:2px 6px; border-radius:10px; font-weight:bold; margin-left:6px; }
+.badge-count { background:#e3f2fd; color:#1565c0; font-size:10px;
+    padding:2px 7px; border-radius:10px; font-weight:bold; }
+.dn-cell { font-size:11px; color:#999; max-width:280px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+.dn-cell:hover { color:#e65100; }
+.no-results { padding:28px; text-align:center; color:#999; font-size:14px; }
+.loading { padding:28px; text-align:center; color:#e65100; font-size:14px; }
+.error-box { background:#ffebee; color:#c62828; padding:14px 18px;
+    border-radius:6px; font-size:13px; margin-top:14px; }
+
+/* Tabs content */
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* Synchro */
+.sync-table td:first-child { font-size:11px; color:#777; word-break:break-all; }
+.sync-table td.date { font-weight:bold; color:#333; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>🔍 LDAP Checker</h1>
+    <div class="ldap-session" id="ldap-session-info" style="display:none">
+      Connecté en tant que : <span id="ldap-username-label"></span>
+      <button class="btn-sm btn-logout-ldap" onclick="ldapLogout()">Changer de compte</button>
+    </div>
+  </div>
+
+  <!-- Login panel -->
+  <div id="login-panel">
+    <h2>Connexion Active Directory</h2>
+    <p style="font-size:13px;color:#777;margin-bottom:16px;">
+      Entrez vos identifiants AD pour effectuer des recherches LDAP.
+      Ils sont utilisés uniquement pour cette session.
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nom d'utilisateur AD</label>
+        <input type="text" id="ldap-user-input" placeholder="prenom.nom" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Mot de passe</label>
+        <input type="password" id="ldap-pass-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" id="btn-login" onclick="ldapLogin()">Connexion</button>
+    </div>
+    <div id="login-error" class="login-error" style="display:none"></div>
+  </div>
+
+  <!-- Main search interface (hidden until LDAP auth) -->
+  <div id="search-interface" style="display:none">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('groups')">📁 Groupes</div>
+      <div class="tab" onclick="switchTab('users')">👤 Utilisateurs</div>
+      <div class="tab" onclick="switchTab('user-groups')">👤→📁 Groupes d'un user</div>
+      <div class="tab" onclick="switchTab('group-members')">📁→👤 Membres d'un groupe</div>
+      <div class="tab" onclick="switchTab('computers')">💻 Ordinateurs</div>
+      <div class="tab" onclick="switchTab('sync')">🔄 Synchro AD</div>
+    </div>
+
+    <!-- Tab: Groupes -->
+    <div class="tab-content active search-panel" id="tab-groups">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>Pattern CN (wildcards * supportés)</label>
+          <input type="text" id="groups-pattern" placeholder="ex: G_ZOE_ORG_*CLP* ou *ADMIN*"
+            onkeydown="if(event.key==='Enter') searchGroups()">
+        </div>
+        <button class="btn-primary" onclick="searchGroups()">Rechercher</button>
+      </div>
+      <div class="search-hint">Exemples : <code>G_*CLP*</code> · <code>*_ADMIN_*</code> · <code>G_ZOE_ORG_*</code></div>
+      <div id="groups-results"></div>
+    </div>
+
+    <!-- Tab: Utilisateurs -->
+    <div class="tab-content search-panel" id="tab-users">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>Pattern (wildcards * supportés)</label>
+          <input type="text" id="users-pattern" placeholder="ex: Dupont ou *martin* ou *@domain.com"
+            onkeydown="if(event.key==='Enter') searchUsers()">
+        </div>
+        <div class="form-group narrow">
+          <label>Rechercher par</label>
+          <select id="users-by">
+            <option value="all">Tous les champs</option>
+            <option value="cn">Nom complet (CN)</option>
+            <option value="username">Identifiant (sAMAccountName)</option>
+            <option value="email">Email</option>
+            <option value="lastname">Nom de famille</option>
+            <option value="firstname">Prénom</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="searchUsers()">Rechercher</button>
+      </div>
+      <div class="search-hint">Exemples : <code>*dupont*</code> · <code>jean.du*</code> · <code>*@domain.com</code></div>
+      <div id="users-results"></div>
+    </div>
+
+    <!-- Tab: Groupes d'un user -->
+    <div class="tab-content search-panel" id="tab-user-groups">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>Identifiant ou CN de l'utilisateur</label>
+          <input type="text" id="user-groups-input" placeholder="ex: jean.dupont ou Jean Dupont"
+            onkeydown="if(event.key==='Enter') searchUserGroups()">
+        </div>
+        <button class="btn-primary" onclick="searchUserGroups()">Rechercher</button>
+      </div>
+      <div class="search-hint">Recherche par sAMAccountName ou CN exact</div>
+      <div id="user-groups-results"></div>
+    </div>
+
+    <!-- Tab: Membres d'un groupe -->
+    <div class="tab-content search-panel" id="tab-group-members">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>CN exact du groupe</label>
+          <input type="text" id="group-members-input" placeholder="ex: G_ZOE_ORG_CLP_ADMIN"
+            onkeydown="if(event.key==='Enter') searchGroupMembers()">
+        </div>
+        <button class="btn-primary" onclick="searchGroupMembers()">Rechercher</button>
+      </div>
+      <div class="search-hint">Entrez le CN exact du groupe (ou avec wildcard * pour le trouver d'abord dans l'onglet Groupes)</div>
+      <div id="group-members-results"></div>
+    </div>
+
+    <!-- Tab: Ordinateurs -->
+    <div class="tab-content search-panel" id="tab-computers">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>Pattern CN (wildcards * supportés)</label>
+          <input type="text" id="computers-pattern" placeholder="ex: SRV-* ou *-PROD-*"
+            onkeydown="if(event.key==='Enter') searchComputers()">
+        </div>
+        <button class="btn-primary" onclick="searchComputers()">Rechercher</button>
+      </div>
+      <div class="search-hint">Exemples : <code>SRV-*</code> · <code>*-LINUX-*</code> · <code>WS-DUPONT*</code></div>
+      <div id="computers-results"></div>
+    </div>
+
+    <!-- Tab: Synchro -->
+    <div class="tab-content search-panel" id="tab-sync">
+      <button class="btn-primary" onclick="fetchSync()">🔄 Récupérer la date de synchro</button>
+      <div id="sync-results"></div>
+    </div>
+
+  </div><!-- /search-interface -->
+</div><!-- /container -->
+
+<script>
+// ── Barre portail ──────────────────────────────────────────────────────────
+(async function(){
+  try {
+    const r = await fetch('/api/auth/me');
+    if (!r.ok) return;
+    const u = await r.json();
+    window._csrf = u.csrf_token || '';
+    const _orig = window.fetch;
+    window.fetch = function(url, opts) {
+      opts = opts || {};
+      if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase()))
+        opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+      return _orig.call(this, url, opts);
+    };
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;padding:0 16px;font-size:13px;z-index:9999;gap:12px;justify-content:space-between;';
+    bar.innerHTML = '<a href="/" style="color:#fff;text-decoration:none;font-weight:bold;">← AppOps</a>'
+      + '<span style="display:flex;gap:12px;align-items:center;">'
+      + '<span>' + u.display_name + '</span>'
+      + (u.role==='superadmin'||u.is_admin ? '<a href="/auth-admin" style="color:#ffc107;text-decoration:none;">Admin Auth</a>' : '')
+      + '<a href="/auth/logout" style="color:#ff6b6b;text-decoration:none;">Déconnexion</a>'
+      + '</span>';
+    document.body.prepend(bar);
+  } catch(e){}
+})();
+
+// ── LDAP auth ──────────────────────────────────────────────────────────────
+async function checkLdapAuth() {
+  try {
+    const r = await fetch('/api/ldap/check-auth');
+    const d = await r.json();
+    if (d.authenticated) showInterface(d.username);
+    else showLogin();
+  } catch(e) { showLogin(); }
+}
+
+function showLogin() {
+  document.getElementById('login-panel').style.display = '';
+  document.getElementById('search-interface').style.display = 'none';
+  document.getElementById('ldap-session-info').style.display = 'none';
+}
+
+function showInterface(username) {
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('search-interface').style.display = '';
+  document.getElementById('ldap-session-info').style.display = '';
+  document.getElementById('ldap-username-label').textContent = username;
+}
+
+async function ldapLogin() {
+  const username = document.getElementById('ldap-user-input').value.trim();
+  const password = document.getElementById('ldap-pass-input').value;
+  const btn = document.getElementById('btn-login');
+  const errDiv = document.getElementById('login-error');
+  if (!username || !password) { errDiv.textContent = 'Remplissez les deux champs.'; errDiv.style.display=''; return; }
+  btn.disabled = true; btn.textContent = 'Connexion…';
+  errDiv.style.display = 'none';
+  try {
+    const r = await fetch('/api/ldap/auth', {
+      method: 'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const d = await r.json();
+    if (d.success) { showInterface(d.username); document.getElementById('ldap-pass-input').value=''; }
+    else { errDiv.textContent = d.error || 'Identifiants invalides'; errDiv.style.display=''; }
+  } catch(e) { errDiv.textContent = 'Erreur réseau'; errDiv.style.display=''; }
+  btn.disabled = false; btn.textContent = 'Connexion';
+}
+
+async function ldapLogout() {
+  await fetch('/api/ldap/logout', {method:'POST'});
+  showLogin();
+}
+
+document.getElementById('ldap-pass-input').addEventListener('keydown', e => { if(e.key==='Enter') ldapLogin(); });
+document.getElementById('ldap-user-input').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('ldap-pass-input').focus(); });
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i === ['groups','users','user-groups','group-members','computers','sync'].indexOf(name)));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Helpers rendus ─────────────────────────────────────────────────────────
+function loading(el) { el.innerHTML = '<div class="loading">⏳ Recherche en cours…</div>'; }
+function showError(el, msg) { el.innerHTML = `<div class="error-box">❌ ${esc(msg)}</div>`; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function noRes(el) { el.innerHTML = '<div class="no-results">Aucun résultat</div>'; }
+
+function resultHeader(count, csvFn) {
+  return `<div class="results-header">
+    <div class="results-count"><strong>${count}</strong> résultat${count>1?'s':''}</div>
+    ${count>0 ? `<button class="btn-copy" onclick="${csvFn}">📋 Copier CSV</button>` : ''}
+  </div>`;
+}
+
+function copyCSV(headers, rows) {
+  const csv = [headers.join('\t'), ...rows.map(r=>r.join('\t'))].join('\n');
+  navigator.clipboard.writeText(csv).then(()=>alert('CSV copié dans le presse-papier !'));
+}
+
+function copyDN(dn) {
+  navigator.clipboard.writeText(dn).then(()=>{ /* silencieux */ });
+}
+
+function fmtDate(s) {
+  if (!s || s.length < 8) return s || '—';
+  // Format LDAP: 20231115143022.0Z
+  const m = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+  if (!m) return s;
+  return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+}
+
+// ── Groupes ────────────────────────────────────────────────────────────────
+let _lastGroups = [];
+async function searchGroups() {
+  const pattern = document.getElementById('groups-pattern').value.trim();
+  if (!pattern) return;
+  const el = document.getElementById('groups-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/search/groups', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pattern})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _lastGroups = d.results;
+    if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
+    let html = resultHeader(d.count, 'copyGroupsCSV()');
+    html += '<div class="table-wrap"><table><thead><tr>'
+      + '<th>CN</th><th>Description</th><th>Membres</th><th>Responsable</th><th title="Cliquer pour copier le DN">DN</th>'
+      + '</tr></thead><tbody>';
+    for (const g of d.results) {
+      html += `<tr>
+        <td><strong>${esc(g.cn)}</strong></td>
+        <td>${esc(g.description)}</td>
+        <td><span class="badge-count">${g.member_count}</span></td>
+        <td>${esc(g.managed_by)}</td>
+        <td class="dn-cell" title="${esc(g.dn)}" onclick="copyDN('${esc(g.dn)}')">${esc(g.dn)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+function copyGroupsCSV() {
+  copyCSV(['CN','Description','Membres','Responsable','DN'],
+    _lastGroups.map(g=>[g.cn,g.description,g.member_count,g.managed_by,g.dn]));
+}
+
+// ── Utilisateurs ───────────────────────────────────────────────────────────
+let _lastUsers = [];
+async function searchUsers() {
+  const pattern = document.getElementById('users-pattern').value.trim();
+  const by = document.getElementById('users-by').value;
+  if (!pattern) return;
+  const el = document.getElementById('users-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/search/users', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pattern, by})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _lastUsers = d.results;
+    if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
+    let html = resultHeader(d.count, 'copyUsersCSV()');
+    html += '<div class="table-wrap"><table><thead><tr>'
+      + '<th>Nom complet</th><th>Identifiant</th><th>Email</th><th>Département</th><th>Poste</th><th>Tél.</th><th>Créé le</th><th>DN</th>'
+      + '</tr></thead><tbody>';
+    for (const u of d.results) {
+      const disClass = u.disabled ? ' class="disabled-row"' : '';
+      html += `<tr${disClass}>
+        <td><strong>${esc(u.cn)}</strong>${u.disabled ? '<span class="badge-disabled">DÉSACTIVÉ</span>' : ''}</td>
+        <td>${esc(u.username)}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.department)}</td>
+        <td>${esc(u.title)}</td>
+        <td>${esc(u.phone||u.mobile)}</td>
+        <td>${fmtDate(u.created)}</td>
+        <td class="dn-cell" title="${esc(u.dn)}" onclick="copyDN('${esc(u.dn)}')">${esc(u.dn)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+function copyUsersCSV() {
+  copyCSV(['Nom complet','Identifiant','Email','Département','Poste','Téléphone','Créé le','Désactivé','DN'],
+    _lastUsers.map(u=>[u.cn,u.username,u.email,u.department,u.title,u.phone||u.mobile,fmtDate(u.created),u.disabled?'OUI':'',u.dn]));
+}
+
+// ── Groupes d'un user ──────────────────────────────────────────────────────
+let _lastUserGroups = [];
+async function searchUserGroups() {
+  const username = document.getElementById('user-groups-input').value.trim();
+  if (!username) return;
+  const el = document.getElementById('user-groups-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/search/user-groups', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _lastUserGroups = d.groups;
+    if (!d.user) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
+    let html = `<div style="background:#fff8f4;border-left:3px solid #e65100;padding:10px 14px;margin:16px 0;border-radius:0 6px 6px 0;font-size:13px;">
+      👤 <strong>${esc(d.user.cn)}</strong> · ${esc(d.user.username)} · ${esc(d.user.email)}
+    </div>`;
+    html += resultHeader(d.count, 'copyUserGroupsCSV()');
+    if (!d.count) { el.innerHTML = html + '<div class="no-results">Aucun groupe</div>'; return; }
+    html += '<div class="table-wrap"><table><thead><tr><th>CN du groupe</th><th>DN complet</th></tr></thead><tbody>';
+    for (const g of d.groups) {
+      html += `<tr>
+        <td><strong>${esc(g.cn)}</strong></td>
+        <td class="dn-cell" title="${esc(g.dn)}" onclick="copyDN('${esc(g.dn)}')">${esc(g.dn)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+function copyUserGroupsCSV() {
+  copyCSV(['CN','DN'], _lastUserGroups.map(g=>[g.cn, g.dn]));
+}
+
+// ── Membres d'un groupe ────────────────────────────────────────────────────
+let _lastMembers = [];
+async function searchGroupMembers() {
+  const group = document.getElementById('group-members-input').value.trim();
+  if (!group) return;
+  const el = document.getElementById('group-members-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/search/group-members', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({group})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _lastMembers = d.members || [];
+    if (!d.group) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
+    let html = `<div style="background:#fff8f4;border-left:3px solid #e65100;padding:10px 14px;margin:16px 0;border-radius:0 6px 6px 0;font-size:13px;">
+      📁 <strong>${esc(d.group.cn)}</strong>${d.group.description ? ' — ' + esc(d.group.description) : ''}
+    </div>`;
+    html += resultHeader(d.count, 'copyMembersCSV()');
+    if (!d.count) { el.innerHTML = html + '<div class="no-results">Aucun membre direct</div>'; return; }
+    html += '<div class="table-wrap"><table><thead><tr>'
+      + '<th>Nom complet</th><th>Identifiant</th><th>Email</th><th>Département</th><th>Poste</th>'
+      + '</tr></thead><tbody>';
+    for (const m of d.members) {
+      const disClass = m.disabled ? ' class="disabled-row"' : '';
+      html += `<tr${disClass}>
+        <td><strong>${esc(m.cn)}</strong>${m.disabled ? '<span class="badge-disabled">DÉSACTIVÉ</span>' : ''}</td>
+        <td>${esc(m.username)}</td>
+        <td>${esc(m.email)}</td>
+        <td>${esc(m.department)}</td>
+        <td>${esc(m.title)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+function copyMembersCSV() {
+  copyCSV(['Nom complet','Identifiant','Email','Département','Poste','Désactivé'],
+    _lastMembers.map(m=>[m.cn,m.username,m.email,m.department,m.title,m.disabled?'OUI':'']));
+}
+
+// ── Ordinateurs ────────────────────────────────────────────────────────────
+let _lastComputers = [];
+async function searchComputers() {
+  const pattern = document.getElementById('computers-pattern').value.trim();
+  if (!pattern) return;
+  const el = document.getElementById('computers-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/search/computers', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pattern})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _lastComputers = d.results;
+    if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
+    let html = resultHeader(d.count, 'copyComputersCSV()');
+    html += '<div class="table-wrap"><table><thead><tr>'
+      + '<th>Nom</th><th>Système</th><th>Version</th><th>Description</th><th>Créé le</th><th>DN</th>'
+      + '</tr></thead><tbody>';
+    for (const c of d.results) {
+      html += `<tr>
+        <td><strong>${esc(c.cn)}</strong></td>
+        <td>${esc(c.os)}</td>
+        <td>${esc(c.os_version)}</td>
+        <td>${esc(c.description)}</td>
+        <td>${fmtDate(c.created)}</td>
+        <td class="dn-cell" title="${esc(c.dn)}" onclick="copyDN('${esc(c.dn)}')">${esc(c.dn)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+function copyComputersCSV() {
+  copyCSV(['Nom','Système','Version','Description','Créé le','DN'],
+    _lastComputers.map(c=>[c.cn,c.os,c.os_version,c.description,fmtDate(c.created),c.dn]));
+}
+
+// ── Synchro AD ─────────────────────────────────────────────────────────────
+async function fetchSync() {
+  const el = document.getElementById('sync-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/last-sync');
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    if (!d.count) { noRes(el); return; }
+    let html = `<div style="margin-top:16px;"><p style="font-size:13px;color:#555;margin-bottom:10px;">${d.count} contrôleur(s) de domaine trouvé(s)</p>`;
+    html += '<div class="table-wrap"><table class="sync-table"><thead><tr><th>Contrôleur (DN)</th><th>Dernière modification</th></tr></thead><tbody>';
+    for (const e of d.results) {
+      html += `<tr>
+        <td>${esc(e.dn)}</td>
+        <td class="date">${fmtDate(e.whenChanged)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div></div>';
+    el.innerHTML = html;
+  } catch(e) { showError(el, e.message); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+checkLdapAuth();
+</script>
+</body>
+</html>

@@ -37,8 +37,8 @@ def landing():
 
 
 @pages_bp.route('/ldap-checker')
-def placeholder():
-    return _page('placeholder.html')
+def ldap_checker():
+    return _page('ldap_checker.html')
 
 
 @pages_bp.route('/admin')
