@@ -6,8 +6,11 @@ Les valeurs chiffrées sont préfixées par 'enc:' pour distinguer
 les tokens existants en clair (rétrocompatibilité).
 """
 import hashlib
+import logging
 import base64
 from cryptography.fernet import Fernet, InvalidToken
+
+logger = logging.getLogger(__name__)
 
 _PREFIX = 'enc:'
 
@@ -32,7 +35,8 @@ def decrypt_token(value: str, secret_key: str) -> str:
     try:
         f = _get_fernet(secret_key)
         return f.decrypt(value[len(_PREFIX):].encode()).decode()
-    except (InvalidToken, Exception):
+    except (InvalidToken, Exception) as e:
+        logger.warning('decrypt_token : déchiffrement échoué (clé incorrecte ou token corrompu) : %s', e)
         return ''
 
 

@@ -1,11 +1,14 @@
 from flask import Blueprint, request, session, redirect, jsonify, g, send_file, abort
 import json
+import logging
 import os
 import time
 import base64
 import urllib.parse
 import secrets
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 import bcrypt
 import requests as http_requests
@@ -143,7 +146,8 @@ def verify_id_token(id_token, adfs_config):
                 timeout=10, verify=get_ssl_verify()
             ).json()
             jwks_uri = disc['jwks_uri']
-        except Exception:
+        except Exception as e:
+            logger.warning('Découverte JWKS via openid-configuration a échoué (%s), fallback sur /adfs/discovery/keys : %s', authority, e)
             jwks_uri = f'{authority}/adfs/discovery/keys'
 
     jwks = _fetch_jwks(jwks_uri)

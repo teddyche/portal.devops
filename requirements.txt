@@ -2,3 +2,6 @@ flask
 requests
 bcrypt
 cryptography
+pytest
+pytest-flask
+pytest-mock
