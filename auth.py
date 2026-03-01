@@ -82,6 +82,8 @@ def is_admin(user_id):
 
 PUBLIC_PREFIXES = ('/login', '/auth/', '/img/', '/api/auth/config')
 
+_CSRF_METHODS = {'POST', 'PUT', 'DELETE'}
+
 @auth_bp.before_app_request
 def require_auth():
     path = request.path
@@ -103,6 +105,18 @@ def require_auth():
         return redirect('/login')
 
     g.current_user = user
+
+    # Génère un token CSRF par session si absent
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_hex(32)
+
+    # Validation CSRF pour les méthodes mutantes
+    if request.method in _CSRF_METHODS:
+        token_header = request.headers.get('X-CSRF-Token', '')
+        if not token_header or token_header != session.get('csrf_token', ''):
+            if path.startswith('/api/'):
+                return jsonify({'error': 'CSRF token invalide'}), 403
+            return redirect('/login')
 
     # Resource-level access for module routes
     if path.startswith('/cluster/') or path.startswith('/api/cluster/'):
@@ -320,7 +334,8 @@ def api_me():
         'is_admin': is_admin(user_id),
         'teams': [{'id': t['id'], 'name': t['name'], 'role': next((m['role'] for m in t.get('members', []) if m['user_id'] == user_id), 'member')} for t in teams],
         'resources': resources,
-        'modules': list(set(r['module'] for r in resources)) if resources is not None else None
+        'modules': list(set(r['module'] for r in resources)) if resources is not None else None,
+        'csrf_token': session.get('csrf_token', '')
     })
 
 

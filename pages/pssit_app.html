@@ -651,6 +651,15 @@ init();
         const r = await fetch('/api/auth/me');
         if (!r.ok) return;
         const u = await r.json();
+        window._csrf = u.csrf_token || '';
+        const _origFetch = window.fetch;
+        window.fetch = function(url, opts) {
+            opts = opts || {};
+            if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+                opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+            }
+            return _origFetch.call(this, url, opts);
+        };
         const bar = document.createElement('div');
         bar.id = 'auth-bar';
         bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';

@@ -7,6 +7,7 @@ import uuid
 from datetime import date, datetime
 
 import requests as http_requests
+from crypto import encrypt_token, decrypt_token, mask_token
 
 app = Flask(__name__, static_folder='img', static_url_path='/img')
 
@@ -75,7 +76,18 @@ def pssit_app_exists(app_id):
 def get_pssit_env_config(app_id, env_id):
     config = load_json(os.path.join(get_pssit_app_dir(app_id), 'config.json')) or {}
     envs = config.get('environments', [])
-    return next((e for e in envs if e['id'] == env_id), None)
+    env = next((e for e in envs if e['id'] == env_id), None)
+    if env is None:
+        return None
+    # Déchiffre les tokens pour usage interne (appels AWX/JFrog)
+    secret = app.secret_key
+    awx = env.get('awx', {})
+    if awx.get('token'):
+        awx['token'] = decrypt_token(awx['token'], secret)
+    jfrog = env.get('jfrog', {})
+    if jfrog.get('token'):
+        jfrog['token'] = decrypt_token(jfrog['token'], secret)
+    return env
 
 def add_pssit_history(app_id, entry):
     path = os.path.join(get_pssit_app_dir(app_id), 'history.json')
@@ -439,15 +451,24 @@ def api_delete_pssit_app(app_id):
 def api_get_pssit_config(app_id):
     if not pssit_app_exists(app_id):
         abort(404)
-    config = load_json(os.path.join(get_pssit_app_dir(app_id), 'config.json'))
-    return jsonify(config or {'environments': []})
+    config = load_json(os.path.join(get_pssit_app_dir(app_id), 'config.json')) or {'environments': []}
+    # Masque les tokens chiffrés avant d'envoyer au frontend
+    for env in config.get('environments', []):
+        awx = env.get('awx', {})
+        if awx.get('token'):
+            awx['token'] = mask_token(awx['token'])
+        jfrog = env.get('jfrog', {})
+        if jfrog.get('token'):
+            jfrog['token'] = mask_token(jfrog['token'])
+    return jsonify(config)
 
 @app.route('/api/pssit/app/<app_id>/config', methods=['POST'])
 def api_save_pssit_config(app_id):
     if not pssit_app_exists(app_id):
         abort(404)
     new_config = request.json
-    # Preserve tokens if sentinel __UNCHANGED__
+    secret = app.secret_key
+    # Préserve ou chiffre les tokens
     old_config = load_json(os.path.join(get_pssit_app_dir(app_id), 'config.json')) or {'environments': []}
     old_envs = {e['id']: e for e in old_config.get('environments', [])}
     for env in new_config.get('environments', []):
@@ -455,9 +476,13 @@ def api_save_pssit_config(app_id):
         awx = env.get('awx', {})
         if awx.get('token') == '__UNCHANGED__':
             awx['token'] = old_env.get('awx', {}).get('token', '')
+        elif awx.get('token'):
+            awx['token'] = encrypt_token(awx['token'], secret)
         jfrog = env.get('jfrog', {})
         if jfrog.get('token') == '__UNCHANGED__':
             jfrog['token'] = old_env.get('jfrog', {}).get('token', '')
+        elif jfrog.get('token'):
+            jfrog['token'] = encrypt_token(jfrog['token'], secret)
     save_json(os.path.join(get_pssit_app_dir(app_id), 'config.json'), new_config)
     return jsonify({'success': True})
 

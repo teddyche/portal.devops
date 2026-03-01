@@ -205,6 +205,15 @@ async function loadAll() {
     users = await userR.json();
     availableResources = await resR.json();
     currentUser = await meR.json();
+    window._csrf = currentUser.csrf_token || '';
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        }
+        return _origFetch.call(this, url, opts);
+    };
     renderOrgs();
     renderTeams();
     renderUsers();
