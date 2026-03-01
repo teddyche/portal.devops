@@ -49,6 +49,9 @@
         .card-cad { border-top-color: #6a1b9a; }
         .card-cad h2 { color: #6a1b9a; }
 
+        .card-api-docs { border-top-color: #f57c00; }
+        .card-api-docs h2 { color: #f57c00; }
+
         .badge {
             position: absolute; top: 16px; right: -32px;
             background: #9e9e9e; color: white;
@@ -84,6 +87,10 @@
             <h2>CAD</h2>
             <div class="desc">Comit&eacute; d'Architecture et Design</div>
         </a>
+        <a class="card card-api-docs" id="card-api-docs" href="/api/docs/" style="display:none" target="_blank" rel="noopener">
+            <h2>API Docs</h2>
+            <div class="desc">Documentation interactive Swagger / OpenAPI</div>
+        </a>
     </div>
 </div>
 
@@ -102,6 +109,17 @@
             }
             return _origFetch.call(this, url, opts);
         };
+        // Carte API Docs : visible si superadmin, ou si la ressource api_docs/docs est accordée
+        const hasApiDocs = u.role === 'superadmin'
+            || u.resources === null
+            || (Array.isArray(u.resources) && u.resources.some(
+                r => r.module === 'api_docs' && r.resource_id === 'docs'
+            ));
+        if (hasApiDocs) {
+            const card = document.getElementById('card-api-docs');
+            if (card) card.style.display = 'block';
+        }
+
         const bar = document.createElement('div');
         bar.id = 'auth-bar';
         bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:32px;background:#333;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:13px;z-index:9999;gap:12px;';

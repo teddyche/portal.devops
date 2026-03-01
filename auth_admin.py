@@ -453,4 +453,7 @@ def api_available_resources():
         for a in apps:
             resources.append({'module': 'pssit', 'resource_id': a['id'], 'label': a.get('name', a['id'])})
 
+    # API Docs (Swagger) — ressource singleton, contrôle qui peut accéder à /api/docs/
+    resources.append({'module': 'api_docs', 'resource_id': 'docs', 'label': 'API Documentation (Swagger)'})
+
     return jsonify(resources)

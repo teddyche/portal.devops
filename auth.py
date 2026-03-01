@@ -268,6 +268,14 @@ def require_auth():
                 return jsonify({'error': 'CSRF token invalide'}), 403
             return redirect('/login')
 
+    # Protection de la documentation API (Swagger) — module api_docs requis
+    if path.startswith('/api/docs') or path.startswith('/flasgger_static'):
+        if not check_access(user_id, 'api_docs', 'docs'):
+            if path.startswith('/api/'):
+                return jsonify({'error': 'Accès refusé', 'status': 403}), 403
+            abort(403)
+        return None
+
     # Resource-level access for module routes
     import re as _re
     _checks = [
