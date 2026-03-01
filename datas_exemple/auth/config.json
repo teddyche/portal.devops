@@ -5,7 +5,11 @@
     "client_secret": "",
     "authority": "https://adfs.example.com/adfs",
     "redirect_uri": "http://localhost:5000/auth/adfs/callback",
-    "scopes": ["openid", "profile", "email"]
+    "scopes": [
+      "openid",
+      "profile",
+      "email"
+    ]
   },
   "local_admin": {
     "username": "admin",
@@ -17,5 +21,15 @@
     "host": "ldaps://MONSERVEUR.AD",
     "base_dn": "DC=mondomaine,DC=local",
     "tls_verify": false
+  },
+  "smtp": {
+    "enabled": false,
+    "host": "smtp.mondomaine.local",
+    "port": 587,
+    "use_tls": true,
+    "username": "portail-devops@mondomaine.local",
+    "password": "",
+    "from_address": "portail-devops@mondomaine.local",
+    "from_name": "Portal DevOps"
   }
 }
