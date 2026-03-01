@@ -4,16 +4,16 @@ planifications, proxy AWX et JFrog.
 """
 import logging
 
-from flask import Blueprint, abort, current_app, jsonify, request
+from flask import Blueprint, abort, current_app, jsonify, request, session
 
 import services.pssit as pssit_service
-
-logger = logging.getLogger(__name__)
 from auth import get_ssl_verify
-from blueprints import _require_json
+from blueprints import _require_json, api_error
 from services.store import ServiceError
 
 pssit_bp = Blueprint('pssit', __name__)
+logger = logging.getLogger(__name__)
+_audit = logging.getLogger('audit')
 
 
 def _dd() -> str:
@@ -24,41 +24,56 @@ def _sk() -> str:
     return current_app.secret_key
 
 
+def _uid() -> str:
+    return session.get('user_id', 'anonymous')
+
+
 # === Apps CRUD ===
 
 @pssit_bp.route('/api/pssit/apps', methods=['GET'])
 def api_get_pssit_apps():
+    """
+    Liste les apps PSSIT accessibles à l'utilisateur courant.
+    ---
+    tags: [PSSIT]
+    responses:
+      200:
+        description: Liste des apps
+    """
     from auth import get_user_resources
-    from flask import session
-    user_resources = get_user_resources(session.get('user_id'))
+    user_resources = get_user_resources(_uid())
     return jsonify(pssit_service.get_pssit_apps(_dd(), user_resources))
 
 
 @pssit_bp.route('/api/pssit/apps', methods=['POST'])
 def api_create_pssit_app():
     try:
-        pssit_service.create_pssit_app(_dd(), _require_json())
+        body = _require_json()
+        pssit_service.create_pssit_app(_dd(), body)
+        _audit.info('pssit_app_created user=%s id=%s', _uid(), body.get('id', '?'))
         return jsonify({'success': True})
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
 
 
 @pssit_bp.route('/api/pssit/apps/<app_id>', methods=['PUT'])
 def api_update_pssit_app(app_id: str):
     try:
         pssit_service.update_pssit_app(_dd(), app_id, _require_json())
+        _audit.info('pssit_app_updated user=%s id=%s', _uid(), app_id)
         return jsonify({'success': True})
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
 
 
 @pssit_bp.route('/api/pssit/apps/<app_id>', methods=['DELETE'])
 def api_delete_pssit_app(app_id: str):
     try:
         pssit_service.delete_pssit_app(_dd(), app_id)
+        _audit.info('pssit_app_deleted user=%s id=%s', _uid(), app_id)
         return jsonify({'success': True})
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
 
 
 # === Config ===
@@ -75,6 +90,7 @@ def api_save_pssit_config(app_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
     pssit_service.save_pssit_config(_dd(), app_id, _require_json(), _sk())
+    _audit.info('pssit_config_saved user=%s app=%s', _uid(), app_id)
     return jsonify({'success': True})
 
 
@@ -105,9 +121,10 @@ def api_cancel_pssit_schedule(app_id: str, schedule_id: str):
         abort(404)
     try:
         pssit_service.cancel_pssit_schedule(_dd(), app_id, schedule_id, _sk(), get_ssl_verify())
+        _audit.info('pssit_schedule_cancelled user=%s app=%s schedule=%s', _uid(), app_id, schedule_id)
         return jsonify({'success': True})
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
 
 
 # === Proxy AWX ===
@@ -118,9 +135,10 @@ def api_pssit_launch(app_id: str, env_id: str):
         abort(404)
     try:
         entry = pssit_service.launch_pssit_workflow(_dd(), app_id, env_id, _require_json(), _sk(), get_ssl_verify())
+        _audit.info('pssit_workflow_launched user=%s app=%s env=%s action=%s', _uid(), app_id, env_id, entry.get('action'))
         return jsonify(entry)
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
 
 
 @pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/job/<int:awx_job_id>/status', methods=['GET'])
@@ -131,10 +149,10 @@ def api_pssit_job_status(app_id: str, env_id: str, awx_job_id: int):
         result = pssit_service.get_pssit_job_status(_dd(), app_id, env_id, awx_job_id, _sk(), get_ssl_verify())
         return jsonify(result)
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
     except Exception:
         logger.exception('Erreur inattendue lors de get_pssit_job_status app=%s env=%s job=%s', app_id, env_id, awx_job_id)
-        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502
+        return api_error('Erreur interne, veuillez réessayer.', 502)
 
 
 @pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/schedule', methods=['POST'])
@@ -143,12 +161,13 @@ def api_pssit_schedule(app_id: str, env_id: str):
         abort(404)
     try:
         entry = pssit_service.schedule_pssit_action(_dd(), app_id, env_id, _require_json(), _sk(), get_ssl_verify())
+        _audit.info('pssit_scheduled user=%s app=%s env=%s action=%s', _uid(), app_id, env_id, entry.get('action'))
         return jsonify(entry)
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
     except Exception:
         logger.exception('Erreur inattendue lors de schedule_pssit_action app=%s env=%s', app_id, env_id)
-        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502
+        return api_error('Erreur interne, veuillez réessayer.', 502)
 
 
 # === Proxy JFrog ===
@@ -161,7 +180,7 @@ def api_pssit_artifacts(app_id: str, env_id: str):
         artifacts = pssit_service.get_pssit_artifacts(_dd(), app_id, env_id, _sk(), get_ssl_verify())
         return jsonify(artifacts)
     except ServiceError as e:
-        return jsonify({'error': e.message}), e.status
+        return api_error(e.message, e.status)
     except Exception:
         logger.exception('Erreur inattendue lors de get_pssit_artifacts app=%s env=%s', app_id, env_id)
-        return jsonify({'error': 'Erreur interne, veuillez réessayer.'}), 502
+        return api_error('Erreur interne, veuillez réessayer.', 502)

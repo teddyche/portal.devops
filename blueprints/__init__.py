@@ -1,4 +1,4 @@
-from flask import abort, request
+from flask import abort, jsonify, request
 
 
 def _require_json() -> dict:
@@ -7,3 +7,8 @@ def _require_json() -> dict:
     if body is None:
         abort(400)
     return body
+
+
+def api_error(message: str, status: int = 400):
+    """Retourne une réponse d'erreur JSON unifiée {'error': message, 'status': status}."""
+    return jsonify({'error': message, 'status': status}), status

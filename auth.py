@@ -36,7 +36,7 @@ auth_bp = Blueprint('auth', __name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-from auth_store import load_auth as _load, save_auth as _save
+from auth_store import load_auth as _load, save_auth as _save, load_secrets as _load_secrets, merge_config_secrets as _merge_secrets
 
 # === Rate limiting (in-memory, reset au redémarrage) ===
 _login_attempts = {}   # {username: {'count', 'locked_until', 'window_start'}}
@@ -46,10 +46,16 @@ _WINDOW_SEC    = 300   # fenêtre de 5 minutes
 
 # === Cache JWKS ===
 _jwks_cache = {}       # {uri: (jwks_dict, fetched_at)}
-_JWKS_TTL   = 3600    # 1 heure
+_JWKS_TTL   = 600     # 10 minutes — assez court pour voir une rotation de clé ADFS
 
-def get_auth_config():
-    return _load('config.json') or {}
+def get_auth_config() -> dict:
+    """Charge la config en fusionnant config.json (non-sensible) et secrets.json.
+    secrets.json prend la priorité en cas de clé commune (deep merge).
+    Backward compat : si secrets.json n'existe pas, tout reste dans config.json.
+    """
+    config = _load('config.json') or {}
+    secrets = _load_secrets()
+    return _merge_secrets(config, secrets) if secrets else config
 
 def get_users() -> list[dict]:
     return _load('users.json') or []
