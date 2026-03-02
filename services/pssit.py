@@ -528,12 +528,25 @@ def get_pssit_versions(
     data = resp.json()
     files = data.get('files', [])
 
+    # Extensions cibles configurées (ex: ['tar.gz', 'zip'])
+    # Normalisation : strip du point initial, lowercase
+    extensions: list[str] = [
+        ext.lstrip('.').lower()
+        for ext in jfrog.get('extensions', [])
+        if isinstance(ext, str) and ext.strip()
+    ]
+
     # Retourner les chemins complets (répertoire + nom de fichier) triés alphabétiquement
     file_uris: list[str] = []
     for f in files:
         uri = f.get('uri', '').lstrip('/')  # ex: 'WCD/WD/file1.zip' ou 'v1.0.1/app.jar'
-        if uri:
-            file_uris.append(uri)
+        if not uri:
+            continue
+        if extensions:
+            u = uri.lower()
+            if not any(u.endswith('.' + ext) for ext in extensions):
+                continue
+        file_uris.append(uri)
 
     return sorted(file_uris)
 
