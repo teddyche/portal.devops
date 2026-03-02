@@ -353,6 +353,10 @@ function render() {
                     wfRow('deploy', workflows.deploy, i) +
                     wfRow('patch', workflows.patch, i) +
                 '</table>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">' +
+                    '<input type="checkbox" id="awx-proxy-' + i + '" ' + (awx.use_proxy ? 'checked' : '') + ' onchange="ensureAwx(' + i + ').use_proxy=this.checked" style="width:15px;height:15px;cursor:pointer;accent-color:#1565c0;">' +
+                    '<label for="awx-proxy-' + i + '" style="font-size:13px;color:#444;margin:0;font-weight:normal;cursor:pointer;">Utiliser le proxy HTTP</label>' +
+                '</div>' +
             '</div>' +
 
             '<div class="section">' +
@@ -379,6 +383,10 @@ function render() {
                             '<span style="font-size:11px;color:#aaa;">Filtre les fichiers proposés au d\u00e9ploiement (vide\u00a0=\u00a0tout afficher)</span>' +
                         '</div>' +
                         '<div class="ext-tags-row" id="ext-tags-' + i + '">' + _extTagsHtml(i) + '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">' +
+                        '<input type="checkbox" id="jfrog-proxy-' + i + '" ' + (jfrog.use_proxy ? 'checked' : '') + ' onchange="ensureJfrog(' + i + ').use_proxy=this.checked" style="width:15px;height:15px;cursor:pointer;accent-color:#1565c0;">' +
+                        '<label for="jfrog-proxy-' + i + '" style="font-size:13px;color:#444;margin:0;font-weight:normal;cursor:pointer;">Utiliser le proxy HTTP</label>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
