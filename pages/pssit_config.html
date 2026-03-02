@@ -221,6 +221,11 @@ async function init() {
     const configResp = await fetch('/api/pssit/app/' + appId + '/config');
     config = await configResp.json();
     if (!config.environments) config.environments = [];
+    // Normalise les tokens masqués → sentinel __UNCHANGED__ pour que la save ne les écrase pas
+    config.environments.forEach(env => {
+        if (env.awx  && env.awx.token)   env.awx.token   = '__UNCHANGED__';
+        if (env.jfrog && env.jfrog.token) env.jfrog.token = '__UNCHANGED__';
+    });
     render();
 }
 
