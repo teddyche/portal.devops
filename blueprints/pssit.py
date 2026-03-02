@@ -82,7 +82,7 @@ def api_delete_pssit_app(app_id: str):
 def api_get_pssit_config(app_id: str):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
-    return jsonify(pssit_service.get_pssit_config(_dd(), app_id))
+    return jsonify(pssit_service.get_pssit_config(_dd(), app_id, _sk()))
 
 
 @pssit_bp.route('/api/pssit/app/<app_id>/config', methods=['POST'])

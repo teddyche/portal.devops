@@ -121,16 +121,22 @@ def delete_pssit_app(datas_dir: str, app_id: str) -> None:
 
 # === Config ===
 
-def get_pssit_config(datas_dir: str, app_id: str) -> dict:
-    """Retourne la config avec les tokens masqués pour le frontend."""
+def get_pssit_config(datas_dir: str, app_id: str, secret_key: str = '') -> dict:
+    """Retourne la config avec les tokens masqués pour le frontend.
+    Avec secret_key, détecte et efface les tokens corrompus (chiffrement de __UNCHANGED__).
+    """
     config: dict = store.load_json(os.path.join(_app_dir(datas_dir, app_id), 'config.json')) or {'environments': []}
     for env in config.get('environments', []):
-        awx = env.get('awx', {})
-        if awx.get('token'):
-            awx['token'] = mask_token(awx['token'])
-        jfrog = env.get('jfrog', {})
-        if jfrog.get('token'):
-            jfrog['token'] = mask_token(jfrog['token'])
+        for section_key in ('awx', 'jfrog'):
+            section = env.get(section_key, {})
+            if not section.get('token'):
+                continue
+            if secret_key:
+                decrypted = decrypt_token(section['token'], secret_key)
+                if not decrypted or decrypted == '__UNCHANGED__':
+                    section['token'] = ''  # token corrompu → force re-saisie
+                    continue
+            section['token'] = mask_token(section['token'])
     return config
 
 
