@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubi IHM — Configuration</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f4f8; }
+        .container { max-width: 860px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .header h1 { color: #1a237e; font-size: 22px; }
+        .header-links { display: flex; gap: 16px; }
+        .header a { color: #326ce5; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden;
+        }
+        .card-header {
+            padding: 14px 20px; font-size: 15px; font-weight: bold; color: white;
+        }
+        .card-header.blue { background: #1a237e; }
+        .card-header.grey { background: #37474f; }
+        .card-body { padding: 20px; }
+
+        .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+        .form-group label { font-size: 12px; color: #555; font-weight: bold; text-transform: uppercase; letter-spacing: .3px; }
+        .form-group input[type="text"] {
+            padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; transition: border-color .15s;
+        }
+        .form-group input[type="text"]:focus { border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.12); }
+        .form-hint { font-size: 11px; color: #999; margin-top: 3px; }
+
+        /* Cluster list */
+        .cluster-item {
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 16px; margin-bottom: 12px; position: relative;
+        }
+        .cluster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .cluster-grid .form-group { margin-bottom: 0; }
+        .cluster-full { grid-column: 1 / -1; }
+        .cluster-checks { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+        .cluster-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #444; cursor: pointer; }
+        .cluster-check input { width: 15px; height: 15px; accent-color: #326ce5; cursor: pointer; }
+
+        .btn-remove-cluster {
+            position: absolute; top: 12px; right: 12px;
+            background: #ffebee; color: #c62828; border: 1px solid #ef9a9a;
+            border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-remove-cluster:hover { background: #ffcdd2; }
+
+        .btn-add {
+            width: 100%; padding: 12px; background: #e8eaf6; color: #3949ab;
+            border: 2px dashed #9fa8da; border-radius: 8px; font-size: 14px;
+            font-weight: bold; cursor: pointer; margin-top: 4px;
+        }
+        .btn-add:hover { background: #c5cae9; }
+
+        .buttons-bar { display: flex; gap: 12px; margin-top: 24px; }
+        .btn-save {
+            flex: 1; padding: 13px; background: #326ce5; color: white;
+            border: none; border-radius: 8px; font-size: 15px; font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-save:hover { background: #1a56c4; }
+
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: #1b5e20; color: white; padding: 12px 20px;
+            border-radius: 8px; font-size: 14px; display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999;
+        }
+        .toast.show { display: block; }
+        .toast.error { background: #b71c1c; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>⚙️ Kubi IHM — Configuration</h1>
+        <div class="header-links">
+            <a href="/kubi">← Retour Kubi IHM</a>
+            <a href="/">← Accueil</a>
+        </div>
+    </div>
+
+    <!-- ── Proxy ─────────────────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header blue">🌐 Proxy HTTP</div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>URL du proxy</label>
+                <input type="text" id="proxyUrl" placeholder="http://prxcagip.zoe.gca:8080"
+                       oninput="config.proxy_url=this.value">
+                <div class="form-hint">
+                    Utilisé avec les credentials AD de l'utilisateur (même que la connexion Kubi).
+                    Laissez vide si pas de proxy.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Clusters ──────────────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header grey">⚓ Clusters Kubi</div>
+        <div class="card-body">
+            <div id="clusterList">
+                <!-- généré dynamiquement -->
+            </div>
+            <button class="btn-add" onclick="addCluster()">+ Ajouter un cluster</button>
+        </div>
+    </div>
+
+    <div class="buttons-bar">
+        <button class="btn-save" onclick="save()">💾 Enregistrer la configuration</button>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let config = { proxy_url: '', clusters: [] };
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function init() {
+    // CSRF
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) {
+            const u = await me.json();
+            window._csrf = u.csrf_token || '';
+            const _orig = window.fetch;
+            window.fetch = function(url, opts) {
+                opts = opts || {};
+                if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+                    opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+                }
+                return _orig.call(this, url, opts);
+            };
+        }
+    } catch(e) {}
+
+    const r = await fetch('/api/kubi/config');
+    if (r.ok) {
+        config = await r.json();
+        if (!config.clusters) config.clusters = [];
+        if (!config.proxy_url) config.proxy_url = '';
+        document.getElementById('proxyUrl').value = config.proxy_url;
+        render();
+    }
+}
+
+// ── Render clusters ───────────────────────────────────────────────────────
+function render() {
+    const list = document.getElementById('clusterList');
+    if (!config.clusters.length) {
+        list.innerHTML = '<div style="color:#888;font-size:13px;margin-bottom:12px;">Aucun cluster configuré.</div>';
+        return;
+    }
+    list.innerHTML = config.clusters.map((c, i) =>
+        '<div class="cluster-item">' +
+            '<button class="btn-remove-cluster" onclick="removeCluster(' + i + ')">✕ Supprimer</button>' +
+            '<div class="cluster-grid">' +
+                '<div class="form-group">' +
+                    '<label>ID</label>' +
+                    '<input type="text" value="' + esc(c.id||'') + '" placeholder="prod" ' +
+                           'onchange="config.clusters[' + i + '].id=this.value">' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<label>Nom affiché</label>' +
+                    '<input type="text" value="' + esc(c.name||'') + '" placeholder="Prod" ' +
+                           'onchange="config.clusters[' + i + '].name=this.value">' +
+                '</div>' +
+                '<div class="form-group cluster-full">' +
+                    '<label>URL Kubi</label>' +
+                    '<input type="text" value="' + esc(c.url||'') + '" placeholder="https://kubi.prd.managed..." ' +
+                           'onchange="config.clusters[' + i + '].url=this.value">' +
+                '</div>' +
+            '</div>' +
+            '<div class="cluster-checks">' +
+                '<label class="cluster-check">' +
+                    '<input type="checkbox" ' + (c.insecure ? 'checked' : '') + ' ' +
+                           'onchange="config.clusters[' + i + '].insecure=this.checked">' +
+                    'Skip SSL (--insecure)' +
+                '</label>' +
+                '<label class="cluster-check">' +
+                    '<input type="checkbox" ' + (c.use_proxy ? 'checked' : '') + ' ' +
+                           'onchange="config.clusters[' + i + '].use_proxy=this.checked">' +
+                    'Utiliser le proxy HTTP' +
+                '</label>' +
+            '</div>' +
+        '</div>'
+    ).join('');
+}
+
+// ── Cluster CRUD ──────────────────────────────────────────────────────────
+function addCluster() {
+    config.clusters.push({ id: '', name: '', url: '', insecure: true, use_proxy: true });
+    render();
+    // Focus le premier champ du nouveau cluster
+    setTimeout(() => {
+        const inputs = document.querySelectorAll('.cluster-item input[type="text"]');
+        if (inputs.length) inputs[inputs.length - 2].focus();
+    }, 50);
+}
+
+function removeCluster(i) {
+    config.clusters.splice(i, 1);
+    render();
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────
+async function save() {
+    try {
+        const r = await fetch('/api/kubi/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config),
+        });
+        const d = await r.json();
+        if (r.ok) showToast('✅ Configuration enregistrée');
+        else showToast('⚠️ ' + (d.error || 'Erreur'), true);
+    } catch(e) {
+        showToast('⚠️ Erreur réseau : ' + e.message, true);
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function showToast(msg, error = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (error ? ' error' : '');
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+init();
+</script>
+</body>
+</html>

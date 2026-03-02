@@ -1,0 +1,155 @@
+"""
+Blueprint Kubi IHM : génération de tokens Kubernetes via le serveur Kubi.
+
+Routes :
+  GET  /api/kubi/config        → config clusters + proxy (admin)
+  POST /api/kubi/config        → sauvegarde config (admin)
+  POST /api/kubi/generate      → génère token + kubeconfig
+  POST /api/kubi/explain       → décode un token JWT
+
+Le mot de passe n'est jamais stocké — transit uniquement pour l'appel Kubi.
+"""
+import logging
+
+from flask import Blueprint, current_app, jsonify, session
+
+import services.kubi as kubi_service
+from blueprints import _require_json, api_error
+from services.store import ServiceError
+
+kubi_bp = Blueprint('kubi', __name__)
+logger = logging.getLogger(__name__)
+_audit = logging.getLogger('audit')
+
+
+def _dd() -> str:
+    return current_app.config['DATAS_DIR']
+
+
+def _uid() -> str:
+    return session.get('user_id', 'anonymous')
+
+
+# === Config (clusters + proxy) ===
+
+@kubi_bp.route('/api/kubi/config', methods=['GET'])
+def api_get_kubi_config():
+    """
+    Retourne la configuration Kubi (clusters et proxy).
+    ---
+    tags: [Kubi]
+    responses:
+      200:
+        description: Configuration Kubi
+    """
+    return jsonify(kubi_service.get_kubi_config(_dd()))
+
+
+@kubi_bp.route('/api/kubi/config', methods=['POST'])
+def api_save_kubi_config():
+    """
+    Sauvegarde la configuration Kubi.
+    ---
+    tags: [Kubi]
+    responses:
+      200:
+        description: Config sauvegardée
+    """
+    try:
+        body = _require_json()
+        kubi_service.save_kubi_config(_dd(), body)
+        _audit.info('kubi_config_saved user=%s', _uid())
+        return jsonify({'success': True})
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+# === Génération de token ===
+
+@kubi_bp.route('/api/kubi/generate', methods=['POST'])
+def api_kubi_generate():
+    """
+    Génère un token Kubi et le kubeconfig associé.
+
+    Le mot de passe n'est jamais stocké — utilisé uniquement pour l'appel Kubi.
+    ---
+    tags: [Kubi]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            cluster_id: {type: string}
+            username:   {type: string}
+            password:   {type: string}
+            scopes:     {type: string}
+    responses:
+      200:
+        description: Token généré
+      401:
+        description: Identifiants incorrects
+      502:
+        description: Serveur Kubi injoignable
+    """
+    try:
+        body = _require_json()
+        cluster_id = body.get('cluster_id', '').strip()
+        username = body.get('username', '').strip()
+        password = body.get('password', '')
+        scopes = body.get('scopes', '').strip()
+
+        if not cluster_id:
+            return api_error('cluster_id requis', 400)
+        if not username:
+            return api_error('username requis', 400)
+        if not password:
+            return api_error('password requis', 400)
+
+        cfg = kubi_service.get_kubi_config(_dd())
+        cluster = next((c for c in cfg.get('clusters', []) if c['id'] == cluster_id), None)
+        if not cluster:
+            return api_error(f'Cluster "{cluster_id}" non trouvé dans la configuration', 404)
+
+        result = kubi_service.generate_kubi_token(
+            cluster_url=cluster['url'],
+            username=username,
+            password=password,
+            insecure=cluster.get('insecure', True),
+            proxy_url=cfg.get('proxy_url', ''),
+            use_proxy=cluster.get('use_proxy', False),
+            scopes=scopes,
+        )
+
+        _audit.info('kubi_token_generated user=%s cluster=%s subject=%s',
+                    _uid(), cluster_id, result.get('body', {}).get('sub', '?'))
+        return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+# === Explain (décode un JWT) ===
+
+@kubi_bp.route('/api/kubi/explain', methods=['POST'])
+def api_kubi_explain():
+    """
+    Décode un token JWT (sans authentification).
+    ---
+    tags: [Kubi]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            token: {type: string}
+    responses:
+      200:
+        description: Token décodé
+    """
+    try:
+        body = _require_json()
+        token = body.get('token', '').strip()
+        if not token:
+            return api_error('token requis', 400)
+        result = kubi_service.decode_token(token)
+        return jsonify(result)
+    except ServiceError as e:
+        return api_error(e.message, e.status)

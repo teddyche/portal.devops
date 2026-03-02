@@ -8,6 +8,7 @@ from flask import Blueprint, abort, current_app, send_file
 import services.cad as cad_service
 import services.sre as sre_service
 import services.pssit as pssit_service
+import services.kubi as kubi_service
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -145,3 +146,15 @@ def pssit_app_config(app_id: str):
     if not pssit_service.pssit_app_exists(_datas_dir(), app_id):
         abort(404)
     return _page('pssit_config.html')
+
+
+# === Routes Kubi ===
+
+@pages_bp.route('/kubi')
+def kubi_page():
+    return _page('kubi.html')
+
+
+@pages_bp.route('/kubi/config')
+def kubi_config_page():
+    return _page('kubi_config.html')

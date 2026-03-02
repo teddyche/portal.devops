@@ -86,8 +86,9 @@ def create_app(config: Optional[dict] = None) -> Flask:
     from blueprints.cad import cad_bp
     from blueprints.health import health_bp
     from blueprints.ldap_checker import ldap_bp
+    from blueprints.kubi import kubi_bp
 
-    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp):
+    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp, kubi_bp):
         app.register_blueprint(bp)
 
     # === #23 — Versioning /api/v1/ → /api/ (réécriture transparente) ===

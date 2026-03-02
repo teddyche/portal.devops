@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubi IHM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f4f8; }
+        .container { max-width: 860px; margin: 0 auto; }
+
+        /* ── Header ─────────────────────────────────── */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px;
+        }
+        .header h1 { color: #1a237e; font-size: 26px; display: flex; align-items: center; gap: 10px; }
+        .header-links { display: flex; gap: 16px; }
+        .header a { color: #326ce5; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        /* ── Cluster selector ────────────────────────── */
+        .clusters-label { font-size: 13px; color: #555; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+        .clusters-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .cluster-btn {
+            flex: 1; min-width: 180px;
+            padding: 18px 20px; border: 2px solid #c5cae9; border-radius: 10px;
+            background: white; cursor: pointer; text-align: center;
+            transition: all .15s; font-size: 14px; font-weight: bold; color: #3949ab;
+        }
+        .cluster-btn:hover { border-color: #326ce5; background: #e8eaf6; transform: translateY(-2px); }
+        .cluster-btn.active {
+            border-color: #326ce5; background: #326ce5; color: white;
+            box-shadow: 0 4px 12px rgba(50,108,229,.35);
+        }
+        .cluster-btn .cluster-env {
+            font-size: 11px; font-weight: normal; margin-top: 4px; opacity: .8;
+        }
+        .cluster-btn.active .cluster-env { opacity: .9; }
+
+        /* ── Form card ──────────────────────────────── */
+        .form-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .form-card-header {
+            background: #1a237e; color: white; padding: 14px 20px;
+            font-size: 15px; font-weight: bold;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .form-body { padding: 20px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 12px; color: #555; font-weight: bold; text-transform: uppercase; letter-spacing: .3px; }
+        .form-group input {
+            padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; transition: border-color .15s;
+        }
+        .form-group input:focus { border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.12); }
+        .pw-wrap { position: relative; }
+        .pw-wrap input { width: 100%; padding-right: 40px; }
+        .pw-wrap button {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 16px; color: #888;
+            padding: 4px;
+        }
+
+        .btn-generate {
+            width: 100%; padding: 13px; background: #326ce5; color: white;
+            border: none; border-radius: 8px; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: background .15s; display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+        }
+        .btn-generate:hover:not(:disabled) { background: #1a56c4; }
+        .btn-generate:disabled { background: #9eb8f0; cursor: not-allowed; }
+
+        /* ── Spinner ──────────────────────────────────── */
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,.4); border-top-color: white;
+            border-radius: 50%; animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Error banner ──────────────────────────────── */
+        .error-banner {
+            background: #ffebee; border: 1px solid #ef9a9a; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 16px; color: #c62828;
+            font-size: 14px; display: none; align-items: center; gap: 8px;
+        }
+        .error-banner.show { display: flex; }
+
+        /* ── Result card ─────────────────────────────── */
+        .result-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px; overflow: hidden; display: none;
+        }
+        .result-card.show { display: block; }
+        .result-header {
+            padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: bold;
+        }
+        .result-header.valid { background: #e8f5e9; color: #1b5e20; }
+        .result-header.expired { background: #ffebee; color: #b71c1c; }
+
+        .result-body { padding: 20px; }
+
+        .meta-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 18px; }
+        .meta-item { display: flex; flex-direction: column; gap: 3px; }
+        .meta-item .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .3px; }
+        .meta-item .value { font-size: 14px; color: #222; font-weight: bold; }
+
+        .token-section { margin-bottom: 16px; }
+        .token-section .section-title {
+            font-size: 12px; color: #555; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
+        }
+        .token-box {
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px;
+            padding: 10px 12px; font-family: monospace; font-size: 12px;
+            color: #333; word-break: break-all; max-height: 80px;
+            overflow: hidden; text-overflow: ellipsis; position: relative;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+
+        .actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .btn-action {
+            padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;
+            transition: opacity .15s;
+        }
+        .btn-action:hover { opacity: .85; }
+        .btn-copy { background: #326ce5; color: white; }
+        .btn-download { background: #2e7d32; color: white; }
+        .btn-copy.copied { background: #388e3c; }
+
+        .json-section { margin-top: 16px; }
+        .json-toggle {
+            font-size: 13px; color: #326ce5; cursor: pointer; user-select: none;
+            display: flex; align-items: center; gap: 4px; width: fit-content;
+        }
+        .json-toggle:hover { text-decoration: underline; }
+        .json-body {
+            background: #1e1e2e; border-radius: 6px; padding: 14px;
+            font-family: monospace; font-size: 12px; color: #cdd6f4;
+            margin-top: 8px; overflow-x: auto; display: none;
+            max-height: 320px; overflow-y: auto;
+        }
+        .json-body.open { display: block; }
+        /* JSON syntax highlighting */
+        .json-key { color: #89b4fa; }
+        .json-str { color: #a6e3a1; }
+        .json-num { color: #fab387; }
+        .json-bool { color: #f38ba8; }
+
+        /* ── Explain card ─────────────────────────────── */
+        .explain-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .explain-header {
+            background: #37474f; color: white; padding: 14px 20px;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            user-select: none;
+        }
+        .explain-header:hover { background: #263238; }
+        .explain-body { padding: 20px; display: none; }
+        .explain-body.open { display: block; }
+        .explain-body textarea {
+            width: 100%; height: 80px; padding: 10px 12px;
+            border: 1px solid #ddd; border-radius: 6px; font-family: monospace;
+            font-size: 12px; resize: vertical; margin-bottom: 10px;
+        }
+        .explain-body textarea:focus { border-color: #326ce5; outline: none; }
+        .btn-explain {
+            padding: 8px 18px; background: #37474f; color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;
+        }
+        .btn-explain:hover { background: #263238; }
+        .explain-result { margin-top: 14px; }
+
+        .validity-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .badge-valid { background: #e8f5e9; color: #2e7d32; }
+        .badge-expired { background: #ffebee; color: #c62828; }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .cluster-btn { min-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>⚓ Kubi IHM</h1>
+        <div class="header-links">
+            <a href="/kubi/config">⚙ Config</a>
+            <a href="/">← Accueil</a>
+        </div>
+    </div>
+
+    <!-- ── Sélection du cluster ──────────────────────────────────── -->
+    <div class="clusters-label">Sélectionner un cluster</div>
+    <div class="clusters-grid" id="clustersGrid">
+        <!-- généré dynamiquement -->
+    </div>
+
+    <!-- ── Formulaire ────────────────────────────────────────────── -->
+    <div class="form-card">
+        <div class="form-card-header">
+            🔐 Authentification AD
+        </div>
+        <div class="form-body">
+            <div class="error-banner" id="errorBanner">
+                <span>⚠️</span><span id="errorMsg"></span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nom d'utilisateur</label>
+                    <input type="text" id="username" placeholder="U76YB33@zoe.gca"
+                           onkeydown="if(event.key==='Enter')document.getElementById('password').focus()">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe</label>
+                    <div class="pw-wrap">
+                        <input type="password" id="password" placeholder="••••••••"
+                               onkeydown="if(event.key==='Enter')generate()">
+                        <button type="button" onclick="togglePw()" title="Afficher/masquer">👁</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-generate" id="btnGenerate" onclick="generate()" disabled>
+                🔑 Générer le token
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Résultat ───────────────────────────────────────────────── -->
+    <div class="result-card" id="resultCard">
+        <div class="result-header" id="resultHeader">
+            <!-- rempli dynamiquement -->
+        </div>
+        <div class="result-body">
+            <div class="meta-row" id="metaRow"></div>
+
+            <div class="token-section">
+                <div class="section-title">Token JWT</div>
+                <div class="token-box" id="tokenBox"></div>
+                <div class="actions-row">
+                    <button class="btn-action btn-copy" id="btnCopy" onclick="copyToken()">
+                        📋 Copier le token
+                    </button>
+                    <button class="btn-action btn-download" id="btnDownload" onclick="downloadKubeconfig()"
+                            style="display:none">
+                        ⬇ Télécharger le kubeconfig
+                    </button>
+                </div>
+            </div>
+
+            <div class="json-section">
+                <div class="json-toggle" onclick="toggleJson()">
+                    <span id="jsonArrow">▶</span> Contenu du token
+                </div>
+                <pre class="json-body" id="jsonBody"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Analyser un token ─────────────────────────────────────── -->
+    <div class="explain-card">
+        <div class="explain-header" onclick="toggleExplain()">
+            <span>🔍 Analyser un token JWT existant</span>
+            <span id="explainArrow">▼</span>
+        </div>
+        <div class="explain-body" id="explainBody">
+            <textarea id="explainInput" placeholder="Coller votre token JWT ici…"
+                      onkeydown="if(event.ctrlKey&&event.key==='Enter')explainToken()"></textarea>
+            <button class="btn-explain" onclick="explainToken()">Analyser</button>
+            <div class="explain-result" id="explainResult"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ── État ─────────────────────────────────────────────────────────────────
+let clusters = [];
+let selectedCluster = null;
+let lastToken = '';
+let lastKubeconfig = '';
+
+// ── Init ─────────────────────────────────────────────────────────────────
+async function init() {
+    // Récupère la config des clusters
+    const r = await fetch('/api/kubi/config');
+    if (r.ok) {
+        const cfg = await r.json();
+        clusters = cfg.clusters || [];
+        renderClusters();
+    }
+    // Pré-remplit le username depuis la session si dispo
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) {
+            const u = await me.json();
+            window._csrf = u.csrf_token || '';
+            patchFetch();
+            if (u.user_id) {
+                const input = document.getElementById('username');
+                if (!input.value) input.value = u.user_id;
+            }
+        }
+    } catch(e) {}
+}
+
+function patchFetch() {
+    const _orig = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        }
+        return _orig.call(this, url, opts);
+    };
+}
+
+// ── Clusters ─────────────────────────────────────────────────────────────
+function renderClusters() {
+    const grid = document.getElementById('clustersGrid');
+    if (!clusters.length) {
+        grid.innerHTML = '<div style="color:#888;font-size:13px;">Aucun cluster configuré — <a href="/kubi/config">Ajouter</a></div>';
+        return;
+    }
+    grid.innerHTML = clusters.map(c =>
+        '<button class="cluster-btn" id="cb-' + c.id + '" onclick="selectCluster(\'' + c.id + '\')">' +
+            c.name +
+            '<div class="cluster-env">' + (c.url || '') + '</div>' +
+        '</button>'
+    ).join('');
+}
+
+function selectCluster(id) {
+    selectedCluster = clusters.find(c => c.id === id) || null;
+    document.querySelectorAll('.cluster-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('cb-' + id);
+    if (btn) btn.classList.add('active');
+    document.getElementById('btnGenerate').disabled = false;
+    // Met à jour le header de la form
+    document.querySelector('.form-card-header').innerHTML =
+        '🔐 Authentification AD — <span style="font-weight:normal;opacity:.85;">' + (selectedCluster?.name || '') + '</span>';
+    clearError();
+}
+
+// ── Génération ────────────────────────────────────────────────────────────
+async function generate() {
+    if (!selectedCluster) { showError('Veuillez sélectionner un cluster.'); return; }
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username) { showError('Username requis.'); return; }
+    if (!password) { showError('Mot de passe requis.'); return; }
+
+    clearError();
+    setLoading(true);
+    document.getElementById('resultCard').classList.remove('show');
+
+    try {
+        const r = await fetch('/api/kubi/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ cluster_id: selectedCluster.id, username, password }),
+        });
+        const data = await r.json();
+        if (!r.ok) { showError(data.error || 'Erreur lors de la génération'); return; }
+        renderResult(data, selectedCluster.name);
+    } catch(e) {
+        showError('Erreur réseau : ' + e.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderResult(data, clusterName) {
+    lastToken = data.token || '';
+    lastKubeconfig = data.kubeconfig || '';
+
+    const valid = data.valid;
+    const card = document.getElementById('resultCard');
+    const header = document.getElementById('resultHeader');
+
+    header.className = 'result-header ' + (valid ? 'valid' : 'expired');
+    header.innerHTML = (valid ? '✅' : '❌') + ' Token ' + (valid ? 'valide' : 'expiré') +
+        ' — ' + clusterName;
+
+    // Meta
+    const exp = new Date(data.expires_at);
+    const expStr = exp.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}) +
+        ' à ' + exp.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+    const sub = (data.body || {}).sub || '—';
+    const rem = data.remaining_seconds > 0 ? fmtDuration(data.remaining_seconds) : 'expiré';
+
+    document.getElementById('metaRow').innerHTML =
+        metaItem('Utilisateur', sub) +
+        metaItem('Expire le', expStr) +
+        metaItem('Durée restante', rem) +
+        metaItem('Cluster', clusterName);
+
+    // Token box
+    document.getElementById('tokenBox').textContent = lastToken;
+
+    // Download button
+    document.getElementById('btnDownload').style.display = lastKubeconfig ? 'flex' : 'none';
+
+    // JSON body
+    document.getElementById('jsonBody').innerHTML = syntaxHighlight(data.body || {});
+    document.getElementById('jsonBody').classList.remove('open');
+    document.getElementById('jsonArrow').textContent = '▶';
+
+    card.classList.add('show');
+    card.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function metaItem(label, value) {
+    return '<div class="meta-item"><div class="label">' + label + '</div><div class="value">' + esc(value) + '</div></div>';
+}
+
+function fmtDuration(secs) {
+    if (secs >= 3600) return Math.floor(secs/3600) + 'h ' + Math.floor((secs%3600)/60) + 'min';
+    if (secs >= 60) return Math.floor(secs/60) + 'min ' + (secs%60) + 's';
+    return secs + 's';
+}
+
+// ── Copy / Download ───────────────────────────────────────────────────────
+async function copyToken() {
+    if (!lastToken) return;
+    try {
+        await navigator.clipboard.writeText(lastToken);
+        const btn = document.getElementById('btnCopy');
+        btn.classList.add('copied');
+        btn.innerHTML = '✅ Copié !';
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '📋 Copier le token'; }, 2000);
+    } catch(e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = lastToken; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        const btn = document.getElementById('btnCopy');
+        btn.innerHTML = '✅ Copié !';
+        setTimeout(() => { btn.innerHTML = '📋 Copier le token'; }, 2000);
+    }
+}
+
+function downloadKubeconfig() {
+    if (!lastKubeconfig) return;
+    const blob = new Blob([lastKubeconfig], {type: 'application/yaml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'kubeconfig-' + (selectedCluster?.id || 'kubi') + '.yaml';
+    a.click(); URL.revokeObjectURL(url);
+}
+
+// ── JSON toggle ───────────────────────────────────────────────────────────
+function toggleJson() {
+    const body = document.getElementById('jsonBody');
+    const arrow = document.getElementById('jsonArrow');
+    const open = body.classList.toggle('open');
+    arrow.textContent = open ? '▼' : '▶';
+}
+
+// ── Explain ───────────────────────────────────────────────────────────────
+function toggleExplain() {
+    const body = document.getElementById('explainBody');
+    const arrow = document.getElementById('explainArrow');
+    const open = body.classList.toggle('open');
+    arrow.textContent = open ? '▲' : '▼';
+}
+
+async function explainToken() {
+    const token = document.getElementById('explainInput').value.trim();
+    if (!token) return;
+    const resultDiv = document.getElementById('explainResult');
+    resultDiv.innerHTML = '<span style="color:#888;font-size:13px;">Analyse…</span>';
+
+    try {
+        const r = await fetch('/api/kubi/explain', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({token}),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            resultDiv.innerHTML = '<div style="color:#c62828;font-size:13px;">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        const valid = data.valid;
+        const exp = new Date(data.expires_at);
+        const expStr = exp.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) +
+            ' à ' + exp.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+        const rem = data.remaining_seconds > 0 ? fmtDuration(data.remaining_seconds) : 'expiré';
+
+        resultDiv.innerHTML =
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+                '<span class="validity-badge ' + (valid ? 'badge-valid' : 'badge-expired') + '">' +
+                    (valid ? '✅ Valide' : '❌ Expiré') +
+                '</span>' +
+                '<span style="font-size:13px;color:#555;">Expire le ' + expStr + ' — ' + rem + '</span>' +
+            '</div>' +
+            '<pre class="json-body open">' + syntaxHighlight(data.body || {}) + '</pre>';
+    } catch(e) {
+        resultDiv.innerHTML = '<div style="color:#c62828;font-size:13px;">Erreur réseau : ' + esc(e.message) + '</div>';
+    }
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────
+function togglePw() {
+    const inp = document.getElementById('password');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function setLoading(loading) {
+    const btn = document.getElementById('btnGenerate');
+    btn.disabled = loading;
+    btn.innerHTML = loading
+        ? '<span class="spinner"></span> Génération en cours…'
+        : '🔑 Générer le token';
+}
+
+function showError(msg) {
+    const banner = document.getElementById('errorBanner');
+    document.getElementById('errorMsg').textContent = msg;
+    banner.classList.add('show');
+}
+
+function clearError() {
+    document.getElementById('errorBanner').classList.remove('show');
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function syntaxHighlight(obj) {
+    const json = JSON.stringify(obj, null, 2);
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        function(match) {
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) return '<span class="json-key">' + esc(match) + '</span>';
+                return '<span class="json-str">' + esc(match) + '</span>';
+            }
+            if (/true|false/.test(match)) return '<span class="json-bool">' + match + '</span>';
+            return '<span class="json-num">' + match + '</span>';
+        }
+    );
+}
+
+init();
+</script>
+</body>
+</html>
