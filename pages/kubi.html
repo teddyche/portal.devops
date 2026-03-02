@@ -154,6 +154,67 @@
         .json-num { color: #fab387; }
         .json-bool { color: #f38ba8; }
 
+        /* ── Quota card ──────────────────────────────── */
+        .quota-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .quota-card-header {
+            background: #0d47a1; color: white; padding: 14px 20px;
+            font-size: 15px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .quota-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
+        .quota-card-body { padding: 20px; }
+
+        .namespace-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px; gap: 12px; flex-wrap: wrap;
+        }
+        .namespace-bar select {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; min-width: 220px; cursor: pointer; color: #333;
+        }
+        .namespace-bar select:focus { border-color: #326ce5; outline: none; }
+        .btn-refresh {
+            padding: 7px 14px; background: #e3f2fd; color: #1565c0;
+            border: 1px solid #90caf9; border-radius: 6px;
+            cursor: pointer; font-size: 13px; font-weight: bold;
+        }
+        .btn-refresh:hover { background: #bbdefb; }
+
+        .quota-group { margin-bottom: 22px; }
+        .quota-group-name {
+            font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .5px; margin-bottom: 10px; font-weight: bold;
+        }
+        .quota-row {
+            display: grid; grid-template-columns: 190px 1fr;
+            align-items: center; gap: 12px; margin-bottom: 9px;
+        }
+        .quota-row-label { font-size: 13px; color: #444; }
+        .quota-row-bar { display: flex; align-items: center; gap: 10px; }
+        .quota-bar-bg {
+            flex: 1; height: 8px; background: #e0e0e0;
+            border-radius: 4px; overflow: hidden; min-width: 80px;
+        }
+        .quota-bar-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+        .quota-row-vals {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 12px; white-space: nowrap; min-width: 160px;
+        }
+        .quota-used { color: #222; font-weight: bold; }
+        .quota-sep { color: #bbb; }
+        .quota-hard { color: #777; }
+        .quota-pct { font-weight: bold; min-width: 36px; text-align: right; }
+        .quota-msg { color: #888; font-size: 13px; padding: 8px 0; }
+        .quota-err { color: #c62828; font-size: 13px; padding: 8px 0; }
+
+        @media (max-width: 600px) {
+            .quota-row { grid-template-columns: 1fr; gap: 3px; }
+        }
+
         /* ── Explain card ─────────────────────────────── */
         .explain-card {
             background: white; border-radius: 10px;
@@ -273,6 +334,26 @@
         </div>
     </div>
 
+    <!-- ── Quotas K8s ────────────────────────────────────────────── -->
+    <div class="quota-card" id="quotaCard" style="display:none">
+        <div class="quota-card-header">
+            <span>📊 Quotas Kubernetes</span>
+            <span class="cluster-tag" id="quotaClusterTag"></span>
+        </div>
+        <div class="quota-card-body">
+            <div class="namespace-bar">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;">Namespace</label>
+                    <select id="nsSelect" onchange="loadQuotas()">
+                        <option value="">Sélectionner…</option>
+                    </select>
+                </div>
+                <button class="btn-refresh" onclick="loadQuotas()">🔄 Rafraîchir</button>
+            </div>
+            <div id="quotaContent"></div>
+        </div>
+    </div>
+
     <!-- ── Analyser un token ─────────────────────────────────────── -->
     <div class="explain-card">
         <div class="explain-header" onclick="toggleExplain()">
@@ -295,6 +376,7 @@ let clusters = [];
 let selectedCluster = null;
 let lastToken = '';
 let lastKubeconfig = '';
+let lastK8sUrl = '';
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function init() {
@@ -424,6 +506,14 @@ function renderResult(data, clusterName) {
 
     card.classList.add('show');
     card.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+    // Quotas K8s
+    lastK8sUrl = data.k8s_url || '';
+    if (lastK8sUrl) {
+        initQuotaSection((data.body || {}).groups || [], clusterName);
+    } else {
+        document.getElementById('quotaCard').style.display = 'none';
+    }
 }
 
 function metaItem(label, value) {
@@ -516,6 +606,139 @@ async function explainToken() {
     } catch(e) {
         resultDiv.innerHTML = '<div style="color:#c62828;font-size:13px;">Erreur réseau : ' + esc(e.message) + '</div>';
     }
+}
+
+// ── Quotas ────────────────────────────────────────────────────────────────
+
+function initQuotaSection(groups, clusterName) {
+    const namespaces = extractNamespacesFromGroups(groups);
+    const card = document.getElementById('quotaCard');
+    const sel = document.getElementById('nsSelect');
+    document.getElementById('quotaClusterTag').textContent = clusterName;
+    document.getElementById('quotaContent').innerHTML = '';
+
+    card.style.display = 'block';
+
+    if (namespaces.length) {
+        sel.innerHTML = namespaces.map(n =>
+            '<option value="' + n + '">' + n + '</option>'
+        ).join('');
+        loadQuotas();
+    } else {
+        sel.innerHTML = '<option value="">Aucun namespace dans votre token</option>';
+    }
+
+    setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 150);
+}
+
+function extractNamespacesFromGroups(groups) {
+    // Kubi groups format : kubi_<namespace>_<role>
+    const ns = new Set();
+    (groups || []).forEach(g => {
+        const m = g.match(/^(?:kubi[_-])(.+?)[_-](admin|viewer|restricted|manage|list[-_]actions|audit)$/i);
+        if (m) ns.add(m[1]);
+    });
+    return [...ns].sort();
+}
+
+async function loadQuotas() {
+    const sel = document.getElementById('nsSelect');
+    const ns = sel.value;
+    const content = document.getElementById('quotaContent');
+
+    if (!ns || !lastK8sUrl || !lastToken) return;
+
+    content.innerHTML = '<div class="quota-msg">Chargement des quotas…</div>';
+
+    try {
+        const r = await fetch('/api/kubi/quotas', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl,
+                token: lastToken,
+                namespace: ns,
+                cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            content.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        renderQuotas(data.quotas || [], ns);
+    } catch(e) {
+        content.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
+    }
+}
+
+function renderQuotas(quotas, ns) {
+    const content = document.getElementById('quotaContent');
+    if (!quotas.length) {
+        content.innerHTML = '<div class="quota-msg">Aucun ResourceQuota configuré sur <b>' + esc(ns) + '</b></div>';
+        return;
+    }
+    content.innerHTML = quotas.map(q =>
+        '<div class="quota-group">' +
+        (quotas.length > 1 ? '<div class="quota-group-name">' + esc(q.name) + '</div>' : '') +
+        q.resources.map(r => renderQuotaRow(r)).join('') +
+        '</div>'
+    ).join('');
+}
+
+function renderQuotaRow(r) {
+    const pct = Math.min(r.percent, 100);
+    const color = pct >= 80 ? '#f44336' : pct >= 60 ? '#ff9800' : '#4caf50';
+    return '<div class="quota-row">' +
+        '<div class="quota-row-label">' + esc(fmtResourceName(r.name)) + '</div>' +
+        '<div class="quota-row-bar">' +
+            '<div class="quota-bar-bg">' +
+                '<div class="quota-bar-fill" style="width:' + pct + '%;background:' + color + '"></div>' +
+            '</div>' +
+            '<div class="quota-row-vals">' +
+                '<span class="quota-used">' + esc(fmtResourceVal(r.name, r.used_raw)) + '</span>' +
+                '<span class="quota-sep"> / </span>' +
+                '<span class="quota-hard">' + esc(fmtResourceVal(r.name, r.hard_raw)) + '</span>' +
+                '<span class="quota-pct" style="color:' + color + ';">' + pct.toFixed(0) + '%</span>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+}
+
+function fmtResourceName(name) {
+    const labels = {
+        'cpu':                     'CPU',
+        'requests.cpu':            'CPU Requests',
+        'limits.cpu':              'CPU Limits',
+        'memory':                  'Mémoire',
+        'requests.memory':         'Mémoire Requests',
+        'limits.memory':           'Mémoire Limits',
+        'pods':                    'Pods',
+        'services':                'Services',
+        'services.loadbalancers':  'LoadBalancers',
+        'services.nodeports':      'NodePorts',
+        'persistentvolumeclaims':  'PVC',
+        'requests.storage':        'Stockage',
+        'configmaps':              'ConfigMaps',
+        'secrets':                 'Secrets',
+        'count/deployments.apps':  'Deployments',
+        'count/statefulsets.apps': 'StatefulSets',
+        'count/jobs.batch':        'Jobs',
+    };
+    return labels[name] || name;
+}
+
+function fmtResourceVal(name, raw) {
+    if (raw === null || raw === undefined) return '0';
+    raw = String(raw);
+    if (name.includes('cpu')) {
+        if (raw.endsWith('m')) return (parseInt(raw) / 1000).toFixed(2) + ' cores';
+        return raw + ' cores';
+    }
+    if (name.includes('memory') || name.includes('storage')) {
+        return raw; // Garde Gi, Mi, Ki tels quels
+    }
+    return raw;
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────

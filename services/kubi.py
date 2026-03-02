@@ -13,6 +13,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
@@ -213,8 +214,124 @@ def generate_kubi_token(
     # ── Étape 3 : Decode JWT ─────────────────────────────────────────────────
     token_info = decode_token(token)
 
+    # ── Étape 4 : URL K8s depuis kubeconfig ──────────────────────────────────
+    k8s_url = _parse_k8s_url(kubeconfig) if kubeconfig else ''
+
     return {
         'token': token,
         'kubeconfig': kubeconfig,
+        'k8s_url': k8s_url,
         **token_info,
     }
+
+
+# === K8s API — Quotas ===
+
+def _parse_k8s_url(kubeconfig_yaml: str) -> str:
+    """Extrait l'URL du serveur K8s depuis un kubeconfig YAML (ligne 'server: ...')."""
+    match = re.search(r'^\s+server:\s*(\S+)', kubeconfig_yaml, re.MULTILINE)
+    return match.group(1).rstrip('/') if match else ''
+
+
+def _parse_resource_value(val: str) -> float:
+    """Convertit une valeur de ressource K8s en float normalisé (CPU→cores, mémoire→Gi)."""
+    if not val:
+        return 0.0
+    val = str(val).strip()
+    # CPU millicores
+    if val.endswith('m'):
+        return round(float(val[:-1]) / 1000, 3)
+    # Mémoire / stockage
+    if val.endswith('Ki'):
+        return round(float(val[:-2]) / (1024 ** 2), 4)
+    if val.endswith('Mi'):
+        return round(float(val[:-2]) / 1024, 3)
+    if val.endswith('Gi'):
+        return round(float(val[:-2]), 3)
+    if val.endswith('Ti'):
+        return round(float(val[:-2]) * 1024, 3)
+    try:
+        return round(float(val), 3)
+    except ValueError:
+        return 0.0
+
+
+def get_kubi_quotas(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    insecure: bool = True,
+) -> list:
+    """
+    Retourne les ResourceQuotas d'un namespace K8s en appelant l'API directement.
+
+    Utilise le token Bearer (JWT kubi) — aucun mot de passe requis.
+    Retourne une liste de dicts normalisés { name, resources: [{name, hard_raw, used_raw,
+    hard, used, percent}] }.
+    """
+    if not k8s_url or not token or not namespace:
+        raise ServiceError('k8s_url, token et namespace requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    try:
+        resp = requests.get(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/resourcequotas',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s ({k8s_url}) : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError(f'Timeout en contactant l\'API K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide pour l\'API K8s (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError(
+            f'Accès refusé au namespace "{namespace}" (HTTP 403) — droits insuffisants', 403
+        )
+    if resp.status_code == 404:
+        raise ServiceError(f'Namespace "{namespace}" introuvable (HTTP 404)', 404)
+    if not resp.ok:
+        raise ServiceError(
+            f'API K8s a retourné HTTP {resp.status_code} : {resp.text[:200]}', 502
+        )
+
+    data = resp.json()
+    result = []
+
+    for item in data.get('items', []):
+        status = item.get('status', {})
+        hard = status.get('hard', {})
+        used = status.get('used', {})
+
+        resources = []
+        for key in sorted(hard.keys()):
+            hard_raw = hard.get(key, '0')
+            used_raw = used.get(key, '0')
+            hard_f = _parse_resource_value(hard_raw)
+            used_f = _parse_resource_value(used_raw)
+            pct = round(used_f / hard_f * 100, 1) if hard_f > 0 else 0.0
+
+            resources.append({
+                'name': key,
+                'hard_raw': hard_raw,
+                'used_raw': used_raw,
+                'hard': hard_f,
+                'used': used_f,
+                'percent': pct,
+            })
+
+        result.append({
+            'name': item['metadata']['name'],
+            'resources': resources,
+        })
+
+    return result

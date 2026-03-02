@@ -4,8 +4,9 @@ Blueprint Kubi IHM : génération de tokens Kubernetes via le serveur Kubi.
 Routes :
   GET  /api/kubi/config        → config clusters + proxy (admin)
   POST /api/kubi/config        → sauvegarde config (admin)
-  POST /api/kubi/generate      → génère token + kubeconfig
+  POST /api/kubi/generate      → génère token + kubeconfig + k8s_url
   POST /api/kubi/explain       → décode un token JWT
+  POST /api/kubi/quotas        → ResourceQuotas d'un namespace (via token Bearer)
 
 Le mot de passe n'est jamais stocké — transit uniquement pour l'appel Kubi.
 """
@@ -122,6 +123,60 @@ def api_kubi_generate():
         _audit.info('kubi_token_generated user=%s cluster=%s subject=%s',
                     _uid(), cluster_id, result.get('body', {}).get('sub', '?'))
         return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+# === Quotas K8s ===
+
+@kubi_bp.route('/api/kubi/quotas', methods=['POST'])
+def api_kubi_quotas():
+    """
+    Retourne les ResourceQuotas d'un namespace via l'API K8s.
+
+    Utilise le token Bearer (JWT kubi) — aucun mot de passe requis.
+    ---
+    tags: [Kubi]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            k8s_url:    {type: string, description: "URL API K8s (depuis kubeconfig)"}
+            token:      {type: string, description: "Token JWT kubi"}
+            namespace:  {type: string, description: "Namespace K8s"}
+            cluster_id: {type: string, description: "ID cluster (pour paramètres SSL)"}
+    responses:
+      200:
+        description: Liste des ResourceQuotas normalisés
+      401:
+        description: Token invalide ou expiré
+      403:
+        description: Accès refusé au namespace
+      404:
+        description: Namespace introuvable
+    """
+    try:
+        body = _require_json()
+        k8s_url = body.get('k8s_url', '').strip()
+        token = body.get('token', '').strip()
+        namespace = body.get('namespace', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:
+            return api_error('k8s_url requis', 400)
+        if not token:
+            return api_error('token requis', 400)
+        if not namespace:
+            return api_error('namespace requis', 400)
+
+        # Récupère insecure depuis la config cluster
+        cfg = kubi_service.get_kubi_config(_dd())
+        cluster = next((c for c in cfg.get('clusters', []) if c['id'] == cluster_id), None)
+        insecure = cluster.get('insecure', True) if cluster else True
+
+        quotas = kubi_service.get_kubi_quotas(k8s_url, token, namespace, insecure)
+        return jsonify({'quotas': quotas, 'namespace': namespace})
 
     except ServiceError as e:
         return api_error(e.message, e.status)
