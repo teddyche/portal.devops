@@ -501,9 +501,10 @@ def browse_jfrog_path(
                 verify=actual_ssl,
             )
             if resp.status_code in (401, 403):
+                tok_debug = jfrog_token[:6] + '…' + jfrog_token[-4:] if len(jfrog_token) > 10 else f'({len(jfrog_token)} cars)'
                 raise ServiceError(
                     f'Authentification JFrog échouée ({resp.status_code}) sur {repos_url} — '
-                    f'vérifiez que l\'URL contient /artifactory et que le token est valide. '
+                    f'token utilisé : {tok_debug} — '
                     f'Réponse JFrog : {resp.text[:300]}',
                     502,
                 )
