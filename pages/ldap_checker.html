@@ -36,9 +36,9 @@ body { font-family:Arial,sans-serif; background:#f5f5f5; padding:20px; padding-t
 
 /* Tabs */
 .tabs { display:flex; gap:4px; margin-bottom:0; flex-wrap:wrap; }
-.tab { padding:8px 18px; background:white; border:1px solid #ddd; border-bottom:none;
+.tab { padding:8px 16px; background:white; border:1px solid #ddd; border-bottom:none;
     border-radius:8px 8px 0 0; cursor:pointer; font-size:13px; color:#666;
-    transition:background .15s, color .15s; }
+    transition:background .15s, color .15s; white-space:nowrap; }
 .tab:hover { background:#fff3e0; color:#e65100; }
 .tab.active { background:#e65100; color:white; border-color:#e65100; font-weight:bold; }
 
@@ -90,44 +90,54 @@ tr:hover td { background:#fff8f4; }
 .sync-table td:first-child { font-size:11px; color:#777; word-break:break-all; }
 .sync-table td.date { font-weight:bold; color:#333; }
 
-/* ── Comparer 2 users ──────────────────────────────────────────────────────── */
-.cmp-inputs { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:6px; }
-.cmp-inputs .form-group { flex:1; min-width:160px; }
-.cmp-vs-lbl { font-size:16px; font-weight:bold; color:#ccc; padding-bottom:9px; }
-.cmp-banner { display:flex; align-items:stretch; margin:16px 0; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0; }
-.cmp-user-col { flex:1; padding:14px 18px; }
-.cmp-user-col.u1 { background:#fff8f4; }
-.cmp-user-col.u2 { background:#f0f7ff; }
-.cmp-sep { display:flex; align-items:center; justify-content:center; padding:0 16px; background:#f5f5f5; color:#bbb; font-weight:bold; font-size:14px; border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0; }
-.cmp-uname  { font-size:15px; font-weight:bold; color:#333; }
-.cmp-ucn    { font-size:12px; color:#666; margin-top:2px; }
-.cmp-umail  { font-size:11px; color:#999; margin-top:1px; }
-.cmp-ubadge { display:inline-block; margin-top:8px; font-size:11px; font-weight:bold; padding:2px 10px; border-radius:10px; }
-.u1 .cmp-ubadge { background:#ffe0cc; color:#e65100; }
-.u2 .cmp-ubadge { background:#bbdefb; color:#1565c0; }
-.cmp-stats { display:grid; grid-template-columns:repeat(4,1fr); margin-bottom:14px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; text-align:center; }
+/* ── Nav inter-onglets ──────────────────────────────────────────────────── */
+.nav-link { cursor:pointer; transition:color .12s; }
+.nav-link:hover { color:#e65100 !important; text-decoration:underline; }
+
+/* ── Compare N users — inputs ───────────────────────────────────────────── */
+.cmp-n-inputs { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.cmp-user-row { display:flex; align-items:center; gap:10px; }
+.cmp-user-row .cmp-user-lbl { min-width:58px; font-size:12px; font-weight:bold; color:#888; flex-shrink:0; }
+.cmp-user-row input { flex:1; padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+.cmp-user-row input:focus { outline:none; border-color:#e65100; }
+.btn-add-user { background:transparent; border:1px dashed #ccc; color:#999; padding:6px 14px;
+    border-radius:6px; cursor:pointer; font-size:13px; transition:all .15s; }
+.btn-add-user:hover { border-color:#e65100; color:#e65100; background:#fff8f4; }
+.btn-rem-user { background:transparent; border:1px solid #e0e0e0; color:#bbb;
+    width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:16px;
+    line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.btn-rem-user:hover { border-color:#c62828; color:#c62828; }
+
+/* ── Compare N users — résultats ────────────────────────────────────────── */
+.cmp-n-users { display:flex; gap:8px; margin:16px 0; flex-wrap:wrap; }
+.cmp-n-card { min-width:120px; flex:1; padding:12px 14px; border-radius:8px; border:1px solid; }
+.cmp-n-card .cmp-ncn { font-size:13px; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cmp-n-card .cmp-nuser { font-size:11px; color:#666; margin-top:2px; }
+.cmp-n-card .cmp-nmail { font-size:11px; color:#999; }
+.cmp-n-card .cmp-nbadge { display:inline-block; margin-top:6px; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:10px; }
+
+/* ── Compare N stats bar ────────────────────────────────────────────────── */
+.cmp-stats-n { display:grid; grid-template-columns:repeat(4,1fr); margin-bottom:14px;
+    border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; text-align:center; }
 .cmp-stat { padding:12px 6px; background:white; }
 .cmp-stat + .cmp-stat { border-left:1px solid #e0e0e0; }
 .cmp-stat .csn { font-size:22px; font-weight:bold; }
 .cmp-stat .csl { font-size:10px; color:#999; margin-top:2px; }
-.cs-total  { background:#f9f9f9; } .cs-total  .csn { color:#555; }
+.cs-total { background:#f9f9f9; } .cs-total .csn { color:#555; }
 .cs-common .csn { color:#388e3c; }
-.cs-u1     .csn { color:#e65100; }
-.cs-u2     .csn { color:#1565c0; }
+.cs-partial .csn { color:#e65100; }
+.cs-excl .csn { color:#888; }
+
+/* ── Compare toolbar + table ────────────────────────────────────────────── */
 .cmp-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
 .cmp-pill { padding:4px 14px; border-radius:20px; border:1px solid #ddd; background:white; cursor:pointer; font-size:12px; }
 .cmp-pill:hover { background:#f5f5f5; }
 .cmp-pill.on { background:#e65100; color:white; border-color:#e65100; }
-.cmp-table tr.c-common  td { background:#f9fbe7; }
-.cmp-table tr.c-u1only  td { background:#fff3e0; }
-.cmp-table tr.c-u2only  td { background:#e8f4fd; }
-.cmp-chk  { font-weight:bold; font-size:15px; }
-.c-common .cmp-chk { color:#2e7d32; }
-.c-u1only .cmp-chk { color:#e65100; }
-.c-u2only .cmp-chk { color:#1565c0; }
+.cmp-table tr.c-common   td { background:#f9fbe7; }
+.cmp-table tr.c-partial  td { background:#fff8f0; }
+.cmp-table tr.c-exclusive td { background:#fafafa; }
+.cmp-chk { font-weight:bold; font-size:15px; }
 .cmp-dash { color:#ddd; font-size:14px; }
-.th-u1 { color:#e65100 !important; }
-.th-u2 { color:#1565c0 !important; }
 </style>
 </head>
 <body>
@@ -172,15 +182,16 @@ tr:hover td { background:#fff8f4; }
   <!-- Main search interface (hidden until LDAP auth) -->
   <div id="search-interface" style="display:none">
 
-    <!-- Tabs -->
+    <!-- Tabs : Groupes | Utilisateurs | ⚖️ Comparer users | 🔀 Comparer groupe | Groupes d'un user | Membres d'un groupe | Ordinateurs | Synchro -->
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('groups')">📁 Groupes</div>
-      <div class="tab" onclick="switchTab('users')">👤 Utilisateurs</div>
-      <div class="tab" onclick="switchTab('user-groups')">👤→📁 Groupes d'un user</div>
-      <div class="tab" onclick="switchTab('group-members')">📁→👤 Membres d'un groupe</div>
-      <div class="tab" onclick="switchTab('computers')">💻 Ordinateurs</div>
-      <div class="tab" onclick="switchTab('sync')">🔄 Synchro AD</div>
-      <div class="tab" onclick="switchTab('compare')">⚖️ Comparer users</div>
+      <div class="tab active"  onclick="switchTab('groups')">📁 Groupes</div>
+      <div class="tab"         onclick="switchTab('users')">👤 Utilisateurs</div>
+      <div class="tab"         onclick="switchTab('compare')">⚖️ Comparer users</div>
+      <div class="tab"         onclick="switchTab('compare-group')">🔀 Comparer groupe</div>
+      <div class="tab"         onclick="switchTab('user-groups')">👤→📁 Groupes d'un user</div>
+      <div class="tab"         onclick="switchTab('group-members')">📁→👤 Membres d'un groupe</div>
+      <div class="tab"         onclick="switchTab('computers')">💻 Ordinateurs</div>
+      <div class="tab"         onclick="switchTab('sync')">🔄 Synchro AD</div>
     </div>
 
     <!-- Tab: Groupes -->
@@ -193,7 +204,8 @@ tr:hover td { background:#fff8f4; }
         </div>
         <button class="btn-primary" onclick="searchGroups()">Rechercher</button>
       </div>
-      <div class="search-hint">Exemples : <code>G_*CLP*</code> · <code>*_ADMIN_*</code> · <code>G_ZOE_ORG_*</code></div>
+      <div class="search-hint">Exemples : <code>G_*CLP*</code> · <code>*_ADMIN_*</code> · <code>G_ZOE_ORG_*</code>
+        — <em>Cliquer sur un groupe pour voir ses membres</em></div>
       <div id="groups-results"></div>
     </div>
 
@@ -218,8 +230,36 @@ tr:hover td { background:#fff8f4; }
         </div>
         <button class="btn-primary" onclick="searchUsers()">Rechercher</button>
       </div>
-      <div class="search-hint">Exemples : <code>*dupont*</code> · <code>jean.du*</code> · <code>*@domain.com</code></div>
+      <div class="search-hint">Exemples : <code>*dupont*</code> · <code>jean.du*</code> · <code>*@domain.com</code>
+        — <em>Cliquer sur un identifiant pour voir ses groupes</em></div>
       <div id="users-results"></div>
+    </div>
+
+    <!-- Tab: Comparer users (N users dynamiques) -->
+    <div class="tab-content search-panel" id="tab-compare">
+      <div id="cmp-users-list" class="cmp-n-inputs">
+        <!-- Rempli par initCmpInputs() -->
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn-add-user" onclick="addCmpUser()">➕ Ajouter un utilisateur</button>
+        <button class="btn-primary" onclick="compareUsers()">⚖️ Comparer</button>
+      </div>
+      <div class="search-hint">Identifiant (sAMAccountName) ou CN — 2 à 8 utilisateurs max</div>
+      <div id="cmp-results"></div>
+    </div>
+
+    <!-- Tab: Comparer users d'un groupe -->
+    <div class="tab-content search-panel" id="tab-compare-group">
+      <div class="search-bar">
+        <div class="form-group">
+          <label>CN exact du groupe</label>
+          <input type="text" id="cmpg-group" placeholder="ex: G_ZOE_ORG_CLP_ADMIN"
+            onkeydown="if(event.key==='Enter') compareGroupUsers()">
+        </div>
+        <button class="btn-primary" onclick="compareGroupUsers()">🔀 Comparer les membres</button>
+      </div>
+      <div class="search-hint">Compare automatiquement les droits AD de tous les membres du groupe — idéal pour auditer une équipe (max 30 membres)</div>
+      <div id="cmpg-results"></div>
     </div>
 
     <!-- Tab: Groupes d'un user -->
@@ -232,7 +272,8 @@ tr:hover td { background:#fff8f4; }
         </div>
         <button class="btn-primary" onclick="searchUserGroups()">Rechercher</button>
       </div>
-      <div class="search-hint">Recherche par sAMAccountName ou CN exact</div>
+      <div class="search-hint">Recherche par sAMAccountName ou CN exact
+        — <em>Cliquer sur un groupe pour voir ses membres</em></div>
       <div id="user-groups-results"></div>
     </div>
 
@@ -246,7 +287,7 @@ tr:hover td { background:#fff8f4; }
         </div>
         <button class="btn-primary" onclick="searchGroupMembers()">Rechercher</button>
       </div>
-      <div class="search-hint">Entrez le CN exact du groupe (ou avec wildcard * pour le trouver d'abord dans l'onglet Groupes)</div>
+      <div class="search-hint">Entrez le CN exact du groupe — <em>Cliquer sur un identifiant pour voir ses groupes</em></div>
       <div id="group-members-results"></div>
     </div>
 
@@ -268,26 +309,6 @@ tr:hover td { background:#fff8f4; }
     <div class="tab-content search-panel" id="tab-sync">
       <button class="btn-primary" onclick="fetchSync()">🔄 Récupérer la date de synchro</button>
       <div id="sync-results"></div>
-    </div>
-
-    <!-- Tab: Comparer 2 users -->
-    <div class="tab-content search-panel" id="tab-compare">
-      <div class="cmp-inputs">
-        <div class="form-group">
-          <label>Utilisateur 1</label>
-          <input type="text" id="cmp-u1" placeholder="ex: jean.dupont"
-            onkeydown="if(event.key==='Enter') compareUsers()">
-        </div>
-        <div class="cmp-vs-lbl">VS</div>
-        <div class="form-group">
-          <label>Utilisateur 2</label>
-          <input type="text" id="cmp-u2" placeholder="ex: marie.martin"
-            onkeydown="if(event.key==='Enter') compareUsers()">
-        </div>
-        <button class="btn-primary" onclick="compareUsers()">Comparer</button>
-      </div>
-      <div class="search-hint">Recherche par sAMAccountName ou CN exact — idéal pour diagnostiquer les droits manquants</div>
-      <div id="cmp-results"></div>
     </div>
 
   </div><!-- /search-interface -->
@@ -386,10 +407,26 @@ document.getElementById('ldap-user-input').addEventListener('keydown', e => { if
 loadLdapServers();
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
+const TAB_NAMES = ['groups','users','compare','compare-group','user-groups','group-members','computers','sync'];
+
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i === ['groups','users','user-groups','group-members','computers','sync','compare'].indexOf(name)));
+  const idx = TAB_NAMES.indexOf(name);
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Nav inter-onglets ──────────────────────────────────────────────────────
+function openGroupInMembers(cn) {
+  document.getElementById('group-members-input').value = cn;
+  switchTab('group-members');
+  searchGroupMembers();
+}
+
+function openUserInGroups(username) {
+  document.getElementById('user-groups-input').value = username;
+  switchTab('user-groups');
+  searchUserGroups();
 }
 
 // ── Helpers rendus ─────────────────────────────────────────────────────────
@@ -416,7 +453,6 @@ function copyDN(dn) {
 
 function fmtDate(s) {
   if (!s || s.length < 8) return s || '—';
-  // Format LDAP: 20231115143022.0Z
   const m = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
   if (!m) return s;
   return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
@@ -440,11 +476,12 @@ async function searchGroups() {
     if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
     let html = resultHeader(d.count, 'copyGroupsCSV()');
     html += '<div class="table-wrap"><table><thead><tr>'
-      + '<th>CN</th><th>Description</th><th>Membres</th><th>Responsable</th><th title="Cliquer pour copier le DN">DN</th>'
+      + '<th>CN <small style="font-weight:normal;color:#aaa;">(clic → membres)</small></th>'
+      + '<th>Description</th><th>Membres</th><th>Responsable</th><th title="Cliquer pour copier le DN">DN</th>'
       + '</tr></thead><tbody>';
     for (const g of d.results) {
       html += `<tr>
-        <td><strong>${esc(g.cn)}</strong></td>
+        <td><strong class="nav-link" onclick="openGroupInMembers('${esc(g.cn)}')" title="Voir les membres de ce groupe">${esc(g.cn)}</strong></td>
         <td>${esc(g.description)}</td>
         <td><span class="badge-count">${g.member_count}</span></td>
         <td>${esc(g.managed_by)}</td>
@@ -479,13 +516,15 @@ async function searchUsers() {
     if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
     let html = resultHeader(d.count, 'copyUsersCSV()');
     html += '<div class="table-wrap"><table><thead><tr>'
-      + '<th>Nom complet</th><th>Identifiant</th><th>Email</th><th>Département</th><th>Poste</th><th>Tél.</th><th>Créé le</th><th>DN</th>'
+      + '<th>Nom complet</th>'
+      + '<th>Identifiant <small style="font-weight:normal;color:#aaa;">(clic → groupes)</small></th>'
+      + '<th>Email</th><th>Département</th><th>Poste</th><th>Tél.</th><th>Créé le</th><th>DN</th>'
       + '</tr></thead><tbody>';
     for (const u of d.results) {
       const disClass = u.disabled ? ' class="disabled-row"' : '';
       html += `<tr${disClass}>
         <td><strong>${esc(u.cn)}</strong>${u.disabled ? '<span class="badge-disabled">DÉSACTIVÉ</span>' : ''}</td>
-        <td>${esc(u.username)}</td>
+        <td><span class="nav-link" onclick="openUserInGroups('${esc(u.username)}')" title="Voir les groupes de cet utilisateur">${esc(u.username)}</span></td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.department)}</td>
         <td>${esc(u.title)}</td>
@@ -524,10 +563,12 @@ async function searchUserGroups() {
     </div>`;
     html += resultHeader(d.count, 'copyUserGroupsCSV()');
     if (!d.count) { el.innerHTML = html + '<div class="no-results">Aucun groupe</div>'; return; }
-    html += '<div class="table-wrap"><table><thead><tr><th>CN du groupe</th><th>DN complet</th></tr></thead><tbody>';
+    html += '<div class="table-wrap"><table><thead><tr>'
+      + '<th>CN du groupe <small style="font-weight:normal;color:#aaa;">(clic → membres)</small></th>'
+      + '<th>DN complet</th></tr></thead><tbody>';
     for (const g of d.groups) {
       html += `<tr>
-        <td><strong>${esc(g.cn)}</strong></td>
+        <td><strong class="nav-link" onclick="openGroupInMembers('${esc(g.cn)}')" title="Voir les membres de ce groupe">${esc(g.cn)}</strong></td>
         <td class="dn-cell" title="${esc(g.dn)}" onclick="copyDN('${esc(g.dn)}')">${esc(g.dn)}</td>
       </tr>`;
     }
@@ -561,13 +602,15 @@ async function searchGroupMembers() {
     html += resultHeader(d.count, 'copyMembersCSV()');
     if (!d.count) { el.innerHTML = html + '<div class="no-results">Aucun membre direct</div>'; return; }
     html += '<div class="table-wrap"><table><thead><tr>'
-      + '<th>Nom complet</th><th>Identifiant</th><th>Email</th><th>Département</th><th>Poste</th>'
+      + '<th>Nom complet</th>'
+      + '<th>Identifiant <small style="font-weight:normal;color:#aaa;">(clic → groupes)</small></th>'
+      + '<th>Email</th><th>Département</th><th>Poste</th>'
       + '</tr></thead><tbody>';
     for (const m of d.members) {
       const disClass = m.disabled ? ' class="disabled-row"' : '';
       html += `<tr${disClass}>
         <td><strong>${esc(m.cn)}</strong>${m.disabled ? '<span class="badge-disabled">DÉSACTIVÉ</span>' : ''}</td>
-        <td>${esc(m.username)}</td>
+        <td><span class="nav-link" onclick="openUserInGroups('${esc(m.username)}')" title="Voir les groupes de cet utilisateur">${esc(m.username)}</span></td>
         <td>${esc(m.email)}</td>
         <td>${esc(m.department)}</td>
         <td>${esc(m.title)}</td>
@@ -643,121 +686,216 @@ async function fetchSync() {
   } catch(e) { showError(el, e.message); }
 }
 
-// ── Comparer 2 users ───────────────────────────────────────────────────────
-let _cmpData = null, _cmpFilter = 'all';
+// ── Compare N users — palettes couleurs ────────────────────────────────────
+const CMP_COLORS = ['#e65100','#1565c0','#2e7d32','#6a1b9a','#00695c','#c62828','#4e342e','#37474f'];
+const CMP_BGS    = ['#fff3e0','#e3f2fd','#e8f5e9','#f3e5f5','#e0f2f1','#ffebee','#efebe9','#eceff1'];
 
-async function compareUsers() {
-  const u1 = document.getElementById('cmp-u1').value.trim();
-  const u2 = document.getElementById('cmp-u2').value.trim();
-  if (!u1 || !u2) return;
-  const el = document.getElementById('cmp-results');
-  loading(el);
-  try {
-    const r = await fetch('/api/ldap/compare-users', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user1: u1, user2: u2})
-    });
-    const d = await r.json();
-    if (d.error) { showError(el, d.error); return; }
-    _cmpData = d;
-    _cmpFilter = 'all';
-    renderCompare(el, d);
-  } catch(e) { showError(el, e.message); }
+// ── Compare N users — inputs dynamiques ───────────────────────────────────
+function initCmpInputs() {
+  const list = document.getElementById('cmp-users-list');
+  list.innerHTML = '';
+  _appendCmpRow(list, 0, 'ex: jean.dupont');
+  _appendCmpRow(list, 1, 'ex: marie.martin');
+  _updateCmpRemoveButtons();
 }
 
-function renderCompare(el, d) {
-  const u1 = d.user1, u2 = d.user2, s = d.stats;
-  const pl = n => n > 1 ? 's' : '';
+function _appendCmpRow(list, idx, placeholder) {
+  const color = CMP_COLORS[idx] || '#666';
+  const div = document.createElement('div');
+  div.className = 'cmp-user-row';
+  div.innerHTML = `
+    <span class="cmp-user-lbl" style="color:${color};">User ${idx+1}</span>
+    <input type="text" class="cmp-user-input" placeholder="${placeholder||'ex: prenom.nom'}"
+      onkeydown="if(event.key==='Enter') compareUsers()" style="border-left:3px solid ${color};">
+    <button class="btn-rem-user" onclick="removeCmpUser(this)" title="Supprimer cet utilisateur">−</button>`;
+  list.appendChild(div);
+}
 
-  let html = `
-  <div class="cmp-banner">
-    <div class="cmp-user-col u1">
-      <div class="cmp-uname">👤 ${esc(u1.cn || u1.username)}</div>
-      <div class="cmp-ucn">${esc(u1.username)}</div>
-      <div class="cmp-umail">${esc(u1.email)}</div>
-      <span class="cmp-ubadge">${s.user1_only} groupe${pl(s.user1_only)} unique${pl(s.user1_only)}</span>
-    </div>
-    <div class="cmp-sep">VS</div>
-    <div class="cmp-user-col u2">
-      <div class="cmp-uname">👤 ${esc(u2.cn || u2.username)}</div>
-      <div class="cmp-ucn">${esc(u2.username)}</div>
-      <div class="cmp-umail">${esc(u2.email)}</div>
-      <span class="cmp-ubadge">${s.user2_only} groupe${pl(s.user2_only)} unique${pl(s.user2_only)}</span>
-    </div>
-  </div>
-  <div class="cmp-stats">
-    <div class="cmp-stat cs-total"><div class="csn">${s.total}</div><div class="csl">Total groupes</div></div>
-    <div class="cmp-stat cs-common"><div class="csn">${s.common}</div><div class="csl">En commun</div></div>
-    <div class="cmp-stat cs-u1"><div class="csn">${s.user1_only}</div><div class="csl">Uniq. ${esc(u1.username)}</div></div>
-    <div class="cmp-stat cs-u2"><div class="csn">${s.user2_only}</div><div class="csl">Uniq. ${esc(u2.username)}</div></div>
-  </div>
-  <div class="cmp-toolbar">
-    <span style="font-size:12px;color:#888;">Afficher :</span>
-    <button class="cmp-pill${_cmpFilter==='all'?' on':''}" onclick="setCmpFilter('all')">Tous (${s.total})</button>
-    <button class="cmp-pill${_cmpFilter==='diff'?' on':''}" onclick="setCmpFilter('diff')">⚡ Diff&eacute;rences (${s.user1_only+s.user2_only})</button>
-    <button class="cmp-pill${_cmpFilter==='common'?' on':''}" onclick="setCmpFilter('common')">Communs (${s.common})</button>
-    <button class="btn-copy" style="margin-left:auto;" onclick="copyCmpCSV()">📋 Copier CSV</button>
-  </div>`;
+function addCmpUser() {
+  const list = document.getElementById('cmp-users-list');
+  const rows = list.querySelectorAll('.cmp-user-row');
+  if (rows.length >= 8) { alert('Maximum 8 utilisateurs.'); return; }
+  const idx = rows.length;
+  _appendCmpRow(list, idx);
+  _updateCmpRemoveButtons();
+  list.querySelectorAll('.cmp-user-input')[idx].focus();
+}
 
-  const rows = d.comparison.filter(r =>
-    _cmpFilter === 'diff'   ? r.status !== 'common' :
-    _cmpFilter === 'common' ? r.status === 'common'  : true
-  );
+function removeCmpUser(btn) {
+  const list = document.getElementById('cmp-users-list');
+  if (list.querySelectorAll('.cmp-user-row').length <= 2) return;
+  btn.closest('.cmp-user-row').remove();
+  // Renuméroter les labels + couleurs
+  list.querySelectorAll('.cmp-user-row').forEach((row, i) => {
+    const lbl = row.querySelector('.cmp-user-lbl');
+    const inp = row.querySelector('input');
+    if (lbl) { lbl.textContent = `User ${i+1}`; lbl.style.color = CMP_COLORS[i] || '#666'; }
+    if (inp) inp.style.borderLeft = `3px solid ${CMP_COLORS[i] || '#666'}`;
+  });
+  _updateCmpRemoveButtons();
+}
 
-  if (!rows.length) {
-    html += '<div class="no-results">Aucun r\u00e9sultat pour ce filtre</div>';
-    el.innerHTML = html;
-    return;
+function _updateCmpRemoveButtons() {
+  const list = document.getElementById('cmp-users-list');
+  const rows = list.querySelectorAll('.cmp-user-row');
+  rows.forEach(row => {
+    const btn = row.querySelector('.btn-rem-user');
+    if (btn) btn.style.visibility = rows.length <= 2 ? 'hidden' : 'visible';
+  });
+}
+
+// ── Compare N users — render partagé ──────────────────────────────────────
+let _cmpData = null, _cmpFilter = 'all';
+let _cmpGData = null, _cmpGFilter = 'all';
+
+function setCmpFilter(f) {
+  _cmpFilter = f;
+  if (_cmpData) _renderCmpN(document.getElementById('cmp-results'), _cmpData, null, _cmpFilter, 'setCmpFilter', 'copyCmpNCSV');
+}
+function setCmpGFilter(f) {
+  _cmpGFilter = f;
+  if (_cmpGData) _renderCmpN(document.getElementById('cmpg-results'), _cmpGData, _cmpGData.group, _cmpGFilter, 'setCmpGFilter', 'copyCmpGCSV');
+}
+
+function _renderCmpN(el, d, groupInfo, filter, setFn, copyFn) {
+  const users = d.users, s = d.stats, n = users.length;
+  const trim = (str, max) => str.length > max ? str.slice(0, max-1) + '…' : str;
+
+  let html = '';
+
+  // Bannière groupe (si compare-group)
+  if (groupInfo) {
+    html += `<div style="background:#fff8f4;border-left:3px solid #e65100;padding:10px 14px;margin:0 0 16px;border-radius:0 6px 6px 0;font-size:13px;">
+      📁 Groupe : <strong>${esc(groupInfo.cn)}</strong>${groupInfo.description ? ' — ' + esc(groupInfo.description) : ''}
+      <span style="margin-left:12px;background:#ffe0cc;color:#e65100;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px;">${n} membres comparés</span>
+    </div>`;
   }
 
-  const trim = (s, n) => s.length > n ? s.slice(0, n-1) + '\u2026' : s;
-  const th1 = trim(u1.username, 20);
-  const th2 = trim(u2.username, 20);
+  // Cartes utilisateurs
+  html += '<div class="cmp-n-users">';
+  for (let i = 0; i < n; i++) {
+    const u = users[i];
+    const excl = d.comparison.filter(r => r.status === 'exclusive' && r.presence[i]).length;
+    const col = CMP_COLORS[i % CMP_COLORS.length];
+    const bg  = CMP_BGS[i % CMP_BGS.length];
+    html += `<div class="cmp-n-card" style="background:${bg};border-color:${col}55;">
+      <div class="cmp-ncn" style="color:${col};" title="${esc(u.cn)}">👤 ${esc(trim(u.cn || u.username, 22))}</div>
+      <div class="cmp-nuser">${esc(u.username)}</div>
+      <div class="cmp-nmail">${esc(u.email)}</div>
+      <span class="cmp-nbadge" style="background:${col}22;color:${col};">${excl} exclusif${excl>1?'s':''}</span>
+    </div>`;
+  }
+  html += '</div>';
 
-  html += `<div class="table-wrap"><table class="cmp-table">
-    <thead><tr>
-      <th>Groupe AD</th>
-      <th class="th-u1" title="${esc(u1.cn)}" style="text-align:center;min-width:110px;">👤 ${esc(th1)}</th>
-      <th class="th-u2" title="${esc(u2.cn)}" style="text-align:center;min-width:110px;">👤 ${esc(th2)}</th>
-    </tr></thead><tbody>`;
+  // Stats bar
+  html += `<div class="cmp-stats-n">
+    <div class="cmp-stat cs-total"><div class="csn">${s.total}</div><div class="csl">Total groupes</div></div>
+    <div class="cmp-stat cs-common"><div class="csn">${s.common}</div><div class="csl">Tous en commun</div></div>
+    <div class="cmp-stat cs-partial"><div class="csn">${s.partial}</div><div class="csl">Partiels</div></div>
+    <div class="cmp-stat cs-excl"><div class="csn">${s.exclusive}</div><div class="csl">Exclusifs</div></div>
+  </div>`;
 
-  for (const r of rows) {
-    const cls = r.status === 'common' ? 'c-common' : (r.status === 'user1_only' ? 'c-u1only' : 'c-u2only');
-    const c1 = r.in_user1 ? '<span class="cmp-chk">\u2713</span>' : '<span class="cmp-dash">\u2014</span>';
-    const c2 = r.in_user2 ? '<span class="cmp-chk">\u2713</span>' : '<span class="cmp-dash">\u2014</span>';
-    html += `<tr class="${cls}">
-      <td><strong>${esc(r.cn)}</strong></td>
-      <td style="text-align:center;">${c1}</td>
-      <td style="text-align:center;">${c2}</td>
-    </tr>`;
+  // Toolbar
+  const ndiff = s.partial + s.exclusive;
+  html += `<div class="cmp-toolbar">
+    <span style="font-size:12px;color:#888;">Afficher :</span>
+    <button class="cmp-pill${filter==='all'?' on':''}" onclick="${setFn}('all')">Tous (${s.total})</button>
+    <button class="cmp-pill${filter==='diff'?' on':''}" onclick="${setFn}('diff')">⚡ Différences (${ndiff})</button>
+    <button class="cmp-pill${filter==='common'?' on':''}" onclick="${setFn}('common')">Communs (${s.common})</button>
+    <button class="btn-copy" style="margin-left:auto;" onclick="${copyFn}()">📋 Copier CSV</button>
+  </div>`;
+
+  // Filtre
+  const rows = d.comparison.filter(r =>
+    filter === 'diff'   ? r.status !== 'common' :
+    filter === 'common' ? r.status === 'common'  : true
+  );
+  if (!rows.length) {
+    html += '<div class="no-results">Aucun résultat pour ce filtre</div>';
+    el.innerHTML = html; return;
+  }
+
+  // Table
+  html += '<div class="table-wrap"><table class="cmp-table"><thead><tr><th>Groupe AD</th>';
+  for (let i = 0; i < n; i++) {
+    const col = CMP_COLORS[i % CMP_COLORS.length];
+    html += `<th style="color:${col};text-align:center;min-width:88px;" title="${esc(users[i].cn)}">👤 ${esc(trim(users[i].username, 13))}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  for (const row of rows) {
+    const cls = row.status === 'common' ? 'c-common' : (row.status === 'partial' ? 'c-partial' : 'c-exclusive');
+    html += `<tr class="${cls}"><td><strong>${esc(row.cn)}</strong></td>`;
+    for (let i = 0; i < n; i++) {
+      const col = CMP_COLORS[i % CMP_COLORS.length];
+      html += `<td style="text-align:center;">${row.presence[i]
+        ? `<span class="cmp-chk" style="color:${col};">✓</span>`
+        : '<span class="cmp-dash">—</span>'}</td>`;
+    }
+    html += '</tr>';
   }
   html += '</tbody></table></div>';
   el.innerHTML = html;
 }
 
-function setCmpFilter(f) {
-  _cmpFilter = f;
-  if (_cmpData) renderCompare(document.getElementById('cmp-results'), _cmpData);
+// ── Compare users (N inputs) ───────────────────────────────────────────────
+async function compareUsers() {
+  const inputs = document.querySelectorAll('#cmp-users-list .cmp-user-input');
+  const users = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
+  if (users.length < 2) { alert('Entrez au moins 2 utilisateurs.'); return; }
+  const el = document.getElementById('cmp-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/compare-users', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({users})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _cmpData = d; _cmpFilter = 'all';
+    _renderCmpN(el, d, null, 'all', 'setCmpFilter', 'copyCmpNCSV');
+  } catch(e) { showError(el, e.message); }
 }
 
-function copyCmpCSV() {
+function copyCmpNCSV() {
   if (!_cmpData) return;
-  const d = _cmpData;
-  const lines = [
-    ['Groupe', d.user1.username, d.user2.username, 'Statut'].join('\t'),
-    ...d.comparison.map(r => [
-      r.cn,
-      r.in_user1 ? '\u2713' : '',
-      r.in_user2 ? '\u2713' : '',
-      r.status === 'common'     ? 'Commun'
-        : r.status === 'user1_only' ? `Uniq. ${d.user1.username}`
-        : `Uniq. ${d.user2.username}`
-    ].join('\t'))
-  ].join('\n');
-  navigator.clipboard.writeText(lines).then(() => alert('CSV copi\u00e9 dans le presse-papier !'));
+  _exportCmpCSV(_cmpData);
+}
+
+// ── Compare users d'un groupe ──────────────────────────────────────────────
+async function compareGroupUsers() {
+  const group = document.getElementById('cmpg-group').value.trim();
+  if (!group) return;
+  const el = document.getElementById('cmpg-results');
+  loading(el);
+  try {
+    const r = await fetch('/api/ldap/compare-group-users', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({group})
+    });
+    const d = await r.json();
+    if (d.error) { showError(el, d.error); return; }
+    _cmpGData = d; _cmpGFilter = 'all';
+    _renderCmpN(el, d, d.group, 'all', 'setCmpGFilter', 'copyCmpGCSV');
+  } catch(e) { showError(el, e.message); }
+}
+
+function copyCmpGCSV() {
+  if (!_cmpGData) return;
+  _exportCmpCSV(_cmpGData);
+}
+
+function _exportCmpCSV(d) {
+  const headers = ['Groupe', ...d.users.map(u => u.username), 'Statut'];
+  const rows = d.comparison.map(r => [
+    r.cn,
+    ...r.presence.map(p => p ? '\u2713' : ''),
+    r.status === 'common' ? 'Commun' : (r.status === 'partial' ? 'Partiel' : 'Exclusif')
+  ]);
+  copyCSV(headers, rows);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+initCmpInputs();
 checkLdapAuth();
 </script>
 </body>

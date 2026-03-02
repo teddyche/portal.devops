@@ -417,69 +417,151 @@ def search_computers():
     return jsonify({'count': len(results), 'results': results})
 
 
+def _fetch_user_groups(c: dict, uname: str) -> tuple:
+    """Retourne (info_dict, {cn_lower: {cn, dn}}) ou (None, None/erreur)."""
+    cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
+        '-b', _base_dn(c),
+        f'(&(objectClass=person)(|(sAMAccountName={uname})(cn={uname})))',
+        'cn', 'sAMAccountName', 'mail', 'memberOf',
+    ]
+    ok, out = _run(cmd, _env(c))
+    if not ok:
+        return None, out
+    entries = parse_ldif(out)
+    if not entries:
+        return None, None
+    e = entries[0]
+    raw = e.get('memberOf', [])
+    if isinstance(raw, str):
+        raw = [raw]
+    groups = {}
+    for g in raw:
+        if not g:
+            continue
+        cn = g.split(',')[0].replace('CN=', '').replace('cn=', '')
+        groups[cn.lower()] = {'cn': cn, 'dn': g}
+    return {'cn': e.get('cn', ''), 'username': e.get('sAMAccountName', ''), 'email': e.get('mail', '')}, groups
+
+
+def _build_comparison(user_groups: list[dict]) -> tuple[list[dict], dict]:
+    """Construit le diff multi-users. Retourne (comparison, stats)."""
+    n = len(user_groups)
+    all_keys = sorted(set().union(*[g.keys() for g in user_groups]))
+    comparison = []
+    for k in all_keys:
+        entries_for_key = [grp.get(k) for grp in user_groups]
+        presence = [e is not None for e in entries_for_key]
+        ref = next(e for e in entries_for_key if e is not None)
+        count_present = sum(presence)
+        if count_present == n:
+            status = 'common'
+        elif count_present == 1:
+            status = 'exclusive'
+        else:
+            status = 'partial'
+        comparison.append({'cn': ref['cn'], 'dn': ref['dn'], 'presence': presence, 'status': status})
+    stats = {
+        'total':     len(comparison),
+        'common':    sum(1 for x in comparison if x['status'] == 'common'),
+        'partial':   sum(1 for x in comparison if x['status'] == 'partial'),
+        'exclusive': sum(1 for x in comparison if x['status'] == 'exclusive'),
+    }
+    return comparison, stats
+
+
 @ldap_bp.route('/api/ldap/compare-users', methods=['POST'])
 def compare_users():
-    """Diff des groupes AD entre deux utilisateurs (memberOf direct)."""
+    """Diff des groupes AD entre N utilisateurs (memberOf direct). Accepte {users:[...]} ou rétrocompat {user1, user2}."""
     if (err := _require_ldap()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
-    uname1 = (body.get('user1') or '').strip()
-    uname2 = (body.get('user2') or '').strip()
-    if not uname1 or not uname2:
-        return api_error('user1 et user2 requis')
+
+    users_list = body.get('users') or []
+    if not users_list:
+        u1 = (body.get('user1') or '').strip()
+        u2 = (body.get('user2') or '').strip()
+        if u1 and u2:
+            users_list = [u1, u2]
+
+    users_list = [u.strip() for u in users_list if u.strip()]
+    if len(users_list) < 2:
+        return api_error('Au moins 2 utilisateurs requis')
+    if len(users_list) > 8:
+        return api_error('Maximum 8 utilisateurs')
+
+    c = _cfg_for(session.get('ldap_server_id', ''))
+    user_infos, user_groups = [], []
+    for uname in users_list:
+        info, grps = _fetch_user_groups(c, uname)
+        if info is None:
+            return api_error(f'Utilisateur "{uname}" introuvable', 404) if grps is None else api_error(grps, 500)
+        user_infos.append(info)
+        user_groups.append(grps)
+
+    comparison, stats = _build_comparison(user_groups)
+    return jsonify({'users': user_infos, 'comparison': comparison, 'stats': stats})
+
+
+@ldap_bp.route('/api/ldap/compare-group-users', methods=['POST'])
+def compare_group_users():
+    """Compare les droits AD de tous les membres directs d'un groupe."""
+    if (err := _require_ldap()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    group_cn = (body.get('group') or '').strip()
+    if not group_cn:
+        return api_error('group requis')
 
     c = _cfg_for(session.get('ldap_server_id', ''))
 
-    def _fetch(uname: str):
-        """Retourne (info_dict, {cn_lower: {cn, dn}}) ou (None, None/erreur)."""
-        cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
-            '-b', _base_dn(c),
-            f'(&(objectClass=person)(|(sAMAccountName={uname})(cn={uname})))',
-            'cn', 'sAMAccountName', 'mail', 'memberOf',
-        ]
-        ok, out = _run(cmd, _env(c))
-        if not ok:
-            return None, out
-        entries = parse_ldif(out)
-        if not entries:
-            return None, None
-        e = entries[0]
+    # 1. Résoudre le groupe
+    cmd_g = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
+        '-b', _base_dn(c), f'(&(objectClass=group)(CN={group_cn}))', 'dn', 'cn', 'description',
+    ]
+    ok, out_g = _run(cmd_g, _env(c))
+    if not ok:
+        return api_error(out_g, 500)
+    grp_entries = parse_ldif(out_g)
+    if not grp_entries:
+        return api_error(f'Groupe "{group_cn}" introuvable', 404)
+    group_dn   = grp_entries[0].get('dn', '')
+    group_desc = grp_entries[0].get('description', '')
+
+    # 2. Récupérer les membres avec leurs memberOf
+    cmd_m = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
+        '-b', _base_dn(c), f'(memberOf={group_dn})',
+        'cn', 'sAMAccountName', 'mail', 'memberOf',
+    ]
+    ok, out_m = _run(cmd_m, _env(c))
+    if not ok:
+        return api_error(out_m, 500)
+
+    members_raw = parse_ldif(out_m)
+    if len(members_raw) < 2:
+        return api_error(f'Le groupe "{group_cn}" a moins de 2 membres — comparaison impossible', 400)
+    if len(members_raw) > 30:
+        return api_error(f'Le groupe "{group_cn}" a {len(members_raw)} membres (max 30 pour la comparaison)', 400)
+
+    user_infos, user_groups = [], []
+    for e in members_raw:
         raw = e.get('memberOf', [])
         if isinstance(raw, str):
             raw = [raw]
-        groups = {}
+        grps = {}
         for g in raw:
             if not g:
                 continue
             cn = g.split(',')[0].replace('CN=', '').replace('cn=', '')
-            groups[cn.lower()] = {'cn': cn, 'dn': g}
-        return {'cn': e.get('cn', ''), 'username': e.get('sAMAccountName', ''), 'email': e.get('mail', '')}, groups
+            grps[cn.lower()] = {'cn': cn, 'dn': g}
+        user_infos.append({'cn': e.get('cn', ''), 'username': e.get('sAMAccountName', ''), 'email': e.get('mail', '')})
+        user_groups.append(grps)
 
-    info1, grps1 = _fetch(uname1)
-    if info1 is None:
-        return api_error(f'Utilisateur "{uname1}" introuvable', 404) if grps1 is None else api_error(grps1, 500)
-
-    info2, grps2 = _fetch(uname2)
-    if info2 is None:
-        return api_error(f'Utilisateur "{uname2}" introuvable', 404) if grps2 is None else api_error(grps2, 500)
-
-    comparison = []
-    for k in sorted(set(grps1) | set(grps2)):
-        g1, g2 = grps1.get(k), grps2.get(k)
-        in1, in2 = bool(g1), bool(g2)
-        entry = g1 or g2
-        status = 'common' if in1 and in2 else ('user1_only' if in1 else 'user2_only')
-        comparison.append({'cn': entry['cn'], 'dn': entry['dn'], 'in_user1': in1, 'in_user2': in2, 'status': status})
-
+    comparison, stats = _build_comparison(user_groups)
     return jsonify({
-        'user1': info1, 'user2': info2,
+        'group':      {'cn': group_cn, 'dn': group_dn, 'description': group_desc},
+        'users':      user_infos,
         'comparison': comparison,
-        'stats': {
-            'total':      len(comparison),
-            'common':     sum(1 for x in comparison if x['status'] == 'common'),
-            'user1_only': sum(1 for x in comparison if x['status'] == 'user1_only'),
-            'user2_only': sum(1 for x in comparison if x['status'] == 'user2_only'),
-        }
+        'stats':      stats,
     })
 
 
