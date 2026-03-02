@@ -458,6 +458,87 @@ def get_pssit_artifacts(
     return artifacts
 
 
+def get_pssit_versions(
+    datas_dir: str,
+    app_id: str,
+    env_id: str,
+    secret_key: str,
+    ssl_verify: Any,
+) -> list[str]:
+    """Liste les répertoires versionnés sous le chemin JFrog configuré (repo + path).
+
+    Effectue une liste récursive (deep=1) des fichiers et retourne les répertoires
+    uniques qui contiennent directement des fichiers (feuilles de l'arborescence).
+
+    Exemples :
+      caps-ya/livraison/v1.0.1/app.jar  → retourne ['v1.0.2', 'v1.0.1', ...]
+      caps-yb/module1/aaa/v1.0.1/app.jar → retourne ['module7/pld/7.0.1', 'module1/aaa/v1.0.1', ...]
+    """
+    env_config = get_pssit_env_config(datas_dir, app_id, env_id, secret_key)
+    if not env_config:
+        raise ServiceError('Environnement non trouvé', 404)
+
+    jfrog = env_config.get('jfrog', {})
+    jfrog_url = jfrog.get('url', '').rstrip('/')
+    jfrog_token = jfrog.get('token', '')
+    repo = jfrog.get('repo', '')
+    path = jfrog.get('path', '').strip('/')
+
+    if not jfrog_url or not repo:
+        return []
+
+    if not jfrog_token:
+        raise ServiceError(
+            'Token JFrog non configuré — enregistrez la configuration avant de charger les versions', 400
+        )
+
+    if '/artifactory' not in jfrog_url:
+        jfrog_url = jfrog_url + '/artifactory'
+
+    api_path = f'{jfrog_url}/api/storage/{repo}'
+    if path:
+        api_path += f'/{path}'
+
+    try:
+        resp = http_requests.get(
+            api_path,
+            headers={'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token},
+            params={'list': '', 'deep': '1', 'listFolders': '0'},
+            timeout=30,
+            verify=env_config.get('ssl_verify', ssl_verify),
+        )
+    except http_requests.exceptions.SSLError as e:
+        raise ServiceError(
+            f'Erreur SSL : {e} — désactivez "Vérification SSL" ou importez le certificat CA.', 502
+        ) from e
+    except http_requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre JFrog ({jfrog_url}) : {e}', 502) from e
+    except http_requests.exceptions.Timeout:
+        raise ServiceError(f'Timeout en contactant JFrog ({jfrog_url})', 502)
+    except http_requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau JFrog : {e}', 502) from e
+
+    if resp.status_code in (401, 403):
+        raise ServiceError(f'Authentification JFrog échouée ({resp.status_code})', 502)
+    if resp.status_code == 404:
+        raise ServiceError(f'Dépôt ou chemin introuvable : {repo}/{path}', 404)
+    if resp.status_code != 200:
+        raise ServiceError(f'JFrog a retourné {resp.status_code} : {resp.text[:200]}', 502)
+
+    data = resp.json()
+    files = data.get('files', [])
+
+    # Extraire les répertoires parents uniques depuis les URIs des fichiers
+    dirs: set[str] = set()
+    for f in files:
+        uri = f.get('uri', '').lstrip('/')  # ex: 'v1.0.1/app.jar' ou 'module1/aaa/v1.0.1/app.jar'
+        if '/' in uri:
+            parent = uri.rsplit('/', 1)[0]  # ex: 'v1.0.1' ou 'module1/aaa/v1.0.1'
+            dirs.add(parent)
+
+    return sorted(dirs, reverse=True)
+
+
 def browse_jfrog_path(
     datas_dir: str,
     app_id: str,
@@ -466,11 +547,13 @@ def browse_jfrog_path(
     ssl_verify: Any,
     repo: str = '',
     path: str = '',
+    filter_text: str = '',
 ) -> dict:
     """Navigation dans l'arborescence JFrog : liste des repos ou contenu d'un dossier.
 
     Utilise le token enregistré (chiffré) — l'environnement doit être sauvegardé
     avant de pouvoir utiliser le navigateur.
+    Si filter_text est fourni, filtre les dépôts dont le nom contient ce texte (insensible à la casse).
     """
     env_config = get_pssit_env_config(datas_dir, app_id, env_id, secret_key)
     if not env_config:
@@ -523,6 +606,10 @@ def browse_jfrog_path(
             repos_data = resp.json()
             if not isinstance(repos_data, list):
                 repos_data = []
+            # Appliquer le filtre textuel si fourni
+            if filter_text:
+                fl = filter_text.lower()
+                repos_data = [r for r in repos_data if fl in r.get('key', '').lower()]
             return {
                 'type': 'repos',
                 'items': [

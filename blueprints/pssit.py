@@ -186,6 +186,21 @@ def api_pssit_artifacts(app_id: str, env_id: str):
         return api_error('Erreur interne, veuillez réessayer.', 502)
 
 
+@pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/versions', methods=['GET'])
+def api_pssit_versions(app_id: str, env_id: str):
+    """Liste les versions disponibles (répertoires feuilles contenant des fichiers) dans le chemin JFrog configuré."""
+    if not pssit_service.pssit_app_exists(_dd(), app_id):
+        abort(404)
+    try:
+        versions = pssit_service.get_pssit_versions(_dd(), app_id, env_id, _sk(), get_ssl_verify())
+        return jsonify(versions)
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+    except Exception:
+        logger.exception('Erreur inattendue lors de get_pssit_versions app=%s env=%s', app_id, env_id)
+        return api_error('Erreur interne, veuillez réessayer.', 502)
+
+
 @pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/awx-templates', methods=['GET'])
 def api_pssit_awx_templates(app_id: str, env_id: str):
     """Liste les Workflow Job Templates et Job Templates disponibles dans AWX."""
@@ -208,9 +223,10 @@ def api_pssit_jfrog_browse(app_id: str, env_id: str):
         abort(404)
     repo = request.args.get('repo', '').strip()
     path = request.args.get('path', '').strip()
+    filter_text = request.args.get('filter', '').strip()
     try:
         result = pssit_service.browse_jfrog_path(
-            _dd(), app_id, env_id, _sk(), get_ssl_verify(), repo, path
+            _dd(), app_id, env_id, _sk(), get_ssl_verify(), repo, path, filter_text
         )
         return jsonify(result)
     except ServiceError as e:

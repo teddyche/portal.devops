@@ -294,8 +294,8 @@ function renderEnvs() {
                 '<div class="deploy-section">' +
                     '<h4>D\u00e9ploiement</h4>' +
                     '<div class="deploy-row">' +
-                        '<select id="artifact-' + env.id + '" onchange="showArtifactInfo(\'' + env.id + '\')">' +
-                            '<option value="">-- S\u00e9lectionner un artefact --</option>' +
+                        '<select id="artifact-' + env.id + '">' +
+                            '<option value="">-- S\u00e9lectionner une version --</option>' +
                         '</select>' +
                         '<button class="btn-sm btn-refresh" onclick="loadArtifacts(\'' + env.id + '\')" title="Rafra\u00eechir">\u21BB</button>' +
                         '<button class="btn-sm btn-deploy" id="deploy-btn-' + env.id + '" onclick="launchDeploy(\'' + env.id + '\')" disabled>D\u00e9ployer</button>' +
@@ -382,12 +382,12 @@ async function launchAction(action, envId) {
 async function launchDeploy(envId) {
     const select = document.getElementById('artifact-' + envId);
     const artifact = select.value;
-    if (!artifact) { showToast('S\u00e9lectionnez un artefact', 'info'); return; }
+    if (!artifact) { showToast('S\u00e9lectionnez une version', 'info'); return; }
 
     const env = config.environments.find(e => e.id === envId);
     const envName = env ? (env.name || env.id) : envId;
 
-    if (!confirm('D\u00e9ployer "' + artifact + '" sur ' + envName + ' ?')) return;
+    if (!confirm('D\u00e9ployer la version "' + artifact + '" sur ' + envName + ' ?')) return;
 
     const btn = document.getElementById('deploy-btn-' + envId);
     btn.disabled = true;
@@ -406,7 +406,7 @@ async function launchDeploy(envId) {
         } else {
             history.unshift(result);
             renderHistory();
-            showToast('D\u00e9ploiement lanc\u00e9 : ' + artifact, 'success');
+            showToast('D\u00e9ploiement lanc\u00e9 : version ' + artifact, 'success');
             if (result.status === 'running') startPollJob(result);
         }
     } catch (e) {
@@ -417,14 +417,14 @@ async function launchDeploy(envId) {
     btn.textContent = 'D\u00e9ployer';
 }
 
-// === Artifacts ===
+// === Versions (déploiement) ===
 async function loadArtifacts(envId) {
     const select = document.getElementById('artifact-' + envId);
     if (!select) return;
     select.innerHTML = '<option value="">Chargement...</option>';
 
     try {
-        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/artifacts');
+        const resp = await fetch('/api/pssit/app/' + appId + '/env/' + envId + '/versions');
         const data = await resp.json();
 
         if (data.error) {
@@ -432,19 +432,25 @@ async function loadArtifacts(envId) {
             return;
         }
 
-        envArtifacts[envId] = data;
-        select.innerHTML = '<option value="">-- S\u00e9lectionner (' + data.length + ') --</option>';
-        data.forEach(a => {
+        const versions = Array.isArray(data) ? data : [];
+        envArtifacts[envId] = versions;
+
+        if (!versions.length) {
+            select.innerHTML = '<option value="">Aucune version trouv\u00e9e</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- S\u00e9lectionner une version (' + versions.length + ') --</option>';
+        versions.forEach(v => {
             const opt = document.createElement('option');
-            opt.value = a.name;
-            opt.textContent = a.name;
+            opt.value = v;
+            opt.textContent = v;
             select.appendChild(opt);
         });
 
         const deployBtn = document.getElementById('deploy-btn-' + envId);
         select.onchange = function() {
             deployBtn.disabled = !this.value;
-            showArtifactInfo(envId);
         };
     } catch (e) {
         select.innerHTML = '<option value="">Erreur de chargement</option>';
@@ -452,17 +458,9 @@ async function loadArtifacts(envId) {
 }
 
 function showArtifactInfo(envId) {
-    const select = document.getElementById('artifact-' + envId);
+    // Les versions sont des chemins de répertoires — pas d'info taille/date disponible
     const info = document.getElementById('artifact-info-' + envId);
-    const artifacts = envArtifacts[envId] || [];
-    const selected = artifacts.find(a => a.name === select.value);
-    if (selected) {
-        const size = selected.size ? (selected.size / 1024 / 1024).toFixed(1) + ' Mo' : '-';
-        const date = selected.lastModified ? new Date(selected.lastModified).toLocaleString('fr-FR') : '-';
-        info.textContent = 'Taille: ' + size + ' | Modifi\u00e9: ' + date;
-    } else {
-        info.textContent = '';
-    }
+    if (info) info.textContent = '';
 }
 
 // === Schedule ===

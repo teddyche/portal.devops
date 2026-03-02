@@ -188,6 +188,13 @@
       <h3>📂 Navigateur JFrog Artifactory</h3>
       <button onclick="closeBrowse()" title="Fermer">✕</button>
     </div>
+    <div id="browse-filter-row" style="display:none;padding:10px 18px;border-bottom:1px solid #eee;align-items:center;gap:8px;">
+      <input id="browse-filter-input" type="text"
+             placeholder="🔍 Filtrer par nom de dépôt (ex: caps-el)"
+             style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;"
+             onkeydown="if(event.key==='Enter') _browseApplyFilter()">
+      <button class="btn btn-secondary btn-sm" onclick="_browseApplyFilter()" style="white-space:nowrap;">Chercher</button>
+    </div>
     <div class="browse-crumb" id="browse-breadcrumb"></div>
     <div id="browse-error"></div>
     <div id="browse-items"></div>
@@ -451,13 +458,20 @@ let _bEnvIdx = null;    // index dans config.environments
 let _bEnvId  = '';      // env.id sauvegardé (pour l'URL API)
 let _bRepo   = null;    // null = on est à la liste des repos
 let _bPath   = [];      // segments du chemin courant (tableau de strings)
+let _bFilter = '';      // filtre de recherche dépôts (niveau racine uniquement)
 
 function openBrowse(envIdx) {
     _bEnvIdx = envIdx;
     _bEnvId  = config.environments[envIdx].id;
     _bRepo   = null;
     _bPath   = [];
+    _bFilter = '';
     document.getElementById('browse-modal').style.display = 'flex';
+    _browseLoad();
+}
+
+function _browseApplyFilter() {
+    _bFilter = (document.getElementById('browse-filter-input').value || '').trim();
     _browseLoad();
 }
 
@@ -466,13 +480,18 @@ function closeBrowse() {
 }
 
 async function _browseLoad() {
-    const itemsEl  = document.getElementById('browse-items');
-    const errorEl  = document.getElementById('browse-error');
+    const itemsEl    = document.getElementById('browse-items');
+    const errorEl    = document.getElementById('browse-error');
     const confirmBtn = document.getElementById('browse-confirm-btn');
+    const filterRow  = document.getElementById('browse-filter-row');
+    const filterInp  = document.getElementById('browse-filter-input');
 
     errorEl.style.display = 'none';
-    itemsEl.innerHTML = '<div class="browse-loading">⏳ Chargement...</div>';
     confirmBtn.disabled = !_bRepo; // on ne peut sélectionner que si on est dans un repo
+
+    // Afficher le filtre uniquement à la racine (liste des repos)
+    filterRow.style.display = _bRepo ? 'none' : 'flex';
+    if (!_bRepo) filterInp.value = _bFilter;
 
     // Breadcrumb
     let crumb = '<span class="crumb-link" onclick="_browseGoRoot()">📦 Dépôts</span>';
@@ -484,12 +503,22 @@ async function _browseLoad() {
     }
     document.getElementById('browse-breadcrumb').innerHTML = crumb;
 
+    // À la racine sans filtre : inviter l'utilisateur à saisir un filtre
+    if (!_bRepo && !_bFilter) {
+        itemsEl.innerHTML = '<div class="browse-empty" style="color:#aaa;font-style:italic;">Saisissez un filtre ci-dessus puis appuyez sur Entrée pour rechercher les dépôts.</div>';
+        return;
+    }
+
+    itemsEl.innerHTML = '<div class="browse-loading">⏳ Chargement...</div>';
+
     // Appel API
     let url = '/api/pssit/app/' + encodeURIComponent(appId) +
               '/env/' + encodeURIComponent(_bEnvId) + '/jfrog-browse';
     if (_bRepo) {
         url += '?repo=' + encodeURIComponent(_bRepo) +
                '&path=' + encodeURIComponent(_bPath.join('/'));
+    } else {
+        url += '?filter=' + encodeURIComponent(_bFilter);
     }
     try {
         const resp = await fetch(url);
