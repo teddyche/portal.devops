@@ -690,12 +690,14 @@ function saveLdapServer() {
     }
     cancelLdapForm();
     renderLdapServers();
+    saveConfig();
 }
 
 function deleteLdapServer(id) {
     if (!confirm('Supprimer le serveur "' + id + '" ?')) return;
     _ldapServers = _ldapServers.filter(s => s.id !== id);
     renderLdapServers();
+    saveConfig();
 }
 
 // ── Save all config ───────────────────────────────────────────────────────────
