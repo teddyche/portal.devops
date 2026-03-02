@@ -161,10 +161,12 @@ def get_pssit_env_config(datas_dir: str, app_id: str, env_id: str, secret_key: s
         return None
     awx = env.get('awx', {})
     if awx.get('token'):
-        awx['token'] = decrypt_token(awx['token'], secret_key)
+        decrypted = decrypt_token(awx['token'], secret_key)
+        awx['token'] = decrypted if decrypted != '__UNCHANGED__' else ''
     jfrog = env.get('jfrog', {})
     if jfrog.get('token'):
-        jfrog['token'] = decrypt_token(jfrog['token'], secret_key)
+        decrypted = decrypt_token(jfrog['token'], secret_key)
+        jfrog['token'] = decrypted if decrypted != '__UNCHANGED__' else ''
     return env
 
 
