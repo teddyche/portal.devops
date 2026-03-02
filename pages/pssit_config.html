@@ -488,14 +488,14 @@ async function _browseLoad() {
         const data = await resp.json();
         if (data.error) {
             errorEl.textContent = '⚠️ ' + data.error;
-            errorEl.style.display = '';
+            errorEl.style.display = 'block';
             itemsEl.innerHTML = '';
             return;
         }
         _browseRender(data);
     } catch (e) {
         errorEl.textContent = '⚠️ Erreur de connexion';
-        errorEl.style.display = '';
+        errorEl.style.display = 'block';
         itemsEl.innerHTML = '';
     }
 }
@@ -582,7 +582,7 @@ async function _awxPickLoad() {
         const data = await resp.json();
         if (data.error) {
             errorEl.textContent = '⚠️ ' + data.error;
-            errorEl.style.display = '';
+            errorEl.style.display = 'block';
             itemsEl.innerHTML = '';
             return;
         }
@@ -590,12 +590,12 @@ async function _awxPickLoad() {
         _apCacheKey = appId + '/' + _apEnvId;
         if (data.warnings && data.warnings.length) {
             errorEl.textContent = '⚠️ ' + data.warnings.join(' — ');
-            errorEl.style.display = '';
+            errorEl.style.display = 'block';
         }
         _awxPickRender(_apAllTpls);
     } catch (e) {
         errorEl.textContent = '⚠️ Erreur de connexion';
-        errorEl.style.display = '';
+        errorEl.style.display = 'block';
         itemsEl.innerHTML = '';
     }
 }
