@@ -72,7 +72,7 @@ def load_json(path: str) -> Optional[Any]:
 
     with _cache_lock:
         _cache[path] = (data, time.monotonic())
-    return data
+    return copy.deepcopy(data)
 
 
 def save_json(path: str, data: Any) -> None:
