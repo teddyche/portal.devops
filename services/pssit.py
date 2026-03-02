@@ -476,22 +476,35 @@ def browse_jfrog_path(
             'Token JFrog non configuré — enregistrez la configuration avant de parcourir', 400
         )
 
-    headers = {'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token}
+    # Supporte API key (X-JFrog-Art-Api) et Access Token (Bearer)
+    # On envoie les deux — JFrog utilise ce qu'il reconnaît
+    headers = {
+        'Authorization': f'Bearer {jfrog_token}',
+        'X-JFrog-Art-Api': jfrog_token,
+    }
     actual_ssl = env_config.get('ssl_verify', ssl_verify)
+    repos_url = f'{jfrog_url}/api/repositories'
 
     try:
         if not repo:
             # Liste des dépôts disponibles
             resp = http_requests.get(
-                f'{jfrog_url}/api/repositories',
+                repos_url,
                 headers=headers,
                 timeout=15,
                 verify=actual_ssl,
             )
-            if resp.status_code == 401:
-                raise ServiceError('Token JFrog invalide ou expiré (401)', 502)
+            if resp.status_code in (401, 403):
+                raise ServiceError(
+                    f'Authentification JFrog échouée ({resp.status_code}) sur {repos_url} — '
+                    f'vérifiez que l\'URL contient /artifactory et que le token est valide. '
+                    f'Réponse JFrog : {resp.text[:300]}',
+                    502,
+                )
             if resp.status_code != 200:
-                raise ServiceError(f'JFrog a retourné {resp.status_code} : {resp.text[:200]}', 502)
+                raise ServiceError(
+                    f'JFrog a retourné {resp.status_code} sur {repos_url} : {resp.text[:200]}', 502
+                )
             repos_data = resp.json()
             if not isinstance(repos_data, list):
                 repos_data = []
@@ -515,8 +528,12 @@ def browse_jfrog_path(
             browse_url += f'/{path_clean}'
 
         resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl)
-        if resp.status_code == 401:
-            raise ServiceError('Token JFrog invalide ou expiré (401)', 502)
+        if resp.status_code in (401, 403):
+            raise ServiceError(
+                f'Authentification JFrog échouée ({resp.status_code}) sur {browse_url} — '
+                f'Réponse : {resp.text[:300]}',
+                502,
+            )
         if resp.status_code == 404:
             raise ServiceError(f'Dépôt ou chemin introuvable : {repo}/{path_clean}', 404)
         if resp.status_code != 200:
