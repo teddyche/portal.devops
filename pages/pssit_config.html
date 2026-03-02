@@ -295,7 +295,8 @@ function render() {
                     '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com/artifactory" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
                         '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="" placeholder="' + (jfrog.token === null ? '● ● ● ● (inchangé)' : 'Nouveau token JFrog') + '" oninput="ensureJfrog(' + i + ').token=this.value">' +
-                        '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +
+                        '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button>' +
+                        '<button class="toggle-pw" title="Effacer et resaisir" onclick="ensureJfrog(' + i + ').token=\'\';var inp=document.getElementById(\'jfrog-token-' + i + '\');inp.value=\'\';inp.placeholder=\'Nouveau token JFrog\';inp.focus()">\u2715</button></div>' +
                     '</div>' +
                     '<div class="form-group"><label>Repository</label><input type="text" id="jfrog-repo-' + i + '" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
                     '<div class="form-group"><label>Path</label><input type="text" id="jfrog-path-' + i + '" value="' + esc(jfrog.path || '') + '" placeholder="com/example/myapp" onchange="ensureJfrog(' + i + ').path=this.value"></div>' +
