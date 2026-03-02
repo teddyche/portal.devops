@@ -168,6 +168,22 @@
         .quota-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
         .quota-card-body { padding: 20px; }
 
+        .quota-filters {
+            padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+        }
+        .quota-filters input[type="text"] {
+            padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; min-width: 220px; flex: 1;
+        }
+        .quota-filters input[type="text"]:focus { border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.1); }
+        .quota-filters label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; user-select: none;
+        }
+        .quota-filters input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; }
+        .quota-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
+
         .btn-refresh {
             padding: 7px 14px; background: #e3f2fd; color: #1565c0;
             border: 1px solid #90caf9; border-radius: 6px;
@@ -340,6 +356,14 @@
                 <button class="btn-refresh" onclick="loadAllQuotas()">🔄 Rafraîchir</button>
             </div>
         </div>
+        <div class="quota-filters" id="quotaFilters" style="display:none">
+            <input type="text" id="nsFilter" placeholder="🔎 Filtrer les namespaces…" oninput="applyFilters()">
+            <label>
+                <input type="checkbox" id="hideZero" checked onchange="applyFilters()">
+                Masquer les ressources à 0%
+            </label>
+            <span class="quota-count" id="quotaCount"></span>
+        </div>
         <div class="quota-card-body" id="quotaCardBody"></div>
     </div>
 
@@ -366,6 +390,7 @@ let selectedCluster = null;
 let lastToken = '';
 let lastKubeconfig = '';
 let lastK8sUrl = '';
+let lastQuotaResults = [];
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function init() {
@@ -605,6 +630,9 @@ async function explainToken() {
 function initQuotaSection(clusterName) {
     const card = document.getElementById('quotaCard');
     document.getElementById('quotaClusterTag').textContent = clusterName;
+    document.getElementById('quotaFilters').style.display = 'none';
+    document.getElementById('nsFilter').value = '';
+    lastQuotaResults = [];
     card.style.display = 'block';
     setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 150);
     loadAllQuotas();
@@ -613,6 +641,7 @@ function initQuotaSection(clusterName) {
 async function loadAllQuotas() {
     if (!lastK8sUrl || !lastToken) return;
     const body = document.getElementById('quotaCardBody');
+    document.getElementById('quotaFilters').style.display = 'none';
     body.innerHTML = '<div class="quota-msg">🔍 Découverte des namespaces et chargement des quotas…</div>';
 
     try {
@@ -636,26 +665,65 @@ async function loadAllQuotas() {
     }
 }
 
+// Calcule le % d'utilisation max d'un namespace (pour tri)
+function _maxPct(nsResult) {
+    if (!nsResult.quotas) return 0;
+    let max = 0;
+    nsResult.quotas.forEach(q => q.resources.forEach(r => { if (r.percent > max) max = r.percent; }));
+    return max;
+}
+
 function renderAllQuotas(results) {
     const body = document.getElementById('quotaCardBody');
     if (!results.length) {
         body.innerHTML = '<div class="quota-msg">Aucun namespace avec ResourceQuota trouvé (ou token sans accès).</div>';
         return;
     }
-    body.innerHTML = results.map(r => {
-        const quotaHtml = r.error
-            ? '<div class="quota-err">⚠️ ' + esc(r.error) + '</div>'
-            : r.quotas.map(q =>
-                '<div class="quota-group">' +
+    // Tri : plus utilisés en premier
+    lastQuotaResults = [...results].sort((a, b) => _maxPct(b) - _maxPct(a));
+    document.getElementById('quotaFilters').style.display = 'flex';
+    applyFilters();
+}
+
+function applyFilters() {
+    const filterText = document.getElementById('nsFilter').value.toLowerCase().trim();
+    const hideZero = document.getElementById('hideZero').checked;
+    const body = document.getElementById('quotaCardBody');
+
+    const filtered = filterText
+        ? lastQuotaResults.filter(r => r.namespace.toLowerCase().includes(filterText))
+        : lastQuotaResults;
+
+    let rendered = 0;
+    const html = filtered.map(r => {
+        if (r.error) {
+            rendered++;
+            return '<div class="quota-ns-block">' +
+                '<div class="quota-ns-title">📁 ' + esc(r.namespace) + '</div>' +
+                '<div class="quota-err">⚠️ ' + esc(r.error) + '</div>' +
+                '</div>';
+        }
+        const quotaHtml = r.quotas.map(q => {
+            const resources = hideZero ? q.resources.filter(res => res.percent > 0) : q.resources;
+            if (!resources.length) return '';
+            return '<div class="quota-group">' +
                 (r.quotas.length > 1 ? '<div class="quota-group-name">' + esc(q.name) + '</div>' : '') +
-                q.resources.map(res => renderQuotaRow(res)).join('') +
-                '</div>'
-              ).join('');
+                resources.map(res => renderQuotaRow(res)).join('') +
+                '</div>';
+        }).join('');
+        if (!quotaHtml) return '';
+        rendered++;
         return '<div class="quota-ns-block">' +
             '<div class="quota-ns-title">📁 ' + esc(r.namespace) + '</div>' +
             quotaHtml +
             '</div>';
-    }).join('');
+    }).filter(Boolean).join('');
+
+    document.getElementById('quotaCount').textContent =
+        rendered + ' namespace' + (rendered > 1 ? 's' : '') +
+        (filterText ? ' sur ' + lastQuotaResults.length : '');
+
+    body.innerHTML = html || '<div class="quota-msg">Aucune ressource à afficher avec les filtres actuels.</div>';
 }
 
 function renderQuotaRow(r) {
