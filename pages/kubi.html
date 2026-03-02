@@ -168,15 +168,6 @@
         .quota-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
         .quota-card-body { padding: 20px; }
 
-        .namespace-bar {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 18px; gap: 12px; flex-wrap: wrap;
-        }
-        .namespace-bar select {
-            padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 14px; min-width: 220px; cursor: pointer; color: #333;
-        }
-        .namespace-bar select:focus { border-color: #326ce5; outline: none; }
         .btn-refresh {
             padding: 7px 14px; background: #e3f2fd; color: #1565c0;
             border: 1px solid #90caf9; border-radius: 6px;
@@ -184,10 +175,16 @@
         }
         .btn-refresh:hover { background: #bbdefb; }
 
-        .quota-group { margin-bottom: 22px; }
+        .quota-ns-block { margin-bottom: 24px; border-bottom: 1px solid #f0f0f0; padding-bottom: 16px; }
+        .quota-ns-block:last-child { border-bottom: none; }
+        .quota-ns-title {
+            font-size: 13px; color: #1a237e; font-weight: bold;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+        }
+        .quota-group { margin-bottom: 16px; }
         .quota-group-name {
-            font-size: 11px; color: #888; text-transform: uppercase;
-            letter-spacing: .5px; margin-bottom: 10px; font-weight: bold;
+            font-size: 11px; color: #aaa; text-transform: uppercase;
+            letter-spacing: .5px; margin-bottom: 8px; font-weight: bold;
         }
         .quota-row {
             display: grid; grid-template-columns: 190px 1fr;
@@ -338,20 +335,12 @@
     <div class="quota-card" id="quotaCard" style="display:none">
         <div class="quota-card-header">
             <span>📊 Quotas Kubernetes</span>
-            <span class="cluster-tag" id="quotaClusterTag"></span>
-        </div>
-        <div class="quota-card-body">
-            <div class="namespace-bar">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <label style="font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;">Namespace</label>
-                    <select id="nsSelect" onchange="loadQuotas()">
-                        <option value="">Sélectionner…</option>
-                    </select>
-                </div>
-                <button class="btn-refresh" onclick="loadQuotas()">🔄 Rafraîchir</button>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="cluster-tag" id="quotaClusterTag"></span>
+                <button class="btn-refresh" onclick="loadAllQuotas()">🔄 Rafraîchir</button>
             </div>
-            <div id="quotaContent"></div>
         </div>
+        <div class="quota-card-body" id="quotaCardBody"></div>
     </div>
 
     <!-- ── Analyser un token ─────────────────────────────────────── -->
@@ -513,7 +502,7 @@ function renderResult(data, clusterName) {
         lastK8sUrl = 'https://' + data.body.endPoint;
     }
     if (lastK8sUrl) {
-        initQuotaSection((data.body || {}).groups || [], clusterName);
+        initQuotaSection(clusterName);
     } else {
         document.getElementById('quotaCard').style.display = 'none';
     }
@@ -613,83 +602,60 @@ async function explainToken() {
 
 // ── Quotas ────────────────────────────────────────────────────────────────
 
-function initQuotaSection(groups, clusterName) {
-    const namespaces = extractNamespacesFromGroups(groups);
+function initQuotaSection(clusterName) {
     const card = document.getElementById('quotaCard');
-    const sel = document.getElementById('nsSelect');
     document.getElementById('quotaClusterTag').textContent = clusterName;
-    document.getElementById('quotaContent').innerHTML = '';
-
     card.style.display = 'block';
-
-    if (namespaces.length) {
-        sel.innerHTML = namespaces.map(n =>
-            '<option value="' + n + '">' + n + '</option>'
-        ).join('');
-        loadQuotas();
-    } else {
-        sel.innerHTML = '<option value="">Aucun namespace dans votre token</option>';
-    }
-
     setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 150);
+    loadAllQuotas();
 }
 
-function extractNamespacesFromGroups(groups) {
-    // Format CA-GIP : DL_KUB_<CLUSTER>_<NAMESPACE>_<ROLE>
-    // ex: DL_KUB_CAPS-HORS-PROD_DEMOCAD-DEV_ADMIN → democad-dev
-    const ns = new Set();
-    (groups || []).forEach(g => {
-        const parts = g.split('_');
-        if (parts.length === 5 && parts[0] === 'DL' && parts[1] === 'KUB') {
-            ns.add(parts[3].toLowerCase());
-        }
-    });
-    return [...ns].sort();
-}
-
-async function loadQuotas() {
-    const sel = document.getElementById('nsSelect');
-    const ns = sel.value;
-    const content = document.getElementById('quotaContent');
-
-    if (!ns || !lastK8sUrl || !lastToken) return;
-
-    content.innerHTML = '<div class="quota-msg">Chargement des quotas…</div>';
+async function loadAllQuotas() {
+    if (!lastK8sUrl || !lastToken) return;
+    const body = document.getElementById('quotaCardBody');
+    body.innerHTML = '<div class="quota-msg">🔍 Découverte des namespaces et chargement des quotas…</div>';
 
     try {
-        const r = await fetch('/api/kubi/quotas', {
+        const r = await fetch('/api/kubi/quotas/all', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 k8s_url: lastK8sUrl,
                 token: lastToken,
-                namespace: ns,
                 cluster_id: selectedCluster?.id || '',
             }),
         });
         const data = await r.json();
         if (!r.ok) {
-            content.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
             return;
         }
-        renderQuotas(data.quotas || [], ns);
+        renderAllQuotas(data.results || []);
     } catch(e) {
-        content.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
+        body.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
     }
 }
 
-function renderQuotas(quotas, ns) {
-    const content = document.getElementById('quotaContent');
-    if (!quotas.length) {
-        content.innerHTML = '<div class="quota-msg">Aucun ResourceQuota configuré sur <b>' + esc(ns) + '</b></div>';
+function renderAllQuotas(results) {
+    const body = document.getElementById('quotaCardBody');
+    if (!results.length) {
+        body.innerHTML = '<div class="quota-msg">Aucun namespace avec ResourceQuota trouvé (ou token sans accès).</div>';
         return;
     }
-    content.innerHTML = quotas.map(q =>
-        '<div class="quota-group">' +
-        (quotas.length > 1 ? '<div class="quota-group-name">' + esc(q.name) + '</div>' : '') +
-        q.resources.map(r => renderQuotaRow(r)).join('') +
-        '</div>'
-    ).join('');
+    body.innerHTML = results.map(r => {
+        const quotaHtml = r.error
+            ? '<div class="quota-err">⚠️ ' + esc(r.error) + '</div>'
+            : r.quotas.map(q =>
+                '<div class="quota-group">' +
+                (r.quotas.length > 1 ? '<div class="quota-group-name">' + esc(q.name) + '</div>' : '') +
+                q.resources.map(res => renderQuotaRow(res)).join('') +
+                '</div>'
+              ).join('');
+        return '<div class="quota-ns-block">' +
+            '<div class="quota-ns-title">📁 ' + esc(r.namespace) + '</div>' +
+            quotaHtml +
+            '</div>';
+    }).join('');
 }
 
 function renderQuotaRow(r) {

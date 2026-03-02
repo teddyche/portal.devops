@@ -184,6 +184,56 @@ def api_kubi_quotas():
         return api_error(e.message, e.status)
 
 
+@kubi_bp.route('/api/kubi/quotas/all', methods=['POST'])
+def api_kubi_quotas_all():
+    """
+    Liste tous les namespaces accessibles et retourne leurs ResourceQuotas.
+
+    Découverte automatique via GET /api/v1/namespaces — les namespaces en 403/404
+    sont ignorés silencieusement. Seuls les namespaces ayant des quotas sont retournés.
+    ---
+    tags: [Kubi]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            k8s_url:    {type: string}
+            token:      {type: string}
+            cluster_id: {type: string}
+    responses:
+      200:
+        description: Liste [{namespace, quotas}] pour les namespaces avec quotas
+      401:
+        description: Token invalide ou expiré
+      502:
+        description: API K8s injoignable
+    """
+    try:
+        body = _require_json()
+        k8s_url = body.get('k8s_url', '').strip()
+        token = body.get('token', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:
+            return api_error('k8s_url requis', 400)
+        if not token:
+            return api_error('token requis', 400)
+
+        cfg = kubi_service.get_kubi_config(_dd())
+        cluster = next((c for c in cfg.get('clusters', []) if c['id'] == cluster_id), None)
+        insecure = cluster.get('insecure', True) if cluster else True
+        use_proxy = cluster.get('use_proxy', False) if cluster else False
+        proxy_url = cfg.get('proxy_url', '')
+
+        results = kubi_service.get_all_kubi_quotas(k8s_url, token, insecure, proxy_url, use_proxy)
+        _audit.info('kubi_quotas_all user=%s cluster=%s namespaces=%d',
+                    _uid(), cluster_id, len(results))
+        return jsonify({'results': results})
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
 # === Explain (décode un JWT) ===
 
 @kubi_bp.route('/api/kubi/explain', methods=['POST'])

@@ -225,7 +225,7 @@ def generate_kubi_token(
     }
 
 
-# === K8s API — Quotas ===
+# === K8s API — Namespaces + Quotas ===
 
 def _parse_k8s_url(kubeconfig_yaml: str) -> str:
     """Extrait l'URL du serveur K8s depuis un kubeconfig YAML (ligne 'server: ...')."""
@@ -345,3 +345,79 @@ def get_kubi_quotas(
         })
 
     return result
+
+
+def _list_namespaces(
+    k8s_url: str,
+    token: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> list:
+    """Liste tous les namespaces K8s accessibles avec ce token (GET /api/v1/namespaces)."""
+    k8s_url = k8s_url.rstrip('/')
+
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    try:
+        resp = requests.get(
+            f'{k8s_url}/api/v1/namespaces',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s ({k8s_url}) : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout en contactant l\'API K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError('Token sans permission de lister les namespaces (HTTP 403)', 403)
+    if not resp.ok:
+        raise ServiceError(f'API K8s a retourné HTTP {resp.status_code}', 502)
+
+    data = resp.json()
+    return sorted(item['metadata']['name'] for item in data.get('items', []))
+
+
+def get_all_kubi_quotas(
+    k8s_url: str,
+    token: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> list:
+    """
+    Liste tous les namespaces accessibles puis récupère leurs quotas.
+
+    Ignore silencieusement les namespaces en 403/404 (droits insuffisants).
+    Retourne une liste de dicts { namespace, quotas } uniquement pour les
+    namespaces qui ont des ResourceQuotas et sont accessibles.
+    """
+    namespaces = _list_namespaces(k8s_url, token, insecure, proxy_url, use_proxy)
+
+    results = []
+    for ns in namespaces:
+        try:
+            quotas = get_kubi_quotas(k8s_url, token, ns, insecure, proxy_url, use_proxy)
+            # N'inclut que les namespaces qui ont effectivement des quotas configurés
+            if quotas:
+                results.append({'namespace': ns, 'quotas': quotas})
+        except ServiceError as e:
+            if e.status not in (403, 404):
+                # Erreur inattendue : on l'inclut pour que l'UI puisse l'afficher
+                results.append({'namespace': ns, 'quotas': [], 'error': e.message})
+            # 403/404 → on ignore silencieusement
+
+    return results
