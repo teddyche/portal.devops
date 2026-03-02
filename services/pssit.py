@@ -489,8 +489,13 @@ def browse_jfrog_path(
     if not jfrog_url:
         raise ServiceError('URL JFrog non configurée pour cet environnement', 400)
     if not jfrog_token:
+        # Debug : afficher le token brut sur disque pour diagnostiquer
+        _raw = store.load_json(os.path.join(_app_dir(datas_dir, app_id), 'config.json')) or {}
+        _renv = next((e for e in _raw.get('environments', []) if e['id'] == env_id), None)
+        _rtok = (_renv or {}).get('jfrog', {}).get('token', '(absent)')
         raise ServiceError(
-            'Token JFrog non configuré — enregistrez la configuration avant de parcourir', 400
+            f'Token JFrog non configuré — disque: "{_rtok[:20]}" ({len(_rtok)} cars). '
+            f'Enregistrez la config avant de parcourir.', 400
         )
 
     # Normalise l'URL : l'API Artifactory est sous /artifactory
