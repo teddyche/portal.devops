@@ -184,3 +184,37 @@ def api_pssit_artifacts(app_id: str, env_id: str):
     except Exception:
         logger.exception('Erreur inattendue lors de get_pssit_artifacts app=%s env=%s', app_id, env_id)
         return api_error('Erreur interne, veuillez réessayer.', 502)
+
+
+@pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/awx-templates', methods=['GET'])
+def api_pssit_awx_templates(app_id: str, env_id: str):
+    """Liste les Workflow Job Templates et Job Templates disponibles dans AWX."""
+    if not pssit_service.pssit_app_exists(_dd(), app_id):
+        abort(404)
+    try:
+        result = pssit_service.browse_awx_templates(_dd(), app_id, env_id, _sk(), get_ssl_verify())
+        return jsonify(result)
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+    except Exception:
+        logger.exception('Erreur browse AWX templates app=%s env=%s', app_id, env_id)
+        return api_error('Erreur interne', 502)
+
+
+@pssit_bp.route('/api/pssit/app/<app_id>/env/<env_id>/jfrog-browse', methods=['GET'])
+def api_pssit_jfrog_browse(app_id: str, env_id: str):
+    """Navigation dans l'arborescence JFrog : liste des repos ou contenu d'un dossier."""
+    if not pssit_service.pssit_app_exists(_dd(), app_id):
+        abort(404)
+    repo = request.args.get('repo', '').strip()
+    path = request.args.get('path', '').strip()
+    try:
+        result = pssit_service.browse_jfrog_path(
+            _dd(), app_id, env_id, _sk(), get_ssl_verify(), repo, path
+        )
+        return jsonify(result)
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+    except Exception:
+        logger.exception('Erreur browse JFrog app=%s env=%s', app_id, env_id)
+        return api_error('Erreur interne', 502)

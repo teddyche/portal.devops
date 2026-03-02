@@ -334,7 +334,10 @@ async function loadLdapServers() {
     const sel = document.getElementById('ldap-server-select');
     const row = document.getElementById('server-select-row');
     sel.innerHTML = servers.map(s => `<option value="${s.id}">${s.name || s.id}</option>`).join('');
-    row.style.display = servers.length > 1 ? '' : 'none';
+    row.style.display = servers.length >= 1 ? '' : 'none';
+    sel.disabled = servers.length <= 1;
+    sel.style.background = servers.length <= 1 ? '#f5f5f5' : '';
+    sel.style.color = servers.length <= 1 ? '#888' : '';
   } catch(e) {}
 }
 

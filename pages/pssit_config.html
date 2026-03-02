@@ -68,7 +68,8 @@
         .wf-table { width: 100%; border-collapse: collapse; }
         .wf-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
         .wf-table td:first-child { font-size: 13px; font-weight: bold; color: #555; width: 140px; text-transform: uppercase; }
-        .wf-table td:last-child input { width: 100%; }
+        .wf-table td:nth-child(2) input { width: 100%; }
+        .wf-table td:last-child { width: 44px; text-align: center; padding: 4px 8px; }
 
         .params-table { width: 100%; border-collapse: collapse; }
         .params-table td { padding: 6px 8px; }
@@ -80,6 +81,67 @@
         }
 
         .empty { text-align: center; padding: 40px; color: #999; font-size: 15px; }
+
+        /* ── JFrog directory browser ───────────────────────────────────────── */
+        .btn-browse { background: #e8eaf6; color: #3949ab; border: 1px solid #9fa8da; font-weight: normal; font-size: 13px; padding: 6px 14px; }
+        .btn-browse:hover { background: #c5cae9; }
+        .browse-hint { font-size: 11px; color: #aaa; margin-left: 10px; vertical-align: middle; }
+
+        #browse-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+            background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; }
+        .browse-box { background:white; border-radius:10px; width:620px; max-width:96vw;
+            max-height:82vh; display:flex; flex-direction:column;
+            box-shadow:0 12px 40px rgba(0,0,0,0.3); overflow:hidden; }
+        .browse-head { padding:14px 20px; border-bottom:1px solid #eee;
+            display:flex; justify-content:space-between; align-items:center; }
+        .browse-head h3 { font-size:15px; color:#3949ab; margin:0; }
+        .browse-head button { background:none; border:none; font-size:22px;
+            cursor:pointer; color:#aaa; line-height:1; padding:0; }
+        .browse-head button:hover { color:#555; }
+        .browse-crumb { padding:9px 20px; background:#f5f5f5; font-size:13px;
+            color:#555; border-bottom:1px solid #eee; min-height:38px; display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+        .crumb-link { cursor:pointer; color:#3949ab; }
+        .crumb-link:hover { text-decoration:underline; }
+        .crumb-sep { color:#bbb; }
+        #browse-error { display:none; padding:10px 20px; background:#ffebee;
+            color:#c62828; font-size:13px; border-bottom:1px solid #ffcdd2; }
+        #browse-items { flex:1; overflow-y:auto; min-height:200px; }
+        .browse-item { display:flex; align-items:center; gap:10px; padding:10px 20px;
+            border-bottom:1px solid #f5f5f5; transition:background .1s; }
+        .browse-item.clickable { cursor:pointer; }
+        .browse-item.clickable:hover { background:#f0f4ff; }
+        .browse-item.file { color:#bbb; cursor:default; }
+        .browse-icon { font-size:18px; flex-shrink:0; }
+        .browse-name { font-size:14px; font-weight:bold; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .browse-rtype { font-size:11px; color:#999; }
+        .browse-loading, .browse-empty { padding:32px; text-align:center; color:#aaa; font-size:14px; }
+        .browse-foot-hint { padding:8px 20px; background:#fafafa; font-size:11px;
+            color:#aaa; border-top:1px solid #eee; }
+        .browse-actions { padding:12px 20px; display:flex; gap:10px;
+            justify-content:flex-end; border-top:1px solid #eee; background:white; }
+
+        /* ── AWX Template Picker ───────────────────────────────────────────── */
+        .btn-awx-pick { background:none; border:1px solid #bbb; border-radius:4px;
+            padding:3px 8px; cursor:pointer; font-size:13px; color:#666; line-height:1; }
+        .btn-awx-pick:hover { background:#e8eaf6; border-color:#9fa8da; color:#3949ab; }
+        #awx-picker-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+            background:rgba(0,0,0,0.55); z-index:1001; align-items:center; justify-content:center; }
+        #awx-picker-modal .browse-box { width:600px; }
+        #awx-picker-search { width:100%; padding:8px 12px; border:1px solid #ddd;
+            border-radius:4px; font-size:14px; box-sizing:border-box; }
+        #awx-picker-search:focus { outline:none; border-color:#3949ab; }
+        .awx-tpl-item { display:flex; align-items:center; gap:10px; padding:10px 18px;
+            border-bottom:1px solid #f5f5f5; cursor:pointer; transition:background .1s; }
+        .awx-tpl-item:hover { background:#f0f4ff; }
+        .awx-tpl-icon { font-size:17px; flex-shrink:0; }
+        .awx-tpl-id { background:#e8eaf6; color:#3949ab; font-size:11px; font-weight:bold;
+            padding:2px 7px; border-radius:10px; flex-shrink:0; }
+        .awx-tpl-name { font-size:14px; font-weight:bold; flex:1;
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .awx-tpl-desc { font-size:11px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
+        .awx-type-sep { padding:6px 18px 4px; font-size:11px; font-weight:bold;
+            color:#aaa; text-transform:uppercase; letter-spacing:.5px; background:#fafafa;
+            border-bottom:1px solid #eee; border-top:1px solid #eee; }
     </style>
 </head>
 <body>
@@ -99,6 +161,44 @@
     <div class="buttons-bar">
         <button class="btn btn-primary" onclick="saveConfig()">Enregistrer</button>
     </div>
+</div>
+
+<!-- ── AWX Template Picker Modal ────────────────────────────────────────── -->
+<div id="awx-picker-modal">
+  <div class="browse-box">
+    <div class="browse-head">
+      <h3 id="awx-picker-title">⚡ Templates AWX</h3>
+      <button onclick="closeAwxPicker()" title="Fermer">✕</button>
+    </div>
+    <div style="padding:10px 18px;border-bottom:1px solid #eee;">
+      <input id="awx-picker-search" type="text" placeholder="🔍 Rechercher un template..." oninput="filterAwxTemplates(this.value)">
+    </div>
+    <div id="awx-picker-error" style="display:none;padding:10px 18px;background:#ffebee;color:#c62828;font-size:13px;border-bottom:1px solid #ffcdd2;"></div>
+    <div id="awx-picker-items" style="flex:1;overflow-y:auto;min-height:200px;max-height:55vh;"></div>
+    <div style="padding:8px 18px;background:#fafafa;font-size:11px;color:#aaa;border-top:1px solid #eee;">
+      ⚡ Workflow Job Templates &nbsp;·&nbsp; 🔧 Job Templates — cliquez pour assigner l'ID au champ correspondant
+    </div>
+  </div>
+</div>
+
+<!-- ── JFrog Directory Browser Modal ───────────────────────────────────── -->
+<div id="browse-modal">
+  <div class="browse-box">
+    <div class="browse-head">
+      <h3>📂 Navigateur JFrog Artifactory</h3>
+      <button onclick="closeBrowse()" title="Fermer">✕</button>
+    </div>
+    <div class="browse-crumb" id="browse-breadcrumb"></div>
+    <div id="browse-error"></div>
+    <div id="browse-items"></div>
+    <div class="browse-foot-hint">
+      💡 Sélectionnez un dossier dans l'arborescence puis cliquez « Sélectionner ce dossier » pour remplir automatiquement les champs Repository et Path.
+    </div>
+    <div class="browse-actions">
+      <button class="btn btn-secondary" onclick="closeBrowse()">Annuler</button>
+      <button id="browse-confirm-btn" class="btn btn-primary" disabled onclick="browseConfirm()">✅ Sélectionner ce dossier</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -185,8 +285,12 @@ function render() {
                         '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="' + (jfrog.token ? '__UNCHANGED__' : '') + '" onchange="ensureJfrog(' + i + ').token=this.value">' +
                         '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Repository</label><input type="text" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
-                    '<div class="form-group"><label>Path</label><input type="text" value="' + esc(jfrog.path || '') + '" placeholder="com/example/myapp" onchange="ensureJfrog(' + i + ').path=this.value"></div>' +
+                    '<div class="form-group"><label>Repository</label><input type="text" id="jfrog-repo-' + i + '" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
+                    '<div class="form-group"><label>Path</label><input type="text" id="jfrog-path-' + i + '" value="' + esc(jfrog.path || '') + '" placeholder="com/example/myapp" onchange="ensureJfrog(' + i + ').path=this.value"></div>' +
+                    '<div class="form-group full" style="margin-top:4px;display:flex;align-items:center;">' +
+                        '<button class="btn btn-browse" onclick="openBrowse(' + i + ')">📂 Parcourir les dépôts JFrog</button>' +
+                        '<span class="browse-hint">Utilise le token enregistré — sauvegardez d\'abord si vous venez de modifier le token</span>' +
+                    '</div>' +
                 '</div>' +
             '</div>' +
 
@@ -216,7 +320,11 @@ function render() {
 function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
 function wfRow(action, val, envIdx) {
-    return '<tr><td>' + action.toUpperCase() + '</td><td><input type="number" value="' + (val || '') + '" placeholder="Template ID" onchange="ensureWf(' + envIdx + ').' + action + '=parseInt(this.value)||null"></td></tr>';
+    return '<tr>' +
+        '<td>' + action.toUpperCase() + '</td>' +
+        '<td><input type="number" id="awx-wf-' + action + '-' + envIdx + '" value="' + (val || '') + '" placeholder="Template ID" onchange="ensureWf(' + envIdx + ').' + action + '=parseInt(this.value)||null"></td>' +
+        '<td><button class="btn-awx-pick" onclick="openAwxPicker(' + envIdx + ',\'' + action + '\')" title="Choisir un template AWX">🔍</button></td>' +
+    '</tr>';
 }
 
 function ensureAwx(i) {
@@ -321,6 +429,240 @@ async function saveConfig() {
 }
 
 init();
+
+// ── JFrog Directory Browser ────────────────────────────────────────────────
+let _bEnvIdx = null;    // index dans config.environments
+let _bEnvId  = '';      // env.id sauvegardé (pour l'URL API)
+let _bRepo   = null;    // null = on est à la liste des repos
+let _bPath   = [];      // segments du chemin courant (tableau de strings)
+
+function openBrowse(envIdx) {
+    _bEnvIdx = envIdx;
+    _bEnvId  = config.environments[envIdx].id;
+    _bRepo   = null;
+    _bPath   = [];
+    document.getElementById('browse-modal').style.display = 'flex';
+    _browseLoad();
+}
+
+function closeBrowse() {
+    document.getElementById('browse-modal').style.display = 'none';
+}
+
+async function _browseLoad() {
+    const itemsEl  = document.getElementById('browse-items');
+    const errorEl  = document.getElementById('browse-error');
+    const confirmBtn = document.getElementById('browse-confirm-btn');
+
+    errorEl.style.display = 'none';
+    itemsEl.innerHTML = '<div class="browse-loading">⏳ Chargement...</div>';
+    confirmBtn.disabled = !_bRepo; // on ne peut sélectionner que si on est dans un repo
+
+    // Breadcrumb
+    let crumb = '<span class="crumb-link" onclick="_browseGoRoot()">📦 Dépôts</span>';
+    if (_bRepo) {
+        crumb += ' <span class="crumb-sep">›</span> <span class="crumb-link" onclick="_browseGoRepo()">' + esc(_bRepo) + '</span>';
+        _bPath.forEach((seg, idx) => {
+            crumb += ' <span class="crumb-sep">›</span> <span class="crumb-link" onclick="_browseGoPath(' + idx + ')">' + esc(seg) + '</span>';
+        });
+    }
+    document.getElementById('browse-breadcrumb').innerHTML = crumb;
+
+    // Appel API
+    let url = '/api/pssit/app/' + encodeURIComponent(appId) +
+              '/env/' + encodeURIComponent(_bEnvId) + '/jfrog-browse';
+    if (_bRepo) {
+        url += '?repo=' + encodeURIComponent(_bRepo) +
+               '&path=' + encodeURIComponent(_bPath.join('/'));
+    }
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.error) {
+            errorEl.textContent = '⚠️ ' + data.error;
+            errorEl.style.display = '';
+            itemsEl.innerHTML = '';
+            return;
+        }
+        _browseRender(data);
+    } catch (e) {
+        errorEl.textContent = '⚠️ Erreur de connexion';
+        errorEl.style.display = '';
+        itemsEl.innerHTML = '';
+    }
+}
+
+function _browseRender(data) {
+    const itemsEl = document.getElementById('browse-items');
+    const confirmBtn = document.getElementById('browse-confirm-btn');
+
+    if (data.type === 'repos') {
+        confirmBtn.disabled = true;
+        if (!data.items.length) {
+            itemsEl.innerHTML = '<div class="browse-empty">Aucun dépôt trouvé</div>';
+            return;
+        }
+        itemsEl.innerHTML = data.items.map(r =>
+            '<div class="browse-item clickable" onclick="_browseEnterRepo(\'' + esc(r.key) + '\')">' +
+                '<span class="browse-icon">📦</span>' +
+                '<span class="browse-name">' + esc(r.key) + '</span>' +
+                (r.rtype ? '<span class="browse-rtype">' + esc(r.rtype) + '</span>' : '') +
+                (r.description ? '<span class="browse-rtype" style="margin-left:6px;color:#bbb;">' + esc(r.description) + '</span>' : '') +
+            '</div>'
+        ).join('');
+    } else {
+        // Contenu d'un dossier — on peut sélectionner le niveau courant
+        confirmBtn.disabled = false;
+        if (!data.items.length) {
+            itemsEl.innerHTML = '<div class="browse-empty">Dossier vide</div>';
+            return;
+        }
+        itemsEl.innerHTML = data.items.map(item => {
+            if (item.folder) {
+                return '<div class="browse-item clickable" onclick="_browseEnterFolder(\'' + esc(item.uri) + '\')">' +
+                    '<span class="browse-icon">📁</span>' +
+                    '<span class="browse-name">' + esc(item.uri) + '</span>' +
+                '</div>';
+            } else {
+                return '<div class="browse-item file">' +
+                    '<span class="browse-icon">📄</span>' +
+                    '<span class="browse-name">' + esc(item.uri) + '</span>' +
+                '</div>';
+            }
+        }).join('');
+    }
+}
+
+// ── AWX Template Picker ────────────────────────────────────────────────────
+let _apEnvIdx   = null;   // env index dans config.environments
+let _apEnvId    = '';     // env.id sauvegardé
+let _apAction   = '';     // action cible (stop/start/status/deploy/patch)
+let _apAllTpls  = [];     // cache complet des templates de l'env courant
+let _apCacheKey = '';     // clé de cache = appId + '/' + envId
+
+function openAwxPicker(envIdx, action) {
+    _apEnvIdx  = envIdx;
+    _apEnvId   = config.environments[envIdx].id;
+    _apAction  = action;
+    const actionLabel = action.toUpperCase();
+    document.getElementById('awx-picker-title').textContent = '⚡ Templates AWX — assigner à ' + actionLabel;
+    document.getElementById('awx-picker-search').value = '';
+    document.getElementById('awx-picker-error').style.display = 'none';
+    document.getElementById('awx-picker-modal').style.display = 'flex';
+    const cacheKey = appId + '/' + _apEnvId;
+    if (_apCacheKey === cacheKey && _apAllTpls.length) {
+        _awxPickRender(_apAllTpls); // cache hit
+    } else {
+        _awxPickLoad();
+    }
+}
+
+function closeAwxPicker() {
+    document.getElementById('awx-picker-modal').style.display = 'none';
+}
+
+async function _awxPickLoad() {
+    const itemsEl = document.getElementById('awx-picker-items');
+    const errorEl = document.getElementById('awx-picker-error');
+    errorEl.style.display = 'none';
+    itemsEl.innerHTML = '<div class="browse-loading">⏳ Chargement des templates AWX...</div>';
+    try {
+        const resp = await fetch(
+            '/api/pssit/app/' + encodeURIComponent(appId) +
+            '/env/' + encodeURIComponent(_apEnvId) + '/awx-templates'
+        );
+        const data = await resp.json();
+        if (data.error) {
+            errorEl.textContent = '⚠️ ' + data.error;
+            errorEl.style.display = '';
+            itemsEl.innerHTML = '';
+            return;
+        }
+        _apAllTpls  = data.templates || [];
+        _apCacheKey = appId + '/' + _apEnvId;
+        if (data.warnings && data.warnings.length) {
+            errorEl.textContent = '⚠️ ' + data.warnings.join(' — ');
+            errorEl.style.display = '';
+        }
+        _awxPickRender(_apAllTpls);
+    } catch (e) {
+        errorEl.textContent = '⚠️ Erreur de connexion';
+        errorEl.style.display = '';
+        itemsEl.innerHTML = '';
+    }
+}
+
+function filterAwxTemplates(query) {
+    const q = query.trim().toLowerCase();
+    const filtered = q ? _apAllTpls.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        String(t.id).includes(q) ||
+        (t.description || '').toLowerCase().includes(q)
+    ) : _apAllTpls;
+    _awxPickRender(filtered);
+}
+
+function _awxPickRender(templates) {
+    const itemsEl = document.getElementById('awx-picker-items');
+    if (!templates.length) {
+        itemsEl.innerHTML = '<div class="browse-empty">Aucun template trouvé</div>';
+        return;
+    }
+    // Séparer workflow / job
+    const workflows = templates.filter(t => t.type === 'workflow');
+    const jobs      = templates.filter(t => t.type === 'job');
+    let html = '';
+    if (workflows.length) {
+        html += '<div class="awx-type-sep">⚡ Workflow Job Templates (' + workflows.length + ')</div>';
+        html += workflows.map(t => _awxTplRow(t)).join('');
+    }
+    if (jobs.length) {
+        html += '<div class="awx-type-sep">🔧 Job Templates (' + jobs.length + ')</div>';
+        html += jobs.map(t => _awxTplRow(t)).join('');
+    }
+    itemsEl.innerHTML = html;
+}
+
+function _awxTplRow(t) {
+    const icon = t.type === 'workflow' ? '⚡' : '🔧';
+    return '<div class="awx-tpl-item" onclick="awxPickSelect(' + t.id + ',\'' + esc(t.name) + '\')">' +
+        '<span class="awx-tpl-icon">' + icon + '</span>' +
+        '<span class="awx-tpl-name">' + esc(t.name) + '</span>' +
+        (t.description ? '<span class="awx-tpl-desc">' + esc(t.description) + '</span>' : '') +
+        '<span class="awx-tpl-id">#' + t.id + '</span>' +
+    '</div>';
+}
+
+function awxPickSelect(id, name) {
+    if (_apEnvIdx === null) return;
+    // Mettre à jour le modèle
+    ensureWf(_apEnvIdx)[_apAction] = id;
+    // Mettre à jour l'input dans le DOM
+    const input = document.getElementById('awx-wf-' + _apAction + '-' + _apEnvIdx);
+    if (input) input.value = id;
+    closeAwxPicker();
+}
+
+function _browseGoRoot() { _bRepo = null; _bPath = []; _browseLoad(); }
+function _browseGoRepo()  { _bPath = []; _browseLoad(); }
+function _browseGoPath(idx) { _bPath = _bPath.slice(0, idx + 1); _browseLoad(); }
+function _browseEnterRepo(key) { _bRepo = key; _bPath = []; _browseLoad(); }
+function _browseEnterFolder(uri) { _bPath.push(uri); _browseLoad(); }
+
+function browseConfirm() {
+    if (_bEnvIdx === null || !_bRepo) return;
+    const repoVal = _bRepo;
+    const pathVal = _bPath.join('/');
+    // Mettre à jour le modèle JS
+    ensureJfrog(_bEnvIdx).repo = repoVal;
+    ensureJfrog(_bEnvIdx).path = pathVal;
+    // Mettre à jour les inputs dans le DOM sans re-render complet
+    const repoInput = document.getElementById('jfrog-repo-' + _bEnvIdx);
+    const pathInput = document.getElementById('jfrog-path-' + _bEnvIdx);
+    if (repoInput) repoInput.value = repoVal;
+    if (pathInput) pathInput.value = pathVal;
+    closeBrowse();
+}
 </script>
 
 <script>

@@ -445,3 +445,154 @@ def get_pssit_artifacts(
         })
     artifacts.sort(key=lambda x: x.get('lastModified', ''), reverse=True)
     return artifacts
+
+
+def browse_jfrog_path(
+    datas_dir: str,
+    app_id: str,
+    env_id: str,
+    secret_key: str,
+    ssl_verify: Any,
+    repo: str = '',
+    path: str = '',
+) -> dict:
+    """Navigation dans l'arborescence JFrog : liste des repos ou contenu d'un dossier.
+
+    Utilise le token enregistré (chiffré) — l'environnement doit être sauvegardé
+    avant de pouvoir utiliser le navigateur.
+    """
+    env_config = get_pssit_env_config(datas_dir, app_id, env_id, secret_key)
+    if not env_config:
+        raise ServiceError('Environnement non trouvé', 404)
+
+    jfrog = env_config.get('jfrog', {})
+    jfrog_url = jfrog.get('url', '').rstrip('/')
+    jfrog_token = jfrog.get('token', '')
+
+    if not jfrog_url:
+        raise ServiceError('URL JFrog non configurée pour cet environnement', 400)
+    if not jfrog_token:
+        raise ServiceError(
+            'Token JFrog non configuré — enregistrez la configuration avant de parcourir', 400
+        )
+
+    headers = {'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token}
+    actual_ssl = env_config.get('ssl_verify', ssl_verify)
+
+    if not repo:
+        # Liste des dépôts disponibles
+        resp = http_requests.get(
+            f'{jfrog_url}/api/repositories',
+            headers=headers,
+            timeout=15,
+            verify=actual_ssl,
+        )
+        if resp.status_code != 200:
+            raise ServiceError(f'JFrog returned {resp.status_code}', 502)
+        repos_data = resp.json()
+        if not isinstance(repos_data, list):
+            repos_data = []
+        return {
+            'type': 'repos',
+            'items': [
+                {
+                    'key': r.get('key', ''),
+                    'rtype': r.get('type', ''),
+                    'description': r.get('description', ''),
+                }
+                for r in repos_data
+                if r.get('key')
+            ],
+        }
+
+    # Navigation à l'intérieur d'un dépôt
+    path_clean = path.strip('/')
+    browse_url = f'{jfrog_url}/api/storage/{repo}'
+    if path_clean:
+        browse_url += f'/{path_clean}'
+
+    resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl)
+    if resp.status_code == 404:
+        raise ServiceError(f'Dépôt ou chemin introuvable : {repo}/{path_clean}', 404)
+    if resp.status_code != 200:
+        raise ServiceError(f'JFrog returned {resp.status_code}', 502)
+
+    data = resp.json()
+    children = data.get('children', [])
+    items = [
+        {'uri': c['uri'].lstrip('/'), 'folder': c.get('folder', True)}
+        for c in children
+        if c.get('uri')
+    ]
+    # Dossiers en premier, puis fichiers, tri alphabétique
+    items.sort(key=lambda x: (not x['folder'], x['uri'].lower()))
+    return {'type': 'dir', 'repo': repo, 'path': path_clean, 'items': items}
+
+
+def browse_awx_templates(
+    datas_dir: str,
+    app_id: str,
+    env_id: str,
+    secret_key: str,
+    ssl_verify: Any,
+) -> dict:
+    """Récupère les Workflow Job Templates et Job Templates depuis AWX.
+
+    Utilise le token enregistré (chiffré) — l'environnement doit être sauvegardé.
+    Retourne les deux types triés par nom, workflow_job_templates en premier.
+    """
+    env_config = get_pssit_env_config(datas_dir, app_id, env_id, secret_key)
+    if not env_config:
+        raise ServiceError('Environnement non trouvé', 404)
+
+    awx = env_config.get('awx', {})
+    awx_url = awx.get('url', '').rstrip('/')
+    awx_token = awx.get('token', '')
+
+    if not awx_url:
+        raise ServiceError('URL AWX non configurée pour cet environnement', 400)
+    if not awx_token:
+        raise ServiceError(
+            'Token AWX non configuré — enregistrez la configuration avant de parcourir', 400
+        )
+
+    headers = {'Authorization': f'Bearer {awx_token}'}
+    actual_ssl = env_config.get('ssl_verify', ssl_verify)
+    templates: list[dict] = []
+    warnings: list[str] = []
+
+    for ttype, endpoint in (
+        ('workflow', 'workflow_job_templates'),
+        ('job', 'job_templates'),
+    ):
+        try:
+            resp = http_requests.get(
+                f'{awx_url}/api/v2/{endpoint}/',
+                headers=headers,
+                params={'page_size': 200, 'order_by': 'name'},
+                timeout=15,
+                verify=actual_ssl,
+            )
+            if resp.status_code == 200:
+                for t in resp.json().get('results', []):
+                    if t.get('id') and t.get('name'):
+                        templates.append({
+                            'id': t['id'],
+                            'name': t['name'],
+                            'type': ttype,
+                            'description': t.get('description', ''),
+                        })
+            elif resp.status_code in (401, 403):
+                warnings.append(f'Accès refusé à {endpoint} (HTTP {resp.status_code})')
+            else:
+                warnings.append(f'{endpoint} returned HTTP {resp.status_code}')
+        except Exception as e:
+            logger.warning('AWX browse %s failed: %s', endpoint, e)
+            warnings.append(f'Erreur {endpoint} : {e}')
+
+    if not templates and warnings:
+        raise ServiceError(
+            'Impossible de charger les templates AWX — ' + '; '.join(warnings), 502
+        )
+
+    return {'templates': templates, 'warnings': warnings}
