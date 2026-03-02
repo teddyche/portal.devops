@@ -255,6 +255,13 @@ function render() {
                     '<div class="form-group"><label>ID environnement</label><input type="text" value="' + esc(env.id) + '" onchange="config.environments[' + i + '].id=this.value"></div>' +
                     '<div class="form-group"><label>Nom</label><input type="text" value="' + esc(env.name) + '" onchange="config.environments[' + i + '].name=this.value"></div>' +
                     '<div class="form-group"><label>Ordre d\'affichage</label><input type="number" value="' + (env.order || i + 1) + '" onchange="config.environments[' + i + '].order=parseInt(this.value)"></div>' +
+                    '<div class="form-group full" style="flex-direction:row;align-items:center;gap:10px;margin-top:2px;">' +
+                        '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#444;font-weight:normal;">' +
+                            '<input type="checkbox" ' + (env.ssl_verify === false ? '' : 'checked') + ' onchange="config.environments[' + i + '].ssl_verify=this.checked" style="width:15px;height:15px;cursor:pointer;accent-color:#2e7d32;">' +
+                            'V\u00e9rification SSL' +
+                        '</label>' +
+                        '<span style="font-size:11px;color:#aaa;">\u00c0 d\u00e9cocher si le serveur utilise un certificat auto-sign\u00e9 ou une AC interne non reconnue</span>' +
+                    '</div>' +
                 '</div>' +
             '</div>' +
 
@@ -361,6 +368,7 @@ function addEnv() {
         id: id.toUpperCase(),
         name: name || id.toUpperCase(),
         order: config.environments.length + 1,
+        ssl_verify: true,
         awx: { url: '', token: '', workflows: {} },
         jfrog: { url: '', token: '', repo: '', path: '' },
         extraParams: {}
