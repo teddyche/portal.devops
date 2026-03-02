@@ -221,11 +221,7 @@ async function init() {
     const configResp = await fetch('/api/pssit/app/' + appId + '/config');
     config = await configResp.json();
     if (!config.environments) config.environments = [];
-    // null = token existant non modifié ; '' = pas de token ; 'val' = nouveau token
-    config.environments.forEach(env => {
-        if (env.awx  && env.awx.token)   env.awx.token   = null;
-        if (env.jfrog && env.jfrog.token) env.jfrog.token = null;
-    });
+    // Le serveur masque déjà les tokens en '__UNCHANGED__' via mask_token()
     render();
 }
 
@@ -275,7 +271,7 @@ function render() {
                 '<div class="form-grid">' +
                     '<div class="form-group full"><label>URL AWX</label><input type="text" value="' + esc(awx.url || '') + '" placeholder="https://awx.example.com" onchange="ensureAwx(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
-                        '<div class="password-wrap"><input type="password" id="awx-token-' + i + '" value="" placeholder="' + (awx.token === null ? '● ● ● ● (inchangé)' : 'Nouveau token AWX') + '">' +
+                        '<div class="password-wrap"><input type="password" id="awx-token-' + i + '" value="' + esc(awx.token || '') + '" placeholder="Token AWX">' +
                         '<button class="toggle-pw" onclick="togglePw(\'awx-token-' + i + '\')">\u{1F441}</button></div>' +
                     '</div>' +
                 '</div>' +
@@ -294,7 +290,7 @@ function render() {
                 '<div class="form-grid">' +
                     '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com/artifactory" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
-                        '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="" placeholder="' + (jfrog.token === null ? '● ● ● ● (inchangé)' : 'Nouveau token JFrog') + '">' +
+                        '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="' + esc(jfrog.token || '') + '" placeholder="Token JFrog">' +
                         '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +
                     '</div>' +
                     '<div class="form-group"><label>Repository</label><input type="text" id="jfrog-repo-' + i + '" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
@@ -429,12 +425,12 @@ function collectParams() {
 
 async function saveConfig() {
     collectParams();
-    // Lire les tokens directement depuis les inputs DOM (oninput non fiable)
+    // Toujours lire les tokens depuis le DOM — source de vérité unique
     config.environments.forEach((env, i) => {
         const awxInp   = document.getElementById('awx-token-'   + i);
         const jfrogInp = document.getElementById('jfrog-token-' + i);
-        if (awxInp   && awxInp.value.trim())   ensureAwx(i).token   = awxInp.value.trim();
-        if (jfrogInp && jfrogInp.value.trim()) ensureJfrog(i).token = jfrogInp.value.trim();
+        if (awxInp)   ensureAwx(i).token   = awxInp.value;
+        if (jfrogInp) ensureJfrog(i).token = jfrogInp.value;
     });
     const resp = await fetch('/api/pssit/app/' + appId + '/config', {
         method: 'POST',

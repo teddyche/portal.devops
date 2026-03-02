@@ -146,22 +146,16 @@ def save_pssit_config(datas_dir: str, app_id: str, new_config: dict, secret_key:
     old_envs = {e['id']: e for e in old_config.get('environments', [])}
     for env in new_config.get('environments', []):
         old_env = old_envs.get(env['id'], {})
-        awx = env.get('awx', {})
-        awx_tok = awx.get('token')
-        if awx_tok is None or awx_tok == '__UNCHANGED__':
-            old_tok = old_env.get('awx', {}).get('token', '')
-            d = decrypt_token(old_tok, secret_key) if old_tok else ''
-            awx['token'] = old_tok if (d and d != '__UNCHANGED__') else ''
-        elif awx_tok:
-            awx['token'] = encrypt_token(awx_tok, secret_key)
-        jfrog = env.get('jfrog', {})
-        jfrog_tok = jfrog.get('token')
-        if jfrog_tok is None or jfrog_tok == '__UNCHANGED__':
-            old_tok = old_env.get('jfrog', {}).get('token', '')
-            d = decrypt_token(old_tok, secret_key) if old_tok else ''
-            jfrog['token'] = old_tok if (d and d != '__UNCHANGED__') else ''
-        elif jfrog_tok:
-            jfrog['token'] = encrypt_token(jfrog_tok, secret_key)
+        for section_key in ('awx', 'jfrog'):
+            section = env.get(section_key)
+            if not isinstance(section, dict):
+                continue
+            tok = section.get('token')
+            # Valeur sentinelle ou vide → conserver le token chiffré existant
+            if not tok or tok == '__UNCHANGED__':
+                section['token'] = old_env.get(section_key, {}).get('token', '')
+            else:
+                section['token'] = encrypt_token(tok, secret_key)
     store.save_json(os.path.join(_app_dir(datas_dir, app_id), 'config.json'), new_config)
 
 
