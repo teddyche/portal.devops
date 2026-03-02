@@ -155,6 +155,22 @@
         .awx-type-sep { padding:6px 18px 4px; font-size:11px; font-weight:bold;
             color:#aaa; text-transform:uppercase; letter-spacing:.5px; background:#fafafa;
             border-bottom:1px solid #eee; border-top:1px solid #eee; }
+
+        /* Proxy section */
+        .proxy-card {
+            background: white; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 24px;
+            border-left: 4px solid #1565c0;
+        }
+        .proxy-card-header {
+            background: #1565c0; color: white; padding: 12px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-radius: 4px 4px 0 0;
+        }
+        .proxy-card-header span { font-size: 15px; font-weight: bold; }
+        .proxy-card-body { padding: 16px 20px; }
+        .proxy-ntlm-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .proxy-ntlm-row label { font-size: 13px; color: #444; margin: 0; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -164,6 +180,38 @@
         <div class="header-links">
             <a id="backApp" href="/pssit">&larr; Retour &agrave; l'application</a>
             <a href="/pssit">&larr; PSSIT</a>
+        </div>
+    </div>
+
+    <!-- ── Proxy HTTP (niveau app) ─────────────────────────────────────── -->
+    <div class="proxy-card">
+        <div class="proxy-card-header">
+            <span>🌐 Proxy HTTP</span>
+            <span style="font-size:12px;opacity:.8;">Optionnel — appliqué à tous les appels AWX et JFrog</span>
+        </div>
+        <div class="proxy-card-body">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>URL du proxy</label>
+                    <input type="text" id="proxy-url" placeholder="http://proxy.entreprise.com:8080"
+                           oninput="ensureProxy().url=this.value">
+                </div>
+                <div class="form-group">
+                    <label>Utilisateur NTLM <span style="font-weight:normal;color:#999;">(optionnel)</span></label>
+                    <input type="text" id="proxy-user" placeholder="domaine\\utilisateur"
+                           oninput="ensureProxy().user=this.value">
+                </div>
+                <div class="form-group">
+                    <div class="proxy-ntlm-row" style="margin-top:20px;">
+                        <input type="checkbox" id="proxy-ntlm" style="width:15px;height:15px;cursor:pointer;accent-color:#1565c0;"
+                               onchange="ensureProxy().ntlm=this.checked;renderProxyNtlmHint()">
+                        <label for="proxy-ntlm" style="cursor:pointer;">Authentification NTLM</label>
+                    </div>
+                    <div id="proxy-ntlm-hint" style="font-size:11px;color:#888;margin-top:4px;display:none;">
+                        Laissez l'utilisateur vide pour utiliser les credentials de session (équivalent <code>--proxy-user ":"</code>)
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -241,7 +289,9 @@ async function init() {
     const configResp = await fetch('/api/pssit/app/' + appId + '/config');
     config = await configResp.json();
     if (!config.environments) config.environments = [];
+    if (!config.proxy) config.proxy = {url: '', ntlm: false, user: ''};
     // Le serveur masque déjà les tokens en '__UNCHANGED__' via mask_token()
+    renderProxy();
     render();
 }
 
@@ -357,6 +407,24 @@ function render() {
 }
 
 function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function ensureProxy() {
+    if (!config.proxy) config.proxy = {url: '', ntlm: false, user: ''};
+    return config.proxy;
+}
+
+function renderProxy() {
+    const p = ensureProxy();
+    document.getElementById('proxy-url').value = p.url || '';
+    document.getElementById('proxy-user').value = p.user || '';
+    document.getElementById('proxy-ntlm').checked = !!p.ntlm;
+    renderProxyNtlmHint();
+}
+
+function renderProxyNtlmHint() {
+    const hint = document.getElementById('proxy-ntlm-hint');
+    hint.style.display = document.getElementById('proxy-ntlm').checked ? 'block' : 'none';
+}
 
 function wfRow(action, val, envIdx) {
     return '<tr>' +

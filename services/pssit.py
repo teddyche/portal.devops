@@ -12,6 +12,12 @@ from typing import Any, Optional
 
 import requests as http_requests
 
+try:
+    from requests_ntlm import HttpNtlmAuth as _HttpNtlmAuth
+    _NTLM_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _NTLM_AVAILABLE = False
+
 from crypto import decrypt_token, encrypt_token, mask_token
 from services import store
 from services.store import ServiceError
@@ -121,6 +127,27 @@ def delete_pssit_app(datas_dir: str, app_id: str) -> None:
 
 # === Config ===
 
+def _proxy_kwargs(datas_dir: str, app_id: str) -> dict:
+    """Retourne les kwargs proxy à passer à requests (proxies= et auth= si NTLM).
+
+    La config proxy est au niveau app (racine de config.json) :
+      { "proxy": { "url": "http://host:8080", "ntlm": true, "user": "", "password": "" } }
+    Si aucun proxy n'est configuré, retourne un dict vide (pas d'effet sur les appels requests).
+    """
+    cfg = store.load_json(os.path.join(_app_dir(datas_dir, app_id), 'config.json')) or {}
+    proxy_cfg = cfg.get('proxy', {})
+    url = proxy_cfg.get('url', '').strip()
+    if not url:
+        return {}
+    proxies = {'http': url, 'https': url}
+    kwargs: dict = {'proxies': proxies}
+    if proxy_cfg.get('ntlm') and _NTLM_AVAILABLE:
+        user = proxy_cfg.get('user', '')
+        password = proxy_cfg.get('password', '')
+        kwargs['auth'] = _HttpNtlmAuth(user, password)
+    return kwargs
+
+
 def get_pssit_config(datas_dir: str, app_id: str, secret_key: str = '') -> dict:
     """Retourne la config avec les tokens masqués pour le frontend.
     Avec secret_key, détecte et efface les tokens corrompus (chiffrement de __UNCHANGED__).
@@ -227,6 +254,7 @@ def cancel_pssit_schedule(
                     headers={'Authorization': f'Bearer {awx_token}'},
                     timeout=15,
                     verify=env_config.get('ssl_verify', ssl_verify),
+                    **_proxy_kwargs(datas_dir, app_id),
                 )
             except Exception as e:
                 logger.warning('Impossible de supprimer le schedule AWX %s : %s', awx_sid, e)
@@ -282,6 +310,7 @@ def launch_pssit_workflow(
             json={'extra_vars': json.dumps(extra_vars)} if extra_vars else {},
             timeout=30,
             verify=env_config.get('ssl_verify', ssl_verify),
+            **_proxy_kwargs(datas_dir, app_id),
         )
         if resp.status_code in (200, 201):
             job_data = resp.json()
@@ -322,6 +351,7 @@ def get_pssit_job_status(
             headers={'Authorization': f'Bearer {awx_token}'},
             timeout=15,
             verify=env_config.get('ssl_verify', ssl_verify),
+            **_proxy_kwargs(datas_dir, app_id),
         )
     except http_requests.RequestException as exc:
         logger.warning('AWX job status request failed: %s', exc)
@@ -386,6 +416,7 @@ def schedule_pssit_action(
         },
         timeout=30,
         verify=env_config.get('ssl_verify', ssl_verify),
+        **_proxy_kwargs(datas_dir, app_id),
     )
     if resp.status_code not in (200, 201):
         raise ServiceError('AWX schedule failed: ' + resp.text[:500], 502)
@@ -438,6 +469,7 @@ def get_pssit_artifacts(
         params={'list': '', 'deep': '0', 'listFolders': '0'},
         timeout=15,
         verify=env_config.get('ssl_verify', ssl_verify),
+        **_proxy_kwargs(datas_dir, app_id),
     )
     if resp.status_code != 200:
         raise ServiceError(f'JFrog returned {resp.status_code}', 502)
@@ -506,6 +538,7 @@ def get_pssit_versions(
             params={'list': '', 'deep': '1', 'listFolders': '0'},
             timeout=30,
             verify=env_config.get('ssl_verify', ssl_verify),
+            **_proxy_kwargs(datas_dir, app_id),
         )
     except http_requests.exceptions.SSLError as e:
         raise ServiceError(
@@ -602,6 +635,7 @@ def browse_jfrog_path(
                 headers=headers,
                 timeout=15,
                 verify=actual_ssl,
+                **_proxy_kwargs(datas_dir, app_id),
             )
             if resp.status_code in (401, 403):
                 tok_debug = jfrog_token[:6] + '…' + jfrog_token[-4:] if len(jfrog_token) > 10 else f'({len(jfrog_token)} cars)'
@@ -641,7 +675,8 @@ def browse_jfrog_path(
         if path_clean:
             browse_url += f'/{path_clean}'
 
-        resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl)
+        resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl,
+                                **_proxy_kwargs(datas_dir, app_id))
         if resp.status_code in (401, 403):
             raise ServiceError(
                 f'Authentification JFrog échouée ({resp.status_code}) sur {browse_url} — '
@@ -721,6 +756,7 @@ def browse_awx_templates(
                 params={'page_size': 200, 'order_by': 'name'},
                 timeout=15,
                 verify=actual_ssl,
+                **_proxy_kwargs(datas_dir, app_id),
             )
             if resp.status_code == 200:
                 for t in resp.json().get('results', []):
