@@ -287,7 +287,7 @@ function render() {
             '<div class="section">' +
                 '<h3><span class="icon">\u{1F4E6}</span>JFrog Artifactory</h3>' +
                 '<div class="form-grid">' +
-                    '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
+                    '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com/artifactory" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
                         '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="' + (jfrog.token ? '__UNCHANGED__' : '') + '" onchange="ensureJfrog(' + i + ').token=this.value">' +
                         '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +

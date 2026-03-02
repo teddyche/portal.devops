@@ -421,6 +421,9 @@ def get_pssit_artifacts(
     if not jfrog_url or not repo:
         return []
 
+    if '/artifactory' not in jfrog_url:
+        jfrog_url = jfrog_url + '/artifactory'
+
     resp = http_requests.get(
         f'{jfrog_url}/api/storage/{repo}/{path}',
         headers={'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token},
@@ -476,8 +479,11 @@ def browse_jfrog_path(
             'Token JFrog non configuré — enregistrez la configuration avant de parcourir', 400
         )
 
+    # Normalise l'URL : l'API Artifactory est sous /artifactory
+    if '/artifactory' not in jfrog_url:
+        jfrog_url = jfrog_url + '/artifactory'
+
     # Supporte API key (X-JFrog-Art-Api) et Access Token (Bearer)
-    # On envoie les deux — JFrog utilise ce qu'il reconnaît
     headers = {
         'Authorization': f'Bearer {jfrog_token}',
         'X-JFrog-Art-Api': jfrog_token,
