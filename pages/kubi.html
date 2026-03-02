@@ -507,8 +507,11 @@ function renderResult(data, clusterName) {
     card.classList.add('show');
     card.scrollIntoView({behavior: 'smooth', block: 'start'});
 
-    // Quotas K8s
+    // Quotas K8s — URL depuis kubeconfig, ou fallback sur endPoint du JWT
     lastK8sUrl = data.k8s_url || '';
+    if (!lastK8sUrl && data.body && data.body.endPoint) {
+        lastK8sUrl = 'https://' + data.body.endPoint;
+    }
     if (lastK8sUrl) {
         initQuotaSection((data.body || {}).groups || [], clusterName);
     } else {
@@ -632,11 +635,14 @@ function initQuotaSection(groups, clusterName) {
 }
 
 function extractNamespacesFromGroups(groups) {
-    // Kubi groups format : kubi_<namespace>_<role>
+    // Format CA-GIP : DL_KUB_<CLUSTER>_<NAMESPACE>_<ROLE>
+    // ex: DL_KUB_CAPS-HORS-PROD_DEMOCAD-DEV_ADMIN → democad-dev
     const ns = new Set();
     (groups || []).forEach(g => {
-        const m = g.match(/^(?:kubi[_-])(.+?)[_-](admin|viewer|restricted|manage|list[-_]actions|audit)$/i);
-        if (m) ns.add(m[1]);
+        const parts = g.split('_');
+        if (parts.length === 5 && parts[0] === 'DL' && parts[1] === 'KUB') {
+            ns.add(parts[3].toLowerCase());
+        }
     });
     return [...ns].sort();
 }
