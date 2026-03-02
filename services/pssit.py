@@ -528,15 +528,14 @@ def get_pssit_versions(
     data = resp.json()
     files = data.get('files', [])
 
-    # Extraire les répertoires parents uniques depuis les URIs des fichiers
-    dirs: set[str] = set()
+    # Retourner les chemins complets (répertoire + nom de fichier) triés alphabétiquement
+    file_uris: list[str] = []
     for f in files:
-        uri = f.get('uri', '').lstrip('/')  # ex: 'v1.0.1/app.jar' ou 'module1/aaa/v1.0.1/app.jar'
-        if '/' in uri:
-            parent = uri.rsplit('/', 1)[0]  # ex: 'v1.0.1' ou 'module1/aaa/v1.0.1'
-            dirs.add(parent)
+        uri = f.get('uri', '').lstrip('/')  # ex: 'WCD/WD/file1.zip' ou 'v1.0.1/app.jar'
+        if uri:
+            file_uris.append(uri)
 
-    return sorted(dirs, reverse=True)
+    return sorted(file_uris)
 
 
 def browse_jfrog_path(
