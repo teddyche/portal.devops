@@ -30,6 +30,36 @@ ldap_bp = Blueprint('ldap', __name__)
 logger = logging.getLogger(__name__)
 _audit = logging.getLogger('audit')
 
+# ── Sécurité : échappement des filtres LDAP (RFC 4515) ────────────────────────
+
+def _escape_ldap(s: str) -> str:
+    """Échappe les caractères spéciaux d'un filtre LDAP (RFC 4515).
+
+    * est intentionnellement conservé afin de permettre les patterns de
+    recherche utilisateur tels que *CLP*EXE* ou G_ZOE_*.
+    """
+    s = s.replace('\\', '\\5c')   # doit être en premier
+    s = s.replace('\x00', '\\00')
+    s = s.replace('(', '\\28')
+    s = s.replace(')', '\\29')
+    return s
+
+
+def _ldap_pattern(raw: str) -> str:
+    """Transforme un input utilisateur en pattern LDAP sécurisé pour les recherches.
+
+    Règles :
+      - Les caractères dangereux ( \\ ( ) \\x00 ) sont échappés.
+      - * est conservé comme wildcard.
+      - Les espaces deviennent * (ex: "CLP EXE" → "CLP*EXE").
+      - Si aucun * n'est présent après transformation, entoure de *...* (contains).
+    """
+    pattern = _escape_ldap(raw)
+    pattern = pattern.replace(' ', '*')
+    if '*' not in pattern:
+        pattern = f'*{pattern}*'
+    return pattern
+
 # ── Config multi-serveurs ─────────────────────────────────────────────────────
 
 def _get_servers() -> list[dict]:
@@ -239,9 +269,10 @@ def search_groups():
         return api_error('pattern requis')
 
     c = _cfg_for(session.get('ldap_server_id', ''))
+    safe_pattern = _ldap_pattern(pattern)
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
-        f'(&(objectClass=group)(CN={pattern}))',
+        f'(&(objectClass=group)(CN={safe_pattern}))',
         'cn', 'description', 'managedBy', 'member',
     ]
     ok, out = _run(cmd, _env(c))
@@ -276,13 +307,14 @@ def search_users():
     if not pattern:
         return api_error('pattern requis')
 
+    sp = _ldap_pattern(pattern)
     filters = {
-        'all':       f'(&(objectClass=person)(|(cn={pattern})(sAMAccountName={pattern})(mail={pattern})(sn={pattern})(givenName={pattern})))',
-        'cn':        f'(&(objectClass=person)(cn={pattern}))',
-        'username':  f'(&(objectClass=person)(sAMAccountName={pattern}))',
-        'email':     f'(&(objectClass=person)(mail={pattern}))',
-        'lastname':  f'(&(objectClass=person)(sn={pattern}))',
-        'firstname': f'(&(objectClass=person)(givenName={pattern}))',
+        'all':       f'(&(objectClass=person)(|(cn={sp})(sAMAccountName={sp})(mail={sp})(sn={sp})(givenName={sp})))',
+        'cn':        f'(&(objectClass=person)(cn={sp}))',
+        'username':  f'(&(objectClass=person)(sAMAccountName={sp}))',
+        'email':     f'(&(objectClass=person)(mail={sp}))',
+        'lastname':  f'(&(objectClass=person)(sn={sp}))',
+        'firstname': f'(&(objectClass=person)(givenName={sp}))',
     }
     ldap_filter = filters.get(by, filters['all'])
 
@@ -312,9 +344,10 @@ def search_user_groups():
         return api_error('username requis')
 
     c = _cfg_for(session.get('ldap_server_id', ''))
+    safe_u = _escape_ldap(username)
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
-        f'(&(objectClass=person)(|(sAMAccountName={username})(cn={username})))',
+        f'(&(objectClass=person)(|(sAMAccountName={safe_u})(cn={safe_u})))',
         'cn', 'sAMAccountName', 'mail', 'memberOf',
     ]
     ok, out = _run(cmd, _env(c))
@@ -351,9 +384,10 @@ def search_group_members():
         return api_error('group requis')
 
     c = _cfg_for(session.get('ldap_server_id', ''))
+    safe_g = _escape_ldap(group_cn)
     # 1. Résoudre le DN du groupe
     cmd_g = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
-        '-b', _base_dn(c), f'(&(objectClass=group)(CN={group_cn}))', 'dn', 'cn', 'description',
+        '-b', _base_dn(c), f'(&(objectClass=group)(CN={safe_g}))', 'dn', 'cn', 'description',
     ]
     ok, out_g = _run(cmd_g, _env(c))
     if not ok:
@@ -365,7 +399,7 @@ def search_group_members():
     group_dn   = grp_entries[0].get('dn', '')
     group_desc = grp_entries[0].get('description', '')
 
-    # 2. Membres via memberOf
+    # 2. Membres via memberOf (DN est contrôlé serveur, pas besoin d'escape)
     cmd_m = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c), f'(memberOf={group_dn})',
         'cn', 'sAMAccountName', 'mail', 'department', 'title', 'userAccountControl',
@@ -419,9 +453,10 @@ def search_computers():
 
 def _fetch_user_groups(c: dict, uname: str) -> tuple:
     """Retourne (info_dict, {cn_lower: {cn, dn}}) ou (None, None/erreur)."""
+    safe_u = _escape_ldap(uname)
     cmd = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
         '-b', _base_dn(c),
-        f'(&(objectClass=person)(|(sAMAccountName={uname})(cn={uname})))',
+        f'(&(objectClass=person)(|(sAMAccountName={safe_u})(cn={safe_u})))',
         'cn', 'sAMAccountName', 'mail', 'memberOf',
     ]
     ok, out = _run(cmd, _env(c))
@@ -513,10 +548,11 @@ def compare_group_users():
         return api_error('group requis')
 
     c = _cfg_for(session.get('ldap_server_id', ''))
+    safe_g = _escape_ldap(group_cn)
 
     # 1. Résoudre le groupe
     cmd_g = _base_cmd(c, session['ldap_user'], session['ldap_pass']) + [
-        '-b', _base_dn(c), f'(&(objectClass=group)(CN={group_cn}))', 'dn', 'cn', 'description',
+        '-b', _base_dn(c), f'(&(objectClass=group)(CN={safe_g}))', 'dn', 'cn', 'description',
     ]
     ok, out_g = _run(cmd_g, _env(c))
     if not ok:

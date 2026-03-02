@@ -3,7 +3,7 @@ Chiffrement symétrique des tokens sensibles (AWX, JFrog, client_secret ADFS).
 
 Deux versions de dérivation de clé :
   enc:   SHA-256  — legacy, lecture seule pour rétrocompatibilité
-  enc2:  PBKDF2-HMAC-SHA256 (480 000 itérations) — utilisé pour tous les nouveaux chiffrements
+  enc2:  PBKDF2-HMAC-SHA256 (600 000 itérations) — utilisé pour tous les nouveaux chiffrements
 
 Les valeurs chiffrées sont préfixées par 'enc:' ou 'enc2:' afin de distinguer
 les tokens existants en clair.

@@ -480,7 +480,8 @@ def api_save_auth_admin_config():
         if 'use_tls' in smtp:
             cfg_smtp['use_tls'] = bool(smtp['use_tls'])
         if 'password' in smtp and smtp['password'] != '__UNCHANGED__':
-            cfg_smtp['password'] = smtp['password']  # stocké en clair (interne)
+            from flask import current_app
+            cfg_smtp['password'] = encrypt_token(smtp['password'], current_app.secret_key)
 
     _save('config.json', config)
     return jsonify({'success': True})

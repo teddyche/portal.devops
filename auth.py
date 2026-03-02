@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 import base64
 import urllib.parse
@@ -39,14 +40,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from auth_store import load_auth as _load, save_auth as _save, load_secrets as _load_secrets, merge_config_secrets as _merge_secrets
 
 # === Rate limiting (in-memory, reset au redémarrage) ===
-_login_attempts = {}   # {username: {'count', 'locked_until', 'window_start'}}
+_login_attempts      = {}   # {username: {'count', 'locked_until', 'window_start'}}
+_login_attempts_lock = threading.Lock()
 _MAX_ATTEMPTS  = 5
 _LOCKOUT_SEC   = 900   # 15 minutes
 _WINDOW_SEC    = 300   # fenêtre de 5 minutes
 
 # === Cache JWKS ===
-_jwks_cache = {}       # {uri: (jwks_dict, fetched_at)}
-_JWKS_TTL   = 600     # 10 minutes — assez court pour voir une rotation de clé ADFS
+_jwks_cache      = {}   # {uri: (jwks_dict, fetched_at)}
+_jwks_cache_lock = threading.Lock()
+_JWKS_TTL        = 600  # 10 minutes — assez court pour voir une rotation de clé ADFS
 
 def get_auth_config() -> dict:
     """Charge la config en fusionnant config.json (non-sensible) et secrets.json.
@@ -126,14 +129,18 @@ def _b64url_decode(s):
 
 
 def _fetch_jwks(uri):
+    """Récupère ou restitue depuis le cache les JWKS d'un endpoint. Thread-safe."""
     now = time.time()
-    cached = _jwks_cache.get(uri)
-    if cached and now - cached[1] < _JWKS_TTL:
-        return cached[0]
+    with _jwks_cache_lock:
+        cached = _jwks_cache.get(uri)
+        if cached and now - cached[1] < _JWKS_TTL:
+            return cached[0]
+    # Hors du lock pour ne pas bloquer d'autres threads pendant le réseau
     resp = http_requests.get(uri, timeout=10, verify=get_ssl_verify())
     resp.raise_for_status()
     jwks = resp.json()
-    _jwks_cache[uri] = (jwks, now)
+    with _jwks_cache_lock:
+        _jwks_cache[uri] = (jwks, time.time())
     return jwks
 
 
@@ -203,29 +210,34 @@ def verify_id_token(id_token, adfs_config):
 # === Rate limiting ===
 
 def _rl_check(username):
-    """Retourne (allowed: bool, retry_after_seconds: int)."""
+    """Retourne (allowed: bool, retry_after_seconds: int). Thread-safe."""
     now = time.time()
-    e = _login_attempts.get(username, {})
-    if now < e.get('locked_until', 0):
-        return False, int(e['locked_until'] - now)
-    if now - e.get('window_start', now) > _WINDOW_SEC:
-        _login_attempts.pop(username, None)
-    return True, 0
+    with _login_attempts_lock:
+        e = _login_attempts.get(username, {})
+        if now < e.get('locked_until', 0):
+            return False, int(e['locked_until'] - now)
+        if now - e.get('window_start', now) > _WINDOW_SEC:
+            _login_attempts.pop(username, None)
+        return True, 0
 
 
 def _rl_fail(username):
+    """Incrémente le compteur d'échecs. Thread-safe."""
     now = time.time()
-    e = _login_attempts.get(username, {})
-    if not e or now - e.get('window_start', now) > _WINDOW_SEC:
-        e = {'count': 0, 'locked_until': 0, 'window_start': now}
-    e['count'] += 1
-    if e['count'] >= _MAX_ATTEMPTS:
-        e['locked_until'] = now + _LOCKOUT_SEC
-    _login_attempts[username] = e
+    with _login_attempts_lock:
+        e = _login_attempts.get(username, {})
+        if not e or now - e.get('window_start', now) > _WINDOW_SEC:
+            e = {'count': 0, 'locked_until': 0, 'window_start': now}
+        e['count'] += 1
+        if e['count'] >= _MAX_ATTEMPTS:
+            e['locked_until'] = now + _LOCKOUT_SEC
+        _login_attempts[username] = e
 
 
 def _rl_success(username):
-    _login_attempts.pop(username, None)
+    """Réinitialise les tentatives après succès. Thread-safe."""
+    with _login_attempts_lock:
+        _login_attempts.pop(username, None)
 
 
 # === Public routes ===
