@@ -431,9 +431,6 @@ async function saveConfig() {
         const jfrogInp = document.getElementById('jfrog-token-' + i);
         if (awxInp)   ensureAwx(i).token   = awxInp.value;
         if (jfrogInp) ensureJfrog(i).token = jfrogInp.value;
-        // DEBUG TEMPORAIRE
-        const dbgEl = jfrogInp ? jfrogInp.id + '=' + (jfrogInp.value ? '['+jfrogInp.value.length+' cars]' : 'VIDE') : 'ELEMENT INTROUVABLE id=jfrog-token-'+i;
-        alert('DEBUG env[' + i + '] ' + dbgEl);
     });
     const resp = await fetch('/api/pssit/app/' + appId + '/config', {
         method: 'POST',

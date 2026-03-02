@@ -2,6 +2,7 @@
 Couche I/O JSON avec cache write-through thread-safe.
 Toutes les lectures/écritures de fichiers de données passent par ce module.
 """
+import copy
 import json
 import os
 import re
@@ -55,7 +56,7 @@ def load_json(path: str) -> Optional[Any]:
         if path in _cache:
             data, ts = _cache[path]
             if time.monotonic() - ts < _CACHE_TTL:
-                return data
+                return copy.deepcopy(data)
 
     if not os.path.exists(path):
         return None
