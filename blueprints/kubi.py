@@ -170,12 +170,14 @@ def api_kubi_quotas():
         if not namespace:
             return api_error('namespace requis', 400)
 
-        # Récupère insecure depuis la config cluster
+        # Récupère insecure + proxy depuis la config cluster
         cfg = kubi_service.get_kubi_config(_dd())
         cluster = next((c for c in cfg.get('clusters', []) if c['id'] == cluster_id), None)
         insecure = cluster.get('insecure', True) if cluster else True
+        use_proxy = cluster.get('use_proxy', False) if cluster else False
+        proxy_url = cfg.get('proxy_url', '')
 
-        quotas = kubi_service.get_kubi_quotas(k8s_url, token, namespace, insecure)
+        quotas = kubi_service.get_kubi_quotas(k8s_url, token, namespace, insecure, proxy_url, use_proxy)
         return jsonify({'quotas': quotas, 'namespace': namespace})
 
     except ServiceError as e:

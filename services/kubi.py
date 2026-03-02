@@ -261,11 +261,14 @@ def get_kubi_quotas(
     token: str,
     namespace: str,
     insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
 ) -> list:
     """
     Retourne les ResourceQuotas d'un namespace K8s en appelant l'API directement.
 
     Utilise le token Bearer (JWT kubi) — aucun mot de passe requis.
+    Le proxy (sans credentials) est utilisé si use_proxy=True et proxy_url fourni.
     Retourne une liste de dicts normalisés { name, resources: [{name, hard_raw, used_raw,
     hard, used, percent}] }.
     """
@@ -277,11 +280,18 @@ def get_kubi_quotas(
     if insecure:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+    # Proxy sans credentials (les calls K8s utilisent le Bearer token, pas Basic Auth)
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
     try:
         resp = requests.get(
             f'{k8s_url}/api/v1/namespaces/{namespace}/resourcequotas',
             headers={'Authorization': f'Bearer {token}'},
             verify=not insecure,
+            proxies=proxies,
             timeout=15,
         )
     except requests.exceptions.ConnectionError as e:
