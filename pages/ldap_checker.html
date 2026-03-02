@@ -182,7 +182,7 @@ tr:hover td { background:#fff8f4; }
   <!-- Main search interface (hidden until LDAP auth) -->
   <div id="search-interface" style="display:none">
 
-    <!-- Tabs : Groupes | Utilisateurs | ⚖️ Comparer users | 🔀 Comparer groupe | Groupes d'un user | Membres d'un groupe | Ordinateurs | Synchro -->
+    <!-- Tabs : Groupes | Utilisateurs | ⚖️ Comparer users | 🔀 Comparer groupe | Groupes d'un user | Membres d'un groupe | Synchro -->
     <div class="tabs">
       <div class="tab active"  onclick="switchTab('groups')">📁 Groupes</div>
       <div class="tab"         onclick="switchTab('users')">👤 Utilisateurs</div>
@@ -190,7 +190,6 @@ tr:hover td { background:#fff8f4; }
       <div class="tab"         onclick="switchTab('compare-group')">🔀 Comparer groupe</div>
       <div class="tab"         onclick="switchTab('user-groups')">👤→📁 Groupes d'un user</div>
       <div class="tab"         onclick="switchTab('group-members')">📁→👤 Membres d'un groupe</div>
-      <div class="tab"         onclick="switchTab('computers')">💻 Ordinateurs</div>
       <div class="tab"         onclick="switchTab('sync')">🔄 Synchro AD</div>
     </div>
 
@@ -289,20 +288,6 @@ tr:hover td { background:#fff8f4; }
       </div>
       <div class="search-hint">Entrez le CN exact du groupe — <em>Cliquer sur un identifiant pour voir ses groupes</em></div>
       <div id="group-members-results"></div>
-    </div>
-
-    <!-- Tab: Ordinateurs -->
-    <div class="tab-content search-panel" id="tab-computers">
-      <div class="search-bar">
-        <div class="form-group">
-          <label>Pattern CN (wildcards * supportés)</label>
-          <input type="text" id="computers-pattern" placeholder="ex: SRV-* ou *-PROD-*"
-            onkeydown="if(event.key==='Enter') searchComputers()">
-        </div>
-        <button class="btn-primary" onclick="searchComputers()">Rechercher</button>
-      </div>
-      <div class="search-hint">Exemples : <code>SRV-*</code> · <code>*-LINUX-*</code> · <code>WS-DUPONT*</code></div>
-      <div id="computers-results"></div>
     </div>
 
     <!-- Tab: Synchro -->
@@ -407,7 +392,7 @@ document.getElementById('ldap-user-input').addEventListener('keydown', e => { if
 loadLdapServers();
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
-const TAB_NAMES = ['groups','users','compare','compare-group','user-groups','group-members','computers','sync'];
+const TAB_NAMES = ['groups','users','compare','compare-group','user-groups','group-members','sync'];
 
 function switchTab(name) {
   const idx = TAB_NAMES.indexOf(name);
@@ -625,45 +610,6 @@ function copyMembersCSV() {
     _lastMembers.map(m=>[m.cn,m.username,m.email,m.department,m.title,m.disabled?'OUI':'']));
 }
 
-// ── Ordinateurs ────────────────────────────────────────────────────────────
-let _lastComputers = [];
-async function searchComputers() {
-  const pattern = document.getElementById('computers-pattern').value.trim();
-  if (!pattern) return;
-  const el = document.getElementById('computers-results');
-  loading(el);
-  try {
-    const r = await fetch('/api/ldap/search/computers', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({pattern})
-    });
-    const d = await r.json();
-    if (d.error) { showError(el, d.error); return; }
-    _lastComputers = d.results;
-    if (!d.count) { el.innerHTML = resultHeader(0,''); noRes(el); return; }
-    let html = resultHeader(d.count, 'copyComputersCSV()');
-    html += '<div class="table-wrap"><table><thead><tr>'
-      + '<th>Nom</th><th>Système</th><th>Version</th><th>Description</th><th>Créé le</th><th>DN</th>'
-      + '</tr></thead><tbody>';
-    for (const c of d.results) {
-      html += `<tr>
-        <td><strong>${esc(c.cn)}</strong></td>
-        <td>${esc(c.os)}</td>
-        <td>${esc(c.os_version)}</td>
-        <td>${esc(c.description)}</td>
-        <td>${fmtDate(c.created)}</td>
-        <td class="dn-cell" title="${esc(c.dn)}" onclick="copyDN('${esc(c.dn)}')">${esc(c.dn)}</td>
-      </tr>`;
-    }
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
-  } catch(e) { showError(el, e.message); }
-}
-function copyComputersCSV() {
-  copyCSV(['Nom','Système','Version','Description','Créé le','DN'],
-    _lastComputers.map(c=>[c.cn,c.os,c.os_version,c.description,fmtDate(c.created),c.dn]));
-}
-
 // ── Synchro AD ─────────────────────────────────────────────────────────────
 async function fetchSync() {
   const el = document.getElementById('sync-results');
@@ -694,8 +640,8 @@ const CMP_BGS    = ['#fff3e0','#e3f2fd','#e8f5e9','#f3e5f5','#e0f2f1','#ffebee',
 function initCmpInputs() {
   const list = document.getElementById('cmp-users-list');
   list.innerHTML = '';
-  _appendCmpRow(list, 0, 'ex: jean.dupont');
-  _appendCmpRow(list, 1, 'ex: marie.martin');
+  _appendCmpRow(list, 0, 'ex: U65XO94');
+  _appendCmpRow(list, 1, 'ex: U63ZV72');
   _updateCmpRemoveButtons();
 }
 
