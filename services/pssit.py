@@ -141,15 +141,17 @@ def save_pssit_config(datas_dir: str, app_id: str, new_config: dict, secret_key:
     for env in new_config.get('environments', []):
         old_env = old_envs.get(env['id'], {})
         awx = env.get('awx', {})
-        if awx.get('token') == '__UNCHANGED__':
+        awx_tok = awx.get('token')
+        if awx_tok is None or awx_tok == '__UNCHANGED__':
             awx['token'] = old_env.get('awx', {}).get('token', '')
-        elif awx.get('token'):
-            awx['token'] = encrypt_token(awx['token'], secret_key)
+        elif awx_tok:
+            awx['token'] = encrypt_token(awx_tok, secret_key)
         jfrog = env.get('jfrog', {})
-        if jfrog.get('token') == '__UNCHANGED__':
+        jfrog_tok = jfrog.get('token')
+        if jfrog_tok is None or jfrog_tok == '__UNCHANGED__':
             jfrog['token'] = old_env.get('jfrog', {}).get('token', '')
-        elif jfrog.get('token'):
-            jfrog['token'] = encrypt_token(jfrog['token'], secret_key)
+        elif jfrog_tok:
+            jfrog['token'] = encrypt_token(jfrog_tok, secret_key)
     store.save_json(os.path.join(_app_dir(datas_dir, app_id), 'config.json'), new_config)
 
 

@@ -221,10 +221,10 @@ async function init() {
     const configResp = await fetch('/api/pssit/app/' + appId + '/config');
     config = await configResp.json();
     if (!config.environments) config.environments = [];
-    // Normalise les tokens masqués → sentinel __UNCHANGED__ pour que la save ne les écrase pas
+    // null = token existant non modifié ; '' = pas de token ; 'val' = nouveau token
     config.environments.forEach(env => {
-        if (env.awx  && env.awx.token)   env.awx.token   = '__UNCHANGED__';
-        if (env.jfrog && env.jfrog.token) env.jfrog.token = '__UNCHANGED__';
+        if (env.awx  && env.awx.token)   env.awx.token   = null;
+        if (env.jfrog && env.jfrog.token) env.jfrog.token = null;
     });
     render();
 }
@@ -275,7 +275,7 @@ function render() {
                 '<div class="form-grid">' +
                     '<div class="form-group full"><label>URL AWX</label><input type="text" value="' + esc(awx.url || '') + '" placeholder="https://awx.example.com" onchange="ensureAwx(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
-                        '<div class="password-wrap"><input type="password" id="awx-token-' + i + '" value="' + (awx.token ? '__UNCHANGED__' : '') + '" oninput="ensureAwx(' + i + ').token=this.value">' +
+                        '<div class="password-wrap"><input type="password" id="awx-token-' + i + '" value="" placeholder="' + (awx.token === null ? '● ● ● ● (inchangé)' : 'Nouveau token AWX') + '" oninput="ensureAwx(' + i + ').token=this.value">' +
                         '<button class="toggle-pw" onclick="togglePw(\'awx-token-' + i + '\')">\u{1F441}</button></div>' +
                     '</div>' +
                 '</div>' +
@@ -294,7 +294,7 @@ function render() {
                 '<div class="form-grid">' +
                     '<div class="form-group full"><label>URL JFrog</label><input type="text" value="' + esc(jfrog.url || '') + '" placeholder="https://jfrog.example.com/artifactory" onchange="ensureJfrog(' + i + ').url=this.value"></div>' +
                     '<div class="form-group full"><label>Token API</label>' +
-                        '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="' + (jfrog.token ? '__UNCHANGED__' : '') + '" oninput="ensureJfrog(' + i + ').token=this.value">' +
+                        '<div class="password-wrap"><input type="password" id="jfrog-token-' + i + '" value="" placeholder="' + (jfrog.token === null ? '● ● ● ● (inchangé)' : 'Nouveau token JFrog') + '" oninput="ensureJfrog(' + i + ').token=this.value">' +
                         '<button class="toggle-pw" onclick="togglePw(\'jfrog-token-' + i + '\')">\u{1F441}</button></div>' +
                     '</div>' +
                     '<div class="form-group"><label>Repository</label><input type="text" id="jfrog-repo-' + i + '" value="' + esc(jfrog.repo || '') + '" placeholder="libs-release-local" onchange="ensureJfrog(' + i + ').repo=this.value"></div>' +
