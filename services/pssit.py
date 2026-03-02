@@ -479,43 +479,61 @@ def browse_jfrog_path(
     headers = {'Authorization': f'Bearer {jfrog_token}', 'X-JFrog-Art-Api': jfrog_token}
     actual_ssl = env_config.get('ssl_verify', ssl_verify)
 
-    if not repo:
-        # Liste des dépôts disponibles
-        resp = http_requests.get(
-            f'{jfrog_url}/api/repositories',
-            headers=headers,
-            timeout=15,
-            verify=actual_ssl,
-        )
+    try:
+        if not repo:
+            # Liste des dépôts disponibles
+            resp = http_requests.get(
+                f'{jfrog_url}/api/repositories',
+                headers=headers,
+                timeout=15,
+                verify=actual_ssl,
+            )
+            if resp.status_code == 401:
+                raise ServiceError('Token JFrog invalide ou expiré (401)', 502)
+            if resp.status_code != 200:
+                raise ServiceError(f'JFrog a retourné {resp.status_code} : {resp.text[:200]}', 502)
+            repos_data = resp.json()
+            if not isinstance(repos_data, list):
+                repos_data = []
+            return {
+                'type': 'repos',
+                'items': [
+                    {
+                        'key': r.get('key', ''),
+                        'rtype': r.get('type', ''),
+                        'description': r.get('description', ''),
+                    }
+                    for r in repos_data
+                    if r.get('key')
+                ],
+            }
+
+        # Navigation à l'intérieur d'un dépôt
+        path_clean = path.strip('/')
+        browse_url = f'{jfrog_url}/api/storage/{repo}'
+        if path_clean:
+            browse_url += f'/{path_clean}'
+
+        resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl)
+        if resp.status_code == 401:
+            raise ServiceError('Token JFrog invalide ou expiré (401)', 502)
+        if resp.status_code == 404:
+            raise ServiceError(f'Dépôt ou chemin introuvable : {repo}/{path_clean}', 404)
         if resp.status_code != 200:
-            raise ServiceError(f'JFrog returned {resp.status_code}', 502)
-        repos_data = resp.json()
-        if not isinstance(repos_data, list):
-            repos_data = []
-        return {
-            'type': 'repos',
-            'items': [
-                {
-                    'key': r.get('key', ''),
-                    'rtype': r.get('type', ''),
-                    'description': r.get('description', ''),
-                }
-                for r in repos_data
-                if r.get('key')
-            ],
-        }
-
-    # Navigation à l'intérieur d'un dépôt
-    path_clean = path.strip('/')
-    browse_url = f'{jfrog_url}/api/storage/{repo}'
-    if path_clean:
-        browse_url += f'/{path_clean}'
-
-    resp = http_requests.get(browse_url, headers=headers, timeout=15, verify=actual_ssl)
-    if resp.status_code == 404:
-        raise ServiceError(f'Dépôt ou chemin introuvable : {repo}/{path_clean}', 404)
-    if resp.status_code != 200:
-        raise ServiceError(f'JFrog returned {resp.status_code}', 502)
+            raise ServiceError(f'JFrog a retourné {resp.status_code} : {resp.text[:200]}', 502)
+    except http_requests.exceptions.SSLError as e:
+        raise ServiceError(
+            f'Erreur SSL : {e} — désactivez "Vérification SSL" dans la config env ou '
+            f'importez le certificat CA.', 502
+        ) from e
+    except http_requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre JFrog ({jfrog_url}) : {e}', 502) from e
+    except http_requests.exceptions.Timeout:
+        raise ServiceError(f'Timeout en contactant JFrog ({jfrog_url})', 502)
+    except ServiceError:
+        raise
+    except http_requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau JFrog : {e}', 502) from e
 
     data = resp.json()
     children = data.get('children', [])
