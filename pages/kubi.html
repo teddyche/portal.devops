@@ -296,6 +296,35 @@
         .ing-path        { font-family: monospace; font-size: 12px; color: #555; }
         .describe-empty  { color: #bbb; font-size: 13px; font-style: italic; }
 
+        /* ── Pods tab ────────────────────────────────── */
+        .pods-filters {
+            padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .pods-filters input[type="text"] {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; color: #333;
+        }
+        .pods-filters input[type="text"]:focus { border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.1); }
+        .pods-filters input#podsNsInput     { min-width: 180px; flex: 1; max-width: 240px; }
+        .pods-filters input#podsNameFilter  { min-width: 180px; flex: 2; }
+        .pods-filters label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; user-select: none; }
+        .pods-filters input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; }
+        .pods-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
+        .pods-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .pods-table th {
+            text-align: left; font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .4px; padding: 0 10px 8px 0; border-bottom: 2px solid #f0f0f0; font-weight: bold;
+        }
+        .pods-table td { padding: 7px 10px 7px 0; border-bottom: 1px solid #f8f8f8; }
+        .pods-table tr:last-child td { border-bottom: none; }
+        .pod-name { font-family: monospace; font-size: 12px; }
+        .pod-ready { text-align: center; color: #555; font-size: 12px; }
+        .pod-restarts { text-align: center; font-size: 12px; }
+        .pod-restarts.high { color: #c62828; font-weight: bold; }
+        .pod-restarts.med  { color: #e65100; font-weight: bold; }
+        .pod-age { text-align: right; color: #888; font-size: 12px; white-space: nowrap; }
+
         /* ── Logs tab ────────────────────────────────── */
         .logs-filters {
             padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
@@ -541,6 +570,7 @@
         <div class="k8s-tabs">
             <button class="tab-btn active" id="tab-btn-quotas"   onclick="switchTab('quotas')">📊 Quotas</button>
             <button class="tab-btn"        id="tab-btn-describe" onclick="switchTab('describe')">ℹ️ Infos NS</button>
+            <button class="tab-btn"        id="tab-btn-pods"     onclick="switchTab('pods')">🚀 Pods</button>
             <button class="tab-btn"        id="tab-btn-logs"     onclick="switchTab('logs')">📋 Logs</button>
         </div>
 
@@ -566,6 +596,23 @@
                 <datalist id="describeNsList"></datalist>
             </div>
             <div class="tab-body" id="describeBody"><div class="quota-msg">Sélectionner un namespace ou cliquer sur 🔍 dans l'onglet Quotas.</div></div>
+        </div>
+
+        <!-- ── Onglet Pods ── -->
+        <div id="tab-pods" class="tab-pane">
+            <div class="pods-filters">
+                <input type="text" id="podsNsInput" list="podsNsList"
+                       placeholder="🔎 Namespace…" oninput="onPodsNsInput()" autocomplete="off">
+                <datalist id="podsNsList"></datalist>
+                <input type="text" id="podsNameFilter" placeholder="🔎 Filtrer par nom de pod…"
+                       oninput="renderPodsFiltered()">
+                <label>
+                    <input type="checkbox" id="hideRunning" onchange="renderPodsFiltered()">
+                    Masquer Running
+                </label>
+                <span class="pods-count" id="podsCount"></span>
+            </div>
+            <div class="tab-body" id="podsBody"><div class="quota-msg">Sélectionner un namespace pour afficher les pods.</div></div>
         </div>
 
         <!-- ── Onglet Logs ── -->
@@ -632,6 +679,7 @@ let lastToken = '';
 let lastKubeconfig = '';
 let lastK8sUrl = '';
 let lastQuotaResults = [];
+let lastPodsData = [];
 let _lastLogsText = '';
 let _editQuotaState = null; // {ns, quotaName, resources}
 
@@ -883,6 +931,7 @@ function switchTab(tab) {
 function refreshTab() {
     if (_currentTab === 'quotas')   loadAllQuotas();
     if (_currentTab === 'describe') loadDescribe();
+    if (_currentTab === 'pods')     loadPods();
     if (_currentTab === 'logs')     loadLogs();
 }
 
@@ -899,8 +948,10 @@ function initQuotaSection(clusterName) {
     document.getElementById('quotaFilters').style.display = 'none';
     document.getElementById('nsFilter').value = '';
     document.getElementById('describeNsInput').value = '';
+    document.getElementById('podsNsInput').value = '';
     document.getElementById('logsNsInput').value = '';
     lastQuotaResults = [];
+    lastPodsData = [];
     _currentTab = 'quotas';
     switchTab('quotas');
     card.style.display = 'block';
@@ -1078,6 +1129,7 @@ function initNamespaceSelects() {
     if (!lastQuotaResults.length) return;
     const opts = lastQuotaResults.map(r => '<option value="' + esc(r.namespace) + '">').join('');
     document.getElementById('describeNsList').innerHTML = opts;
+    document.getElementById('podsNsList').innerHTML = opts;
     document.getElementById('logsNsList').innerHTML = opts;
 }
 
@@ -1093,6 +1145,130 @@ function onLogsNsInput() {
     } else {
         document.getElementById('logsPodSelect').innerHTML = '<option value="">— Pod —</option>';
         document.getElementById('logsContainerSelect').style.display = 'none';
+    }
+}
+
+function onPodsNsInput() {
+    const val = document.getElementById('podsNsInput').value.trim();
+    if (lastQuotaResults.some(r => r.namespace === val)) {
+        loadPods();
+    } else {
+        lastPodsData = [];
+        renderPodsFiltered();
+    }
+}
+
+async function loadPods() {
+    const ns = document.getElementById('podsNsInput').value.trim();
+    const podsBody = document.getElementById('podsBody');
+    if (!ns || !lastK8sUrl || !lastToken) return;
+
+    podsBody.innerHTML = '<div class="quota-msg">⏳ Chargement des pods…</div>';
+    lastPodsData = [];
+    document.getElementById('podsCount').textContent = '';
+
+    try {
+        const r = await fetch('/api/kubi/pods', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl, token: lastToken,
+                namespace: ns, cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            podsBody.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        lastPodsData = data.pods || [];
+        renderPodsFiltered();
+    } catch(e) {
+        podsBody.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
+    }
+}
+
+function renderPodsFiltered() {
+    const podsBody = document.getElementById('podsBody');
+    const nameFilter = (document.getElementById('podsNameFilter')?.value || '').toLowerCase().trim();
+    const hideRunning = document.getElementById('hideRunning')?.checked;
+
+    let filtered = lastPodsData;
+    if (nameFilter)   filtered = filtered.filter(p => p.name.toLowerCase().includes(nameFilter));
+    if (hideRunning)  filtered = filtered.filter(p => p.status !== 'Running');
+
+    document.getElementById('podsCount').textContent =
+        filtered.length + ' pod' + (filtered.length > 1 ? 's' : '') +
+        (filtered.length < lastPodsData.length ? ' sur ' + lastPodsData.length : '');
+
+    if (!filtered.length) {
+        podsBody.innerHTML = '<div class="quota-msg">' +
+            (lastPodsData.length ? 'Aucun pod correspondant.' : 'Aucun pod dans ce namespace.') +
+            '</div>';
+        return;
+    }
+
+    podsBody.innerHTML =
+        '<table class="pods-table">' +
+        '<thead><tr>' +
+        '<th>Nom</th><th style="text-align:center">Statut</th><th style="text-align:center">Ready</th>' +
+        '<th style="text-align:center">Restarts</th><th style="text-align:right">Age</th><th></th>' +
+        '</tr></thead><tbody>' +
+        filtered.map(p => renderPodRow(p)).join('') +
+        '</tbody></table>';
+}
+
+function renderPodRow(p) {
+    const cls = podStatusClass(p.status);
+    const restartsCls = p.restarts >= 10 ? 'high' : p.restarts >= 3 ? 'med' : '';
+    return '<tr>' +
+        '<td class="pod-name">' + esc(p.name) + '</td>' +
+        '<td style="text-align:center"><span class="status-badge ' + cls + '">' + esc(p.status) + '</span></td>' +
+        '<td class="pod-ready">' + esc(p.ready || '—') + '</td>' +
+        '<td class="pod-restarts ' + restartsCls + '">' + (p.restarts || 0) + '</td>' +
+        '<td class="pod-age">' + esc(p.age || '—') + '</td>' +
+        '<td><button class="btn-delete-pod" onclick="confirmDeletePod(this,\'' + esc(p.name) + '\')">🗑 Supprimer</button></td>' +
+        '</tr>';
+}
+
+const _deleteTimers = {};
+
+function confirmDeletePod(btn, podName) {
+    const ns = document.getElementById('podsNsInput').value.trim();
+    if (!ns) return;
+
+    if (_deleteTimers[podName]) {
+        clearTimeout(_deleteTimers[podName]);
+        delete _deleteTimers[podName];
+        btn.disabled = true;
+        btn.textContent = '⏳';
+        fetch('/api/kubi/pods/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl, token: lastToken,
+                namespace: ns, pod_name: podName,
+                cluster_id: selectedCluster?.id || '',
+            }),
+        }).then(r => r.json()).then(data => {
+            if (data.error) {
+                btn.textContent = '⚠️ ' + data.error;
+                btn.disabled = false;
+            } else {
+                loadPods();
+            }
+        }).catch(() => {
+            btn.textContent = '⚠️ Erreur';
+            btn.disabled = false;
+        });
+    } else {
+        btn.classList.add('confirming');
+        btn.textContent = '⚠️ Confirmer ?';
+        _deleteTimers[podName] = setTimeout(() => {
+            btn.classList.remove('confirming');
+            btn.textContent = '🗑 Supprimer';
+            delete _deleteTimers[podName];
+        }, 3000);
     }
 }
 
