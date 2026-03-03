@@ -38,7 +38,7 @@
         /* Cluster list */
         .cluster-item {
             background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 16px; margin-bottom: 12px; position: relative;
+            padding: 16px; margin-bottom: 12px;
         }
         .cluster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .cluster-grid .form-group { margin-bottom: 0; }
@@ -48,10 +48,9 @@
         .cluster-check input { width: 15px; height: 15px; accent-color: #326ce5; cursor: pointer; }
 
         .btn-remove-cluster {
-            position: absolute; top: 12px; right: 12px;
             background: #ffebee; color: #c62828; border: 1px solid #ef9a9a;
             border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer;
-            font-weight: bold;
+            font-weight: bold; margin-left: auto; white-space: nowrap;
         }
         .btn-remove-cluster:hover { background: #ffcdd2; }
 
@@ -167,7 +166,6 @@ function render() {
     }
     list.innerHTML = config.clusters.map((c, i) =>
         '<div class="cluster-item">' +
-            '<button class="btn-remove-cluster" onclick="removeCluster(' + i + ')">✕ Supprimer</button>' +
             '<div class="cluster-grid">' +
                 '<div class="form-group">' +
                     '<label>ID</label>' +
@@ -196,6 +194,7 @@ function render() {
                            'onchange="config.clusters[' + i + '].use_proxy=this.checked">' +
                     'Utiliser le proxy HTTP' +
                 '</label>' +
+                '<button class="btn-remove-cluster" onclick="removeCluster(' + i + ')">✕ Supprimer</button>' +
             '</div>' +
         '</div>'
     ).join('');
