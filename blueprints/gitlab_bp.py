@@ -2,10 +2,13 @@
 Blueprint GitLab — consultation des tokens et accès API.
 
 Routes :
-  GET  /api/gitlab/config          → config (url, insecure — token masqué)
-  POST /api/gitlab/config          → sauvegarde config
-  POST /api/gitlab/test            → test de connexion
-  POST /api/gitlab/tokens          → liste tous les tokens avec expiration
+  GET  /api/gitlab/config              → config (url, insecure — token masqué)
+  POST /api/gitlab/config              → sauvegarde config
+  POST /api/gitlab/test                → test de connexion
+  POST /api/gitlab/tokens              → liste tous les tokens avec expiration
+  POST /api/gitlab/snapshots           → sauvegarde un snapshot + purge anciens
+  GET  /api/gitlab/snapshots           → liste les snapshots disponibles
+  GET  /api/gitlab/snapshots/<sid>     → retourne un snapshot complet
 """
 import logging
 
@@ -96,5 +99,50 @@ def api_gitlab_tokens():
         )
         _audit.info('gitlab_tokens_fetched user=%s total=%d', _uid(), result['stats']['total'])
         return jsonify(result)
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+# === Snapshots ===
+
+@gitlab_bp.route('/api/gitlab/snapshots', methods=['POST'])
+def api_gitlab_snapshot_save():
+    """Sauvegarde un snapshot des tokens et purge les anciens selon retention_days."""
+    try:
+        body = _require_json()
+        tokens = body.get('tokens', [])
+        stats  = body.get('stats', {})
+        if not isinstance(tokens, list):
+            return api_error('tokens doit être une liste', 400)
+
+        cfg = gitlab_service.get_gitlab_config(_dd())
+        retention = cfg.get('retention_days', 30)
+
+        sid = gitlab_service.save_snapshot(_dd(), tokens, stats)
+        purged = gitlab_service.purge_old_snapshots(_dd(), retention)
+
+        _audit.info('gitlab_snapshot_saved user=%s id=%s tokens=%d purged=%d',
+                    _uid(), sid, len(tokens), purged)
+        return jsonify({'id': sid, 'purged': purged})
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+@gitlab_bp.route('/api/gitlab/snapshots', methods=['GET'])
+def api_gitlab_snapshots_list():
+    """Liste les snapshots disponibles (sans les tokens, juste les métadonnées)."""
+    try:
+        snapshots = gitlab_service.list_snapshots(_dd())
+        return jsonify({'snapshots': snapshots})
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+@gitlab_bp.route('/api/gitlab/snapshots/<snapshot_id>', methods=['GET'])
+def api_gitlab_snapshot_get(snapshot_id: str):
+    """Retourne un snapshot complet avec la liste des tokens."""
+    try:
+        snap = gitlab_service.get_snapshot(_dd(), snapshot_id)
+        return jsonify(snap)
     except ServiceError as e:
         return api_error(e.message, e.status)

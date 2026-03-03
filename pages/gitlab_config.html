@@ -136,6 +136,14 @@
                 <label for="cfgInsecure">Ignorer les erreurs SSL (certificat auto-signé)</label>
             </div>
 
+            <div class="form-group">
+                <label>Rétention des snapshots (jours)</label>
+                <input type="text" id="cfgRetention" placeholder="30" style="max-width:120px;">
+                <div class="form-hint">
+                    Durée de conservation des snapshots automatiques. Minimum 1 jour.
+                </div>
+            </div>
+
             <button class="btn-save" id="btnSave" onclick="saveConfig()">💾 Sauvegarder</button>
         </div>
     </div>
@@ -158,9 +166,10 @@ async function init() {
         const r = await fetch('/api/gitlab/config');
         if (r.ok) {
             const cfg = await r.json();
-            document.getElementById('cfgUrl').value      = cfg.url || '';
-            document.getElementById('cfgToken').value    = cfg.has_token ? cfg.token : '';
-            document.getElementById('cfgInsecure').checked = cfg.insecure || false;
+            document.getElementById('cfgUrl').value         = cfg.url || '';
+            document.getElementById('cfgToken').value       = cfg.has_token ? cfg.token : '';
+            document.getElementById('cfgInsecure').checked  = cfg.insecure || false;
+            document.getElementById('cfgRetention').value   = cfg.retention_days ?? 30;
         }
     } catch(e) {}
 }
@@ -187,9 +196,10 @@ async function saveConfig() {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                url:      document.getElementById('cfgUrl').value.trim(),
-                token:    document.getElementById('cfgToken').value.trim(),
-                insecure: document.getElementById('cfgInsecure').checked,
+                url:            document.getElementById('cfgUrl').value.trim(),
+                token:          document.getElementById('cfgToken').value.trim(),
+                insecure:       document.getElementById('cfgInsecure').checked,
+                retention_days: parseInt(document.getElementById('cfgRetention').value) || 30,
             }),
         });
         const data = await r.json();

@@ -1,5 +1,5 @@
 """
-Module GitLab — gestion des tokens et pipelines.
+Module GitLab — gestion des tokens et snapshots.
 
 Utilise l'API REST GitLab v4 avec un Personal Access Token (PAT) stocké
 dans la configuration du portail.
@@ -10,10 +10,17 @@ Endpoints utilisés :
   GET /api/v4/projects/:id/access_tokens     → tokens d'un projet
   GET /api/v4/groups?min_access_level=40     → groupes accessibles
   GET /api/v4/groups/:id/access_tokens       → tokens d'un groupe
+
+Snapshots :
+  Sauvegarde automatique après chaque chargement dans datas/gitlab_snapshots/.
+  Rétention configurable (retention_days, défaut 30j).
 """
+import glob
+import json
 import logging
 import os
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
@@ -39,6 +46,7 @@ def get_gitlab_config(datas_dir: str) -> dict:
     cfg.setdefault('url', '')
     cfg.setdefault('token', '')
     cfg.setdefault('insecure', False)
+    cfg.setdefault('retention_days', 30)
     return cfg
 
 
@@ -50,10 +58,17 @@ def save_gitlab_config(datas_dir: str, config: dict) -> None:
     token = config.get('token', '').strip()
     if not token:
         raise ServiceError('Token API GitLab requis', 400)
+    try:
+        retention = int(config.get('retention_days', 30))
+        if retention < 1:
+            retention = 1
+    except (ValueError, TypeError):
+        retention = 30
     store.save_json(_config_file(datas_dir), {
-        'url':      url,
-        'token':    token,
-        'insecure': bool(config.get('insecure', False)),
+        'url':            url,
+        'token':          token,
+        'insecure':       bool(config.get('insecure', False)),
+        'retention_days': retention,
     })
 
 
@@ -274,3 +289,93 @@ def get_all_tokens(base_url: str, token: str, insecure: bool = False) -> dict:
     }
 
     return {'tokens': results, 'stats': stats}
+
+
+# === Snapshots ===
+
+_SNAPSHOTS_DIR = 'gitlab_snapshots'
+
+
+def _snap_dir(datas_dir: str) -> str:
+    path = os.path.join(datas_dir, _SNAPSHOTS_DIR)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def save_snapshot(datas_dir: str, tokens: list, stats: dict) -> str:
+    """
+    Sauvegarde un snapshot horodaté des tokens GitLab.
+    Retourne l'ID du snapshot (format YYYYMMDD_HHMMSS).
+    """
+    now = datetime.now(timezone.utc)
+    sid = now.strftime('%Y%m%d_%H%M%S')
+    filepath = os.path.join(_snap_dir(datas_dir), f'{sid}.json')
+    snapshot = {
+        'id':        sid,
+        'timestamp': now.isoformat(),
+        'tokens':    tokens,
+        'stats':     stats,
+    }
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(snapshot, f, ensure_ascii=False, indent=None)
+    logger.info('gitlab_snapshot_saved id=%s tokens=%d', sid, len(tokens))
+    return sid
+
+
+def list_snapshots(datas_dir: str) -> list:
+    """
+    Liste les snapshots disponibles, du plus récent au plus ancien.
+    Retourne [{id, timestamp, stats}] — sans les tokens (trop lourd).
+    """
+    files = sorted(
+        glob.glob(os.path.join(_snap_dir(datas_dir), '*.json')),
+        reverse=True,
+    )
+    result = []
+    for f in files:
+        sid = os.path.basename(f).replace('.json', '')
+        try:
+            with open(f, 'r', encoding='utf-8') as fp:
+                data = json.load(fp)
+            result.append({
+                'id':        sid,
+                'timestamp': data.get('timestamp', ''),
+                'stats':     data.get('stats', {}),
+            })
+        except Exception:
+            pass
+    return result
+
+
+def get_snapshot(datas_dir: str, snapshot_id: str) -> dict:
+    """Retourne un snapshot complet (avec tokens)."""
+    if not re.match(r'^[0-9_]+$', snapshot_id):
+        raise ServiceError('ID snapshot invalide', 400)
+    filepath = os.path.join(_snap_dir(datas_dir), f'{snapshot_id}.json')
+    if not os.path.exists(filepath):
+        raise ServiceError(f'Snapshot "{snapshot_id}" introuvable', 404)
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        raise ServiceError(f'Erreur lecture snapshot : {e}', 500)
+
+
+def purge_old_snapshots(datas_dir: str, retention_days: int) -> int:
+    """
+    Supprime les snapshots plus vieux que retention_days jours.
+    Retourne le nombre de fichiers supprimés.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, retention_days))
+    deleted = 0
+    for f in glob.glob(os.path.join(_snap_dir(datas_dir), '*.json')):
+        try:
+            mtime = datetime.fromtimestamp(os.path.getmtime(f), tz=timezone.utc)
+            if mtime < cutoff:
+                os.remove(f)
+                deleted += 1
+        except Exception:
+            pass
+    if deleted:
+        logger.info('gitlab_snapshots_purged count=%d retention_days=%d', deleted, retention_days)
+    return deleted

@@ -7,7 +7,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; padding: 20px; background: #f0f4f8; }
-        .container { max-width: 1100px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
 
         /* ── Header ─────────────────────────────────── */
         .header {
@@ -26,10 +26,10 @@
             padding: 14px 20px; margin-bottom: 20px;
             display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
         }
-        .status-bar .status-item { display: flex; flex-direction: column; gap: 2px; }
-        .status-bar .status-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .3px; }
-        .status-bar .status-value { font-size: 14px; font-weight: bold; color: #222; }
-        .status-sep { width: 1px; height: 32px; background: #e0e0e0; }
+        .status-item { display: flex; flex-direction: column; gap: 2px; }
+        .status-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .3px; }
+        .status-value { font-size: 14px; font-weight: bold; color: #222; }
+        .status-sep { width: 1px; height: 32px; background: #e0e0e0; flex-shrink: 0; }
         .conn-badge {
             display: inline-flex; align-items: center; gap: 5px;
             padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
@@ -39,35 +39,32 @@
         .conn-unknown { background: #f5f5f5; color: #757575; }
 
         /* ── Stat cards ─────────────────────────────── */
-        .stat-cards {
-            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
-        }
+        .stat-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
         .stat-card {
             background: white; border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            padding: 16px 20px; flex: 1; min-width: 130px;
+            padding: 16px 20px; flex: 1; min-width: 120px;
             border-left: 4px solid #ccc;
-            display: flex; flex-direction: column; gap: 4px;
         }
         .stat-card .stat-num  { font-size: 28px; font-weight: bold; color: #222; }
         .stat-card .stat-lbl  { font-size: 12px; color: #888; }
-        .stat-card.total      { border-left-color: #e24329; }
-        .stat-card.expired    { border-left-color: #e53935; }
-        .stat-card.warning    { border-left-color: #fb8c00; }
-        .stat-card.personal   { border-left-color: #7b1fa2; }
-        .stat-card.project    { border-left-color: #1565c0; }
-        .stat-card.group      { border-left-color: #2e7d32; }
+        .stat-card.total    { border-left-color: #e24329; }
+        .stat-card.expired  { border-left-color: #e53935; }
+        .stat-card.warning  { border-left-color: #fb8c00; }
+        .stat-card.personal { border-left-color: #7b1fa2; }
+        .stat-card.project  { border-left-color: #1565c0; }
+        .stat-card.group    { border-left-color: #2e7d32; }
 
         /* ── Toolbar ─────────────────────────────────── */
         .toolbar {
             background: white; border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             padding: 12px 16px; margin-bottom: 16px;
-            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
         .toolbar input[type="text"] {
             padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 13px; min-width: 240px; flex: 1;
+            font-size: 13px; min-width: 200px; flex: 1;
         }
         .toolbar input[type="text"]:focus { border-color: #e24329; outline: none; box-shadow: 0 0 0 3px rgba(226,67,41,.1); }
         .toolbar select {
@@ -75,16 +72,18 @@
             font-size: 13px; color: #333; cursor: pointer;
         }
         .toolbar select:focus { border-color: #e24329; outline: none; }
-        .token-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
+        .token-count { font-size: 12px; color: #888; white-space: nowrap; }
 
-        .btn-load {
-            padding: 8px 18px; background: #e24329; color: white;
-            border: none; border-radius: 6px; font-size: 13px; font-weight: bold;
-            cursor: pointer; display: flex; align-items: center; gap: 6px;
-            transition: background .15s; white-space: nowrap;
+        .btn {
+            padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px;
+            font-weight: bold; cursor: pointer; display: inline-flex; align-items: center;
+            gap: 6px; transition: opacity .15s; white-space: nowrap;
         }
-        .btn-load:hover:not(:disabled) { background: #c0392b; }
-        .btn-load:disabled { background: #f0a89a; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: .85; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary  { background: #e24329; color: white; }
+        .btn-export   { background: #2e7d32; color: white; }
+        .btn-history  { background: #1565c0; color: white; }
 
         /* ── Spinner ─────────────────────────────────── */
         .spinner {
@@ -94,11 +93,19 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ── Snapshot toast ──────────────────────────── */
+        .snap-toast {
+            display: none; align-items: center; gap: 8px;
+            background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px;
+            padding: 6px 12px; font-size: 12px; color: #2e7d32;
+        }
+        .snap-toast.show { display: inline-flex; }
+
         /* ── Token table ─────────────────────────────── */
         .table-card {
             background: white; border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            overflow: hidden;
+            overflow: hidden; margin-bottom: 20px;
         }
         .token-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .token-table th {
@@ -112,17 +119,21 @@
         .token-table tr.row-expired td { background: #fff8f8; }
         .token-table tr.row-warning td { background: #fffde7; }
 
-        .tok-name  { font-weight: bold; color: #222; }
-        .tok-scope { font-size: 12px; color: #555; font-family: monospace; max-width: 220px;
-                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tok-scopes { font-size: 11px; color: #888; max-width: 180px;
-                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tok-date  { white-space: nowrap; font-size: 12px; color: #555; }
+        .tok-name a {
+            font-weight: bold; color: #e24329; text-decoration: none;
+        }
+        .tok-name a:hover { text-decoration: underline; }
+        .tok-name span { font-weight: bold; color: #222; }
+
+        .tok-scope  { font-size: 12px; color: #555; font-family: monospace;
+                      max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tok-scopes { font-size: 11px; color: #888;
+                      max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tok-date   { white-space: nowrap; font-size: 12px; color: #555; }
 
         .type-badge {
             display: inline-flex; align-items: center; gap: 3px;
             padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;
-            white-space: nowrap;
         }
         .type-personal { background: #f3e5f5; color: #7b1fa2; }
         .type-project  { background: #e3f2fd; color: #1565c0; }
@@ -131,7 +142,6 @@
         .expiry-badge {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;
-            white-space: nowrap;
         }
         .expiry-expired { background: #ffebee; color: #c62828; }
         .expiry-urgent  { background: #fff3e0; color: #e65100; }
@@ -139,6 +149,52 @@
         .expiry-ok      { background: #e8f5e9; color: #2e7d32; }
         .expiry-none    { background: #f5f5f5; color: #9e9e9e; }
         .expiry-revoked { background: #fce4ec; color: #880e4f; }
+
+        /* ── Historique panel ─────────────────────────── */
+        .history-panel {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px; overflow: hidden; display: none;
+        }
+        .history-panel.open { display: block; }
+        .history-header {
+            background: #1565c0; color: white; padding: 12px 20px;
+            font-size: 14px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn-close-history {
+            background: none; border: none; color: white; font-size: 18px;
+            cursor: pointer; line-height: 1; padding: 0 4px;
+        }
+        .history-body { padding: 16px 20px; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+        .snap-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+            border: 1px solid #e8eaf6; border-radius: 8px; cursor: pointer;
+            transition: background .1s;
+        }
+        .snap-item:hover { background: #e8eaf6; }
+        .snap-item.active { border-color: #1565c0; background: #e3f2fd; }
+        .snap-date { font-size: 13px; font-weight: bold; color: #1a237e; min-width: 160px; }
+        .snap-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+        .snap-stat { font-size: 12px; color: #555; }
+        .snap-stat.red { color: #c62828; font-weight: bold; }
+        .snap-stat.orange { color: #e65100; font-weight: bold; }
+        .snap-current { font-size: 11px; color: #888; font-style: italic; }
+        .snap-empty { font-size: 13px; color: #aaa; font-style: italic; padding: 8px 0; }
+
+        /* ── Diff banner ──────────────────────────────── */
+        .diff-banner {
+            background: #fff3e0; border: 1px solid #ffcc80; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 16px; font-size: 13px;
+            display: none;
+        }
+        .diff-banner.show { display: block; }
+        .diff-banner h4 { color: #e65100; margin-bottom: 8px; font-size: 13px; }
+        .diff-gone { color: #c62828; }
+        .diff-new  { color: #2e7d32; }
+        .diff-list { margin: 4px 0 0 12px; }
+        .diff-list li { font-family: monospace; font-size: 12px; margin-bottom: 2px; }
 
         /* ── Messages ─────────────────────────────────── */
         .msg-box {
@@ -149,7 +205,7 @@
 
         @media (max-width: 700px) {
             .stat-cards { flex-direction: column; }
-            .tok-scope, .tok-scopes { max-width: 120px; }
+            .tok-scope, .tok-scopes { max-width: 100px; }
         }
     </style>
 </head>
@@ -165,7 +221,7 @@
     </div>
 
     <!-- ── Status bar ──────────────────────────────────────────── -->
-    <div class="status-bar" id="statusBar">
+    <div class="status-bar">
         <div class="status-item">
             <div class="status-label">Statut</div>
             <div class="status-value"><span class="conn-badge conn-unknown" id="connBadge">⏳ Non testé</span></div>
@@ -184,6 +240,14 @@
         <div class="status-item">
             <div class="status-label">Expire</div>
             <div class="status-value" id="tokenExpiry">—</div>
+        </div>
+        <div class="status-sep"></div>
+        <div class="status-item">
+            <div class="status-label">Snapshot</div>
+            <div class="status-value">
+                <span class="snap-toast" id="snapToast">📸 Snapshot sauvegardé</span>
+                <span id="snapInfo" style="font-size:13px;color:#888;">—</span>
+            </div>
         </div>
     </div>
 
@@ -215,6 +279,9 @@
         </div>
     </div>
 
+    <!-- ── Diff banner ──────────────────────────────────────────── -->
+    <div class="diff-banner" id="diffBanner"></div>
+
     <!-- ── Toolbar ──────────────────────────────────────────────── -->
     <div class="toolbar">
         <input type="text" id="tokenFilter" placeholder="🔎 Filtrer par nom, projet, groupe…" oninput="applyFilters()">
@@ -232,9 +299,20 @@
             <option value="ok">OK</option>
         </select>
         <span class="token-count" id="tokenCount"></span>
-        <button class="btn-load" id="btnLoad" onclick="loadTokens()">
-            🔄 Charger les tokens
-        </button>
+        <button class="btn btn-history" onclick="toggleHistory()">🕐 Historique</button>
+        <button class="btn btn-export" id="btnExport" onclick="exportCsv()" style="display:none">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnLoad" onclick="loadTokens()">🔄 Charger les tokens</button>
+    </div>
+
+    <!-- ── Historique ────────────────────────────────────────────── -->
+    <div class="history-panel" id="historyPanel">
+        <div class="history-header">
+            <span>🕐 Historique des snapshots</span>
+            <button class="btn-close-history" onclick="toggleHistory()" title="Fermer">✕</button>
+        </div>
+        <div class="history-body">
+            <div id="historyList"><div class="snap-empty">Chargement…</div></div>
+        </div>
     </div>
 
     <!-- ── Token table ──────────────────────────────────────────── -->
@@ -249,12 +327,14 @@
 
 <script>
 // ── État ─────────────────────────────────────────────────────────────────
-let _allTokens = [];
-let _configUrl = '';
+let _allTokens   = [];   // tokens actuellement affichés
+let _configUrl   = '';   // URL GitLab (pour construire les liens)
+let _viewMode    = 'live'; // 'live' ou 'snapshot'
+let _snapId      = null;
+let _liveTokens  = [];   // derniers tokens chargés en live (pour le diff)
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function init() {
-    // CSRF
     try {
         const me = await fetch('/api/auth/me');
         if (me.ok) {
@@ -264,7 +344,6 @@ async function init() {
         }
     } catch(e) {}
 
-    // Config
     try {
         const r = await fetch('/api/gitlab/config');
         if (r.ok) {
@@ -279,6 +358,9 @@ async function init() {
             }
         }
     } catch(e) {}
+
+    // Charge la liste des snapshots existants
+    loadSnapshotList();
 }
 
 function patchFetch() {
@@ -299,9 +381,7 @@ async function testConnection() {
     badge.textContent = '⏳ Test…';
     try {
         const r = await fetch('/api/gitlab/test', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({}),
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}',
         });
         const data = await r.json();
         if (!r.ok) {
@@ -312,9 +392,9 @@ async function testConnection() {
         badge.className = 'conn-badge conn-ok';
         badge.textContent = '✅ Connecté';
         document.getElementById('tokenInfo').textContent =
-            data.name + ' (' + (data.username || '—') + ')';
+            data.name + (data.username && data.username !== '—' ? ' (' + data.username + ')' : '');
         const d = data.days_left;
-        const expText = data.expires_at === '—' ? 'Pas d\'expiration' :
+        const expText = data.expires_at === '—' ? '∞ Pas d\'expiration' :
             (data.expired ? '⚠️ Expiré' :
             (typeof d === 'number' ? 'dans ' + d + 'j' : data.expires_at));
         document.getElementById('tokenExpiry').textContent = expText;
@@ -326,21 +406,21 @@ async function testConnection() {
     }
 }
 
-// ── Chargement des tokens ────────────────────────────────────────────────
+// ── Chargement tokens ────────────────────────────────────────────────────
 async function loadTokens() {
     const btn = document.getElementById('btnLoad');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Chargement… (peut prendre 30s+)';
+    btn.innerHTML = '<span class="spinner"></span> Chargement…';
     document.getElementById('tableBody').innerHTML =
         '<div class="msg-box">🔍 Récupération des tokens Personal, Project et Group…<br>' +
-        '<span style="font-size:12px;color:#aaa">L\'analyse parcourt tous les projets accessibles.</span></div>';
+        '<span style="font-size:12px;color:#aaa">Parcourt tous les projets accessibles, peut prendre 30s+.</span></div>';
     document.getElementById('statCards').style.display = 'none';
+    document.getElementById('diffBanner').classList.remove('show');
+    document.getElementById('btnExport').style.display = 'none';
 
     try {
         const r = await fetch('/api/gitlab/tokens', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({}),
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}',
         });
         const data = await r.json();
         if (!r.ok) {
@@ -348,9 +428,17 @@ async function loadTokens() {
                 '<div class="msg-box msg-error">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
             return;
         }
-        _allTokens = data.tokens || [];
+        _liveTokens = data.tokens || [];
+        _allTokens  = _liveTokens;
+        _viewMode   = 'live';
+        _snapId     = null;
+
         renderStats(data.stats || {});
         applyFilters();
+        document.getElementById('btnExport').style.display = 'inline-flex';
+
+        // Sauvegarde snapshot auto
+        saveSnapshot(data.tokens, data.stats);
     } catch(e) {
         document.getElementById('tableBody').innerHTML =
             '<div class="msg-box msg-error">Erreur réseau : ' + esc(e.message) + '</div>';
@@ -360,8 +448,164 @@ async function loadTokens() {
     }
 }
 
+// ── Snapshot ─────────────────────────────────────────────────────────────
+async function saveSnapshot(tokens, stats) {
+    try {
+        const r = await fetch('/api/gitlab/snapshots', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tokens, stats}),
+        });
+        if (r.ok) {
+            const d = await r.json();
+            showSnapToast();
+            document.getElementById('snapInfo').textContent = 'Dernier : maintenant';
+            loadSnapshotList();
+        }
+    } catch(e) { /* non-bloquant */ }
+}
+
+function showSnapToast() {
+    const t = document.getElementById('snapToast');
+    const i = document.getElementById('snapInfo');
+    t.classList.add('show');
+    i.style.display = 'none';
+    setTimeout(() => {
+        t.classList.remove('show');
+        i.style.display = '';
+    }, 3000);
+}
+
+// ── Historique ───────────────────────────────────────────────────────────
+let _snapshots = [];
+
+async function loadSnapshotList() {
+    try {
+        const r = await fetch('/api/gitlab/snapshots');
+        if (!r.ok) return;
+        const data = await r.json();
+        _snapshots = data.snapshots || [];
+
+        if (_snapshots.length > 0) {
+            const last = _snapshots[0];
+            document.getElementById('snapInfo').textContent =
+                'Dernier : ' + fmtSnapDate(last.timestamp);
+        }
+        renderSnapshotList();
+    } catch(e) {}
+}
+
+function renderSnapshotList() {
+    const list = document.getElementById('historyList');
+    if (!_snapshots.length) {
+        list.innerHTML = '<div class="snap-empty">Aucun snapshot disponible. Charger les tokens pour créer le premier.</div>';
+        return;
+    }
+    list.innerHTML = _snapshots.map((s, idx) => {
+        const stats = s.stats || {};
+        const expiredCls = (stats.expired > 0) ? 'red' : '';
+        const warnCls    = (stats.warning > 0) ? 'orange' : '';
+        const isCurrent  = (_viewMode === 'snapshot' && _snapId === s.id);
+        return '<div class="snap-item' + (isCurrent ? ' active' : '') + '"' +
+            ' onclick="viewSnapshot(\'' + s.id + '\')">' +
+            '<div class="snap-date">📸 ' + esc(fmtSnapDate(s.timestamp)) + '</div>' +
+            '<div class="snap-stats">' +
+                '<span class="snap-stat">Total: <b>' + (stats.total ?? '—') + '</b></span>' +
+                (stats.expired ? '<span class="snap-stat ' + expiredCls + '">Expirés: ' + stats.expired + '</span>' : '') +
+                (stats.warning ? '<span class="snap-stat ' + warnCls + '">≤30j: ' + stats.warning + '</span>' : '') +
+                '<span class="snap-stat">Personal: ' + (stats.personal ?? 0) + '</span>' +
+                '<span class="snap-stat">Project: ' + (stats.project ?? 0) + '</span>' +
+                '<span class="snap-stat">Group: ' + (stats.group ?? 0) + '</span>' +
+            '</div>' +
+            (idx === 0 && _viewMode !== 'snapshot' ? '<span class="snap-current">← dernier chargement live</span>' : '') +
+        '</div>';
+    }).join('');
+}
+
+async function viewSnapshot(sid) {
+    const panel = document.getElementById('historyPanel');
+    try {
+        const r = await fetch('/api/gitlab/snapshots/' + sid);
+        if (!r.ok) return;
+        const snap = await r.json();
+
+        _allTokens = snap.tokens || [];
+        _viewMode  = 'snapshot';
+        _snapId    = sid;
+
+        renderStats(snap.stats || {});
+        applyFilters();
+        document.getElementById('btnExport').style.display = 'inline-flex';
+
+        // Diff vs live
+        if (_liveTokens.length) {
+            renderDiff(_allTokens, _liveTokens, snap.timestamp);
+        }
+
+        renderSnapshotList();
+    } catch(e) {}
+}
+
+function toggleHistory() {
+    const panel = document.getElementById('historyPanel');
+    const isOpen = panel.classList.toggle('open');
+    if (isOpen) renderSnapshotList();
+}
+
+// ── Diff ─────────────────────────────────────────────────────────────────
+function _tokKey(t) { return t.type + '|' + t.name + '|' + t.scope; }
+
+function renderDiff(snapTokens, liveTokens, snapTs) {
+    const snapKeys = new Set(snapTokens.map(_tokKey));
+    const liveKeys = new Set(liveTokens.map(_tokKey));
+
+    const gone    = snapTokens.filter(t => !liveKeys.has(_tokKey(t)));
+    const added   = liveTokens.filter(t => !snapKeys.has(_tokKey(t)));
+
+    const banner = document.getElementById('diffBanner');
+
+    if (!gone.length && !added.length) {
+        banner.classList.remove('show');
+        return;
+    }
+
+    let html = '<h4>🔍 Comparaison snapshot du ' + esc(fmtSnapDate(snapTs)) + ' vs chargement live :</h4>';
+
+    if (gone.length) {
+        html += '<div class="diff-gone">❌ ' + gone.length + ' token(s) présent(s) dans ce snapshot mais disparu(s) maintenant :</div>' +
+            '<ul class="diff-list">' +
+            gone.map(t => '<li>' + esc(t.type) + ' — <b>' + esc(t.name) + '</b> (' + esc(t.scope) + ')</li>').join('') +
+            '</ul>';
+    }
+    if (added.length) {
+        html += '<div class="diff-new" style="margin-top:8px">✅ ' + added.length + ' token(s) nouveau(x) depuis ce snapshot :</div>' +
+            '<ul class="diff-list">' +
+            added.map(t => '<li>' + esc(t.type) + ' — <b>' + esc(t.name) + '</b> (' + esc(t.scope) + ')</li>').join('') +
+            '</ul>';
+    }
+
+    html += '<div style="margin-top:8px;font-size:12px;color:#888;">' +
+        '<button onclick="switchToLive()" style="background:none;border:1px solid #fb8c00;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;color:#e65100;margin-right:8px">← Revenir au live</button>' +
+        'Snapshot affiché, pas le live.</div>';
+
+    banner.innerHTML = html;
+    banner.classList.add('show');
+}
+
+function switchToLive() {
+    if (!_liveTokens.length) return;
+    _allTokens = _liveTokens;
+    _viewMode  = 'live';
+    _snapId    = null;
+    document.getElementById('diffBanner').classList.remove('show');
+    renderStats(null);
+    applyFilters();
+    renderSnapshotList();
+}
+
 // ── Stats ────────────────────────────────────────────────────────────────
 function renderStats(s) {
+    if (!s) return;
     document.getElementById('statTotal').textContent    = s.total    ?? '—';
     document.getElementById('statExpired').textContent  = s.expired  ?? '—';
     document.getElementById('statWarning').textContent  = s.warning  ?? '—';
@@ -369,8 +613,6 @@ function renderStats(s) {
     document.getElementById('statProject').textContent  = s.project  ?? '—';
     document.getElementById('statGroup').textContent    = s.group    ?? '—';
     document.getElementById('statCards').style.display = 'flex';
-
-    // Couleur rouge si des tokens expirés
     document.querySelector('.stat-card.expired .stat-num').style.color =
         (s.expired > 0) ? '#e53935' : '#222';
     document.querySelector('.stat-card.warning .stat-num').style.color =
@@ -384,54 +626,40 @@ function applyFilters() {
     const status = document.getElementById('statusFilter').value;
 
     let filtered = _allTokens;
-
-    if (text) {
-        filtered = filtered.filter(t =>
-            t.name.toLowerCase().includes(text) ||
-            t.scope.toLowerCase().includes(text) ||
-            t.scopes.toLowerCase().includes(text)
-        );
-    }
-    if (type) {
-        filtered = filtered.filter(t => t.type === type);
-    }
-    if (status) {
-        filtered = filtered.filter(t => {
-            if (status === 'expired') return t.expired || t.revoked;
-            if (status === 'urgent')  return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 7 && t.days_left >= 0;
-            if (status === 'warning') return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 30 && t.days_left >= 0;
-            if (status === 'ok')      return !t.expired && !t.revoked && (t.days_left === null || t.days_left > 30);
-            return true;
-        });
-    }
+    if (text)   filtered = filtered.filter(t =>
+        t.name.toLowerCase().includes(text) ||
+        t.scope.toLowerCase().includes(text) ||
+        t.scopes.toLowerCase().includes(text));
+    if (type)   filtered = filtered.filter(t => t.type === type);
+    if (status) filtered = filtered.filter(t => {
+        if (status === 'expired') return t.expired || t.revoked;
+        if (status === 'urgent')  return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 7 && t.days_left >= 0;
+        if (status === 'warning') return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 30 && t.days_left >= 0;
+        if (status === 'ok')      return !t.expired && !t.revoked && (t.days_left === null || t.days_left > 30);
+        return true;
+    });
 
     document.getElementById('tokenCount').textContent =
         filtered.length + ' token' + (filtered.length > 1 ? 's' : '') +
-        (filtered.length < _allTokens.length ? ' sur ' + _allTokens.length : '');
+        (filtered.length < _allTokens.length ? ' sur ' + _allTokens.length : '') +
+        (_viewMode === 'snapshot' ? ' 📸 snapshot' : '');
 
     renderTable(filtered);
 }
 
-// ── Rendu table ──────────────────────────────────────────────────────────
+// ── Table ────────────────────────────────────────────────────────────────
 function renderTable(tokens) {
     const body = document.getElementById('tableBody');
     if (!tokens.length) {
         body.innerHTML = '<div class="msg-box">Aucun token correspondant aux filtres.</div>';
         return;
     }
-
     body.innerHTML =
-        '<table class="token-table">' +
-        '<thead><tr>' +
-            '<th>Nom</th>' +
-            '<th>Type</th>' +
-            '<th>Portée (projet / groupe)</th>' +
-            '<th>Scopes</th>' +
-            '<th>Créé le</th>' +
-            '<th>Expire le</th>' +
-            '<th>Statut</th>' +
+        '<table class="token-table"><thead><tr>' +
+            '<th>Nom</th><th>Type</th><th>Portée (projet / groupe)</th>' +
+            '<th>Scopes</th><th>Créé le</th><th>Expire le</th><th>Statut</th>' +
         '</tr></thead><tbody>' +
-        tokens.map(t => renderTokenRow(t)).join('') +
+        tokens.map(renderTokenRow).join('') +
         '</tbody></table>';
 }
 
@@ -440,41 +668,94 @@ function renderTokenRow(t) {
         : (typeof t.days_left === 'number' && t.days_left <= 30 && t.days_left >= 0) ? 'row-warning'
         : '';
 
-    const typeCls = t.type === 'Personal' ? 'type-personal'
-        : t.type === 'Project' ? 'type-project' : 'type-group';
+    const typeCls  = t.type === 'Personal' ? 'type-personal' : t.type === 'Project' ? 'type-project' : 'type-group';
     const typeIcon = t.type === 'Personal' ? '👤' : t.type === 'Project' ? '📁' : '👥';
 
-    let expiryBadge;
-    if (t.revoked) {
-        expiryBadge = '<span class="expiry-badge expiry-revoked">🚫 Révoqué</span>';
-    } else if (t.expired) {
-        expiryBadge = '<span class="expiry-badge expiry-expired">❌ Expiré</span>';
-    } else if (t.days_left === null) {
-        expiryBadge = '<span class="expiry-badge expiry-none">∞ Illimité</span>';
-    } else if (t.days_left <= 7) {
-        expiryBadge = '<span class="expiry-badge expiry-urgent">🔴 ' + t.days_left + 'j</span>';
-    } else if (t.days_left <= 30) {
-        expiryBadge = '<span class="expiry-badge expiry-warning">🟡 ' + t.days_left + 'j</span>';
-    } else {
-        expiryBadge = '<span class="expiry-badge expiry-ok">✅ ' + t.days_left + 'j</span>';
-    }
+    // Lien vers GitLab
+    const url = tokenUrl(t);
+    const nameCell = url
+        ? '<a href="' + esc(url) + '" target="_blank" rel="noopener" title="Ouvrir dans GitLab">' + esc(t.name) + ' ↗</a>'
+        : '<span>' + esc(t.name) + '</span>';
 
-    const expDate = t.expires_at === '—' ? '—' : t.expires_at.slice(0, 10);
+    // Badge expiration
+    let expiryBadge;
+    if (t.revoked)          expiryBadge = '<span class="expiry-badge expiry-revoked">🚫 Révoqué</span>';
+    else if (t.expired)     expiryBadge = '<span class="expiry-badge expiry-expired">❌ Expiré</span>';
+    else if (t.days_left === null) expiryBadge = '<span class="expiry-badge expiry-none">∞ Illimité</span>';
+    else if (t.days_left <= 7)    expiryBadge = '<span class="expiry-badge expiry-urgent">🔴 ' + t.days_left + 'j</span>';
+    else if (t.days_left <= 30)   expiryBadge = '<span class="expiry-badge expiry-warning">🟡 ' + t.days_left + 'j</span>';
+    else                          expiryBadge = '<span class="expiry-badge expiry-ok">✅ ' + t.days_left + 'j</span>';
 
     return '<tr class="' + rowCls + '">' +
-        '<td class="tok-name">' + esc(t.name) + '</td>' +
+        '<td class="tok-name">' + nameCell + '</td>' +
         '<td><span class="type-badge ' + typeCls + '">' + typeIcon + ' ' + esc(t.type) + '</span></td>' +
         '<td class="tok-scope" title="' + esc(t.scope) + '">' + esc(t.scope) + '</td>' +
         '<td class="tok-scopes" title="' + esc(t.scopes) + '">' + esc(t.scopes) + '</td>' +
         '<td class="tok-date">' + esc(t.created_at || '—') + '</td>' +
-        '<td class="tok-date">' + esc(expDate) + '</td>' +
+        '<td class="tok-date">' + esc(t.expires_at === '—' ? '—' : (t.expires_at || '').slice(0,10)) + '</td>' +
         '<td>' + expiryBadge + '</td>' +
     '</tr>';
 }
 
+function tokenUrl(t) {
+    if (!_configUrl) return null;
+    const base = _configUrl.replace(/\/$/, '');
+    if (t.type === 'Personal') return base + '/-/user_settings/personal_access_tokens';
+    if (t.type === 'Project')  return base + '/' + t.scope + '/-/settings/access_tokens';
+    if (t.type === 'Group')    return base + '/groups/' + t.scope + '/-/settings/access_tokens';
+    return null;
+}
+
+// ── Export CSV ───────────────────────────────────────────────────────────
+function exportCsv() {
+    const tokens = _allTokens;
+    if (!tokens.length) return;
+
+    const headers = ['Nom', 'Type', 'Portée', 'Scopes', 'Créé le', 'Expire le', 'Jours restants', 'Statut', 'Révoqué', 'URL'];
+    const rows = tokens.map(t => [
+        t.name,
+        t.type,
+        t.scope,
+        t.scopes,
+        t.created_at || '',
+        t.expires_at === '—' ? '' : (t.expires_at || '').slice(0, 10),
+        t.days_left !== null && t.days_left !== undefined ? t.days_left : '∞',
+        t.revoked   ? 'Révoqué' :
+        t.expired   ? 'Expiré'  :
+        t.days_left === null ? 'Illimité' :
+        t.days_left <= 7    ? 'Urgent'   :
+        t.days_left <= 30   ? 'Attention': 'OK',
+        t.revoked ? 'Oui' : 'Non',
+        tokenUrl(t) || '',
+    ]);
+
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+        .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const now  = new Date();
+    const ts   = now.toISOString().slice(0,16).replace('T','_').replace(':','-');
+    a.href     = url;
+    a.download = 'gitlab_tokens_' + ts + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
+function fmtSnapDate(ts) {
+    if (!ts) return '—';
+    try {
+        const d = new Date(ts);
+        return d.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}) +
+               ' à ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+    } catch(e) { return ts; }
+}
+
 function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 init();
