@@ -56,6 +56,9 @@
         .badge-admin { background: #ffc107; color: #333; }
         .badge-member { background: #e0e0e0; color: #555; }
         .badge-superadmin { background: #dc3545; color: white; }
+        .badge-responsable { background: #e91e63; color: white; }
+        .badge-manager { background: #7b1fa2; color: white; }
+        .badge-ops { background: #1565c0; color: white; }
         .badge-local { background: #6c757d; color: white; }
         .badge-adfs { background: #007bff; color: white; }
         .badge-sre { background: #1565c0; color: white; }
@@ -178,6 +181,35 @@
 
     <!-- UTILISATEURS -->
     <div class="tab-content" id="tab-users">
+        <div class="card" id="createUserCard" style="display:none;">
+            <h2>Ajouter un utilisateur</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="newUserEmail" placeholder="jean.dupont@entreprise.com" style="width:240px;">
+                </div>
+                <div class="form-group">
+                    <label>Nom affich&eacute;</label>
+                    <input type="text" id="newUserName" placeholder="Jean Dupont" style="width:180px;">
+                </div>
+                <div class="form-group">
+                    <label>R&ocirc;le</label>
+                    <select id="newUserRole" style="width:130px;" onchange="updateCreateUserForm()"></select>
+                </div>
+                <div class="form-group" id="newUserOrgGroup" style="display:none;">
+                    <label>Organisation</label>
+                    <select id="newUserOrg" style="width:150px;"></select>
+                </div>
+                <div class="form-group" id="newUserTeamGroup">
+                    <label>&Eacute;quipe (optionnel)</label>
+                    <select id="newUserTeam" style="width:150px;"></select>
+                </div>
+                <button class="btn btn-primary" onclick="createUser()">Cr&eacute;er</button>
+            </div>
+            <div style="font-size:12px;color:#888;margin-top:8px;">
+                Mot de passe par d&eacute;faut : <strong>"password"</strong> — l'utilisateur devra le changer &agrave; la premi&egrave;re connexion.
+            </div>
+        </div>
         <div class="card">
             <h2>Utilisateurs</h2>
             <div id="usersList"></div>
@@ -535,21 +567,111 @@ async function removeResource(teamId, module, resourceId) {
 
 // === USERS ===
 
+const _roleBadge = {
+    superadmin:  '<span class="badge badge-superadmin">superadmin</span>',
+    responsable: '<span class="badge badge-responsable">responsable</span>',
+    manager:     '<span class="badge badge-manager">manager</span>',
+    ops:         '<span class="badge badge-ops">ops</span>',
+};
+
 function renderUsers() {
     const c = document.getElementById('usersList');
     if (!users.length) { c.innerHTML = '<div class="empty">Aucun utilisateur.</div>'; return; }
-    let h = '<table><thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>R\u00f4le</th><th>Derni\u00e8re connexion</th><th>Actions</th></tr></thead><tbody>';
+    let h = '<table><thead><tr><th>Email</th><th>Nom</th><th>Type</th><th>R\u00f4le</th><th>Org</th><th>Statut</th><th>Cr\u00e9\u00e9 le</th><th>Actions</th></tr></thead><tbody>';
     users.forEach(u => {
-        h += '<tr><td>' + u.id + '</td><td>' + (u.display_name||'-') + '</td>';
+        const badge = _roleBadge[u.role] || '<span class="badge badge-member">' + (u.role||'user') + '</span>';
+        const orgName = u.org_id ? ((orgs.find(o => o.id === u.org_id) || {}).name || u.org_id) : '-';
+        const statusBadge = u.must_change_password
+            ? '<span class="badge" style="background:#ff9800;color:white;">mdp \u00e0 changer</span>'
+            : '<span style="color:#aaa;font-size:12px;">OK</span>';
+        h += '<tr>';
+        h += '<td>' + (u.email || u.id) + '</td>';
+        h += '<td>' + (u.display_name || '-') + '</td>';
         h += '<td><span class="badge badge-' + u.type + '">' + u.type + '</span></td>';
-        h += '<td>' + (u.role === 'superadmin' ? '<span class="badge badge-superadmin">superadmin</span>' : u.role) + '</td>';
-        h += '<td>' + (u.last_login || '-') + '</td>';
+        h += '<td>' + badge + '</td>';
+        h += '<td>' + orgName + '</td>';
+        h += '<td>' + statusBadge + '</td>';
+        h += '<td>' + (u.created || '-') + '</td>';
         h += '<td><div class="actions">';
-        if (u.id !== 'admin') h += '<button class="btn btn-danger btn-sm" onclick="deleteUser(\'' + u.id + '\')">Supprimer</button>';
+        if (u.id !== 'admin' && u.type === 'local') {
+            h += '<button class="btn btn-secondary btn-sm" onclick="resetUserPassword(\'' + u.id + '\')">R\u00e9init. MDP</button>';
+        }
+        if (u.id !== 'admin') {
+            h += '<button class="btn btn-danger btn-sm" onclick="deleteUser(\'' + u.id + '\')">Supprimer</button>';
+        }
         h += '</div></td></tr>';
     });
     h += '</tbody></table>';
     c.innerHTML = h;
+
+    // Show/hide create form based on role
+    const myRole = currentUser && currentUser.role;
+    const canCreate = ['superadmin', 'responsable', 'manager'].includes(myRole);
+    document.getElementById('createUserCard').style.display = canCreate ? 'block' : 'none';
+    if (canCreate) {
+        renderCreateUserRoles();
+        renderCreateUserOrgs();
+        renderCreateUserTeams();
+    }
+}
+
+function renderCreateUserRoles() {
+    const sel = document.getElementById('newUserRole');
+    const myRole = currentUser && currentUser.role;
+    const allowed = {
+        'superadmin': ['responsable', 'manager', 'ops'],
+        'responsable': ['manager'],
+        'manager': ['ops'],
+    }[myRole] || [];
+    sel.innerHTML = allowed.map(r => '<option value="' + r + '">' + r + '</option>').join('');
+    updateCreateUserForm();
+}
+
+function renderCreateUserOrgs() {
+    const sel = document.getElementById('newUserOrg');
+    sel.innerHTML = '<option value="">-- Aucune --</option>' + orgs.map(o =>
+        '<option value="' + o.id + '">' + o.name + '</option>'
+    ).join('');
+}
+
+function renderCreateUserTeams() {
+    const sel = document.getElementById('newUserTeam');
+    sel.innerHTML = '<option value="">-- Aucune --</option>' + teams.map(t =>
+        '<option value="' + t.id + '">' + t.name + '</option>'
+    ).join('');
+}
+
+function updateCreateUserForm() {
+    const role = document.getElementById('newUserRole').value;
+    document.getElementById('newUserOrgGroup').style.display = role === 'responsable' ? 'flex' : 'none';
+    document.getElementById('newUserTeamGroup').style.display = role !== 'responsable' ? 'flex' : 'none';
+}
+
+async function createUser() {
+    const email = document.getElementById('newUserEmail').value.trim();
+    const display_name = document.getElementById('newUserName').value.trim();
+    const role = document.getElementById('newUserRole').value;
+    const org_id = role === 'responsable' ? document.getElementById('newUserOrg').value : '';
+    const team_id = role !== 'responsable' ? document.getElementById('newUserTeam').value : '';
+    if (!email) { alert('Email requis'); return; }
+    const r = await fetch('/api/auth/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, display_name, role, org_id, team_id })
+    });
+    const res = await r.json();
+    if (res.error) { alert(res.error); return; }
+    document.getElementById('newUserEmail').value = '';
+    document.getElementById('newUserName').value = '';
+    await loadAll();
+}
+
+async function resetUserPassword(id) {
+    if (!confirm('R\u00e9initialiser le mot de passe de cet utilisateur \u00e0 "password" ?\nIl devra le changer \u00e0 la prochaine connexion.')) return;
+    const r = await fetch('/api/auth/users/' + id + '/reset-password', { method: 'POST' });
+    const res = await r.json();
+    if (res.error) { alert(res.error); return; }
+    await loadAll();
 }
 
 async function deleteUser(id) {

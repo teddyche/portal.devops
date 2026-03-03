@@ -207,6 +207,21 @@ def verify_id_token(id_token, adfs_config):
     return payload
 
 
+# === Politique de mot de passe ===
+
+def _validate_password_policy(password: str) -> tuple[bool, str]:
+    """Valide la politique de mot de passe. Retourne (ok, message_erreur)."""
+    if len(password) < 8:
+        return False, 'Minimum 8 caractères requis'
+    if not any(c.isdigit() for c in password):
+        return False, 'Au moins un chiffre requis'
+    if not any(c.isupper() for c in password):
+        return False, 'Au moins une majuscule requise'
+    if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?/~`' for c in password):
+        return False, 'Au moins un caractère spécial requis (!@#$%...)'
+    return True, ''
+
+
 # === Rate limiting ===
 
 def _rl_check(username):
@@ -267,6 +282,13 @@ def require_auth():
         return redirect('/login')
 
     g.current_user = user
+
+    # Force password change si requis (nouveaux utilisateurs)
+    _allowed_no_pw = ('/change-password', '/api/auth/password/change', '/api/auth/me')
+    if user.get('must_change_password') and not any(path.startswith(a) for a in _allowed_no_pw):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Changement de mot de passe requis'}), 403
+        return redirect('/change-password')
 
     # Génère un token CSRF par session si absent
     if 'csrf_token' not in session:
@@ -332,41 +354,68 @@ def local_login():
     config = get_auth_config()
     local = config.get('local_admin', {})
 
-    if username != local.get('username', ''):
-        _rl_fail(username)
-        _audit.warning('login_failed user=%s ip=%s reason=unknown_user', _hash_for_log(username), request.remote_addr)
-        return jsonify({'error': 'Identifiants invalides'}), 401
+    if username == local.get('username', ''):
+        # === Chemin local_admin (config.json) ===
+        stored_hash = local.get('password_hash', '')
+        try:
+            pwd_ok = bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+        except (ValueError, TypeError):
+            pwd_ok = False
+        if not pwd_ok:
+            _rl_fail(username)
+            _audit.warning('login_failed user=%s ip=%s reason=wrong_password', _hash_for_log(username), request.remote_addr)
+            return jsonify({'error': 'Identifiants invalides'}), 401
 
-    stored_hash = local.get('password_hash', '')
-    try:
-        pwd_ok = bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
-    except (ValueError, TypeError):
-        pwd_ok = False
-    if not pwd_ok:
-        _rl_fail(username)
-        _audit.warning('login_failed user=%s ip=%s reason=wrong_password', _hash_for_log(username), request.remote_addr)
-        return jsonify({'error': 'Identifiants invalides'}), 401
+        _rl_success(username)
+        _audit.info('login_success user=%s ip=%s', _hash_for_log(username), request.remote_addr)
 
-    _rl_success(username)
-    _audit.info('login_success user=%s ip=%s', _hash_for_log(username), request.remote_addr)
+        # Ensure admin user exists
+        users = get_users()
+        admin_user = next((u for u in users if u['id'] == 'admin' and u['type'] == 'local'), None)
+        if not admin_user:
+            admin_user = {
+                'id': 'admin',
+                'type': 'local',
+                'display_name': local.get('display_name', 'Super Admin'),
+                'role': 'superadmin',
+                'created': datetime.utcnow().strftime('%Y-%m-%d')
+            }
+            users.append(admin_user)
+            save_users(users)
 
-    # Ensure admin user exists
-    users = get_users()
-    admin_user = next((u for u in users if u['id'] == 'admin' and u['type'] == 'local'), None)
-    if not admin_user:
-        admin_user = {
-            'id': 'admin',
-            'type': 'local',
-            'display_name': local.get('display_name', 'Super Admin'),
-            'role': 'superadmin',
-            'created': datetime.utcnow().strftime('%Y-%m-%d')
-        }
-        users.append(admin_user)
-        save_users(users)
+        session['user_id'] = 'admin'
+        next_url = session.pop('next_url', '/')
+        return jsonify({'success': True, 'redirect': next_url})
 
-    session['user_id'] = 'admin'
-    next_url = session.pop('next_url', '/')
-    return jsonify({'success': True, 'redirect': next_url})
+    else:
+        # === Chemin email+password (users.json) ===
+        user = next((u for u in get_users()
+                     if u.get('type') == 'local'
+                     and u.get('email', '').lower() == username.lower()), None)
+        if not user:
+            _rl_fail(username)
+            _audit.warning('login_failed user=%s ip=%s reason=unknown_user', _hash_for_log(username), request.remote_addr)
+            return jsonify({'error': 'Identifiants invalides'}), 401
+
+        stored_hash = user.get('password_hash', '')
+        try:
+            pwd_ok = bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+        except (ValueError, TypeError):
+            pwd_ok = False
+        if not pwd_ok:
+            _rl_fail(username)
+            _audit.warning('login_failed user=%s ip=%s reason=wrong_password', _hash_for_log(username), request.remote_addr)
+            return jsonify({'error': 'Identifiants invalides'}), 401
+
+        _rl_success(username)
+        _audit.info('login_success user=%s ip=%s', _hash_for_log(username), request.remote_addr)
+        session['user_id'] = user['id']
+
+        if user.get('must_change_password'):
+            return jsonify({'success': True, 'must_change_password': True, 'redirect': '/change-password'})
+
+        next_url = session.pop('next_url', '/')
+        return jsonify({'success': True, 'redirect': next_url})
 
 
 # === ADFS OIDC ===
@@ -537,6 +586,34 @@ def api_me():
         'modules': list(set(r['module'] for r in resources)) if resources is not None else None,
         'csrf_token': session.get('csrf_token', '')
     })
+
+
+# === Changement de mot de passe ===
+
+@auth_bp.route('/api/auth/password/change', methods=['POST'])
+def api_change_password():
+    """Change le mot de passe de l'utilisateur connecté. Efface must_change_password."""
+    user_id = session.get('user_id')
+    user = get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'Non authentifié'}), 401
+
+    body = request.json or {}
+    new_pw = body.get('new_password', '')
+    ok, msg = _validate_password_policy(new_pw)
+    if not ok:
+        return jsonify({'error': msg}), 400
+
+    users = get_users()
+    u = next((x for x in users if x['id'] == user_id), None)
+    if not u:
+        return jsonify({'error': 'Utilisateur introuvable'}), 404
+
+    u['password_hash'] = bcrypt.hashpw(new_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    u.pop('must_change_password', None)
+    save_users(users)
+    _audit.info('password_changed user=%s ip=%s', _hash_for_log(user_id), request.remote_addr)
+    return jsonify({'success': True})
 
 
 # === Auth config API (for login page) ===

@@ -170,3 +170,10 @@ def gitlab_page():
 @pages_bp.route('/gitlab/config')
 def gitlab_config_page():
     return _page('gitlab_config.html')
+
+
+# === Auth ===
+
+@pages_bp.route('/change-password')
+def change_password_page():
+    return _page('change_password.html')
