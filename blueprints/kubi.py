@@ -234,6 +234,68 @@ def api_kubi_quotas_all():
         return api_error(e.message, e.status)
 
 
+# === Pods K8s ===
+
+def _pod_proxy_params(cluster_id: str) -> tuple:
+    """Retourne (insecure, proxy_url, use_proxy) depuis la config cluster."""
+    cfg = kubi_service.get_kubi_config(_dd())
+    cluster = next((c for c in cfg.get('clusters', []) if c['id'] == cluster_id), None)
+    return (
+        cluster.get('insecure', True) if cluster else True,
+        cfg.get('proxy_url', ''),
+        cluster.get('use_proxy', False) if cluster else False,
+    )
+
+
+@kubi_bp.route('/api/kubi/pods', methods=['POST'])
+def api_kubi_pods():
+    """Liste les pods d'un namespace avec statut, ready, restarts et age."""
+    try:
+        body = _require_json()
+        k8s_url   = body.get('k8s_url', '').strip()
+        token     = body.get('token', '').strip()
+        namespace = body.get('namespace', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        pods = kubi_service.get_kubi_pods(k8s_url, token, namespace, insecure, proxy_url, use_proxy)
+        return jsonify({'pods': pods, 'namespace': namespace})
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+@kubi_bp.route('/api/kubi/pods/delete', methods=['POST'])
+def api_kubi_pods_delete():
+    """Supprime un pod (force restart via son contrôleur Deployment/StatefulSet)."""
+    try:
+        body = _require_json()
+        k8s_url   = body.get('k8s_url', '').strip()
+        token     = body.get('token', '').strip()
+        namespace = body.get('namespace', '').strip()
+        pod_name  = body.get('pod_name', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+        if not pod_name:  return api_error('pod_name requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        result = kubi_service.delete_kubi_pod(k8s_url, token, namespace, pod_name,
+                                               insecure, proxy_url, use_proxy)
+        _audit.warning('kubi_pod_delete user=%s cluster=%s ns=%s pod=%s',
+                       _uid(), cluster_id, namespace, pod_name)
+        return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
 # === Explain (décode un JWT) ===
 
 @kubi_bp.route('/api/kubi/explain', methods=['POST'])

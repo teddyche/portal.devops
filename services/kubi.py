@@ -421,3 +421,179 @@ def get_all_kubi_quotas(
             # 403/404 → on ignore silencieusement
 
     return results
+
+
+# === K8s API — Pods ===
+
+def _pod_display_status(pod: dict) -> str:
+    """Calcule le statut affiché d'un pod (équivalent kubectl get pods STATUS)."""
+    # Terminating
+    if pod.get('metadata', {}).get('deletionTimestamp'):
+        return 'Terminating'
+
+    phase = pod.get('status', {}).get('phase', 'Unknown')
+
+    # Raisons spécifiques dans les containerStatuses (CrashLoopBackOff, ImagePullBackOff…)
+    for cs in (pod.get('status', {}).get('initContainerStatuses', []) +
+               pod.get('status', {}).get('containerStatuses', [])):
+        state = cs.get('state', {})
+        waiting = state.get('waiting', {})
+        if waiting.get('reason'):
+            return waiting['reason']
+        terminated = state.get('terminated', {})
+        if terminated and terminated.get('exitCode', 0) != 0:
+            return 'Error'
+
+    if phase == 'Running':
+        container_statuses = pod.get('status', {}).get('containerStatuses', [])
+        if container_statuses and not all(cs.get('ready', False) for cs in container_statuses):
+            return 'NotReady'
+        return 'Running'
+
+    return phase  # Pending, Succeeded, Failed, Unknown
+
+
+def get_kubi_pods(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> list:
+    """Liste les pods d'un namespace avec statut normalisé, ready, restarts et age."""
+    if not k8s_url or not token or not namespace:
+        raise ServiceError('k8s_url, token et namespace requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    try:
+        resp = requests.get(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/pods',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s ({k8s_url}) : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError(f'Accès refusé aux pods du namespace "{namespace}" (HTTP 403)', 403)
+    if resp.status_code == 404:
+        raise ServiceError(f'Namespace "{namespace}" introuvable (HTTP 404)', 404)
+    if not resp.ok:
+        raise ServiceError(f'API K8s HTTP {resp.status_code} : {resp.text[:200]}', 502)
+
+    data = resp.json()
+    now = datetime.now(timezone.utc)
+
+    # Ordre de tri : problématiques en premier
+    _status_order = {
+        'CrashLoopBackOff': 0, 'Error': 1, 'OOMKilled': 2,
+        'ImagePullBackOff': 3, 'ErrImagePull': 4, 'Failed': 5,
+        'Pending': 6, 'NotReady': 7, 'Terminating': 8,
+        'Running': 20, 'Succeeded': 21, 'Completed': 22, 'Unknown': 30,
+    }
+
+    result = []
+    for item in data.get('items', []):
+        meta = item.get('metadata', {})
+        status = item.get('status', {})
+        container_statuses = status.get('containerStatuses', [])
+        spec_containers = item.get('spec', {}).get('containers', [])
+
+        ready_count = sum(1 for cs in container_statuses if cs.get('ready', False))
+        total_count = len(container_statuses) or len(spec_containers)
+        restarts = sum(cs.get('restartCount', 0) for cs in container_statuses)
+
+        # Age
+        age_str = ''
+        created_str = meta.get('creationTimestamp', '')
+        if created_str:
+            try:
+                created = datetime.strptime(created_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+                secs = int((now - created).total_seconds())
+                if secs < 60:        age_str = f'{secs}s'
+                elif secs < 3600:    age_str = f'{secs // 60}m'
+                elif secs < 86400:   age_str = f'{secs // 3600}h'
+                else:                age_str = f'{secs // 86400}j'
+            except ValueError:
+                age_str = created_str
+
+        pod_status = _pod_display_status(item)
+
+        result.append({
+            'name': meta.get('name', ''),
+            'status': pod_status,
+            'ready': f'{ready_count}/{total_count}',
+            'restarts': restarts,
+            'age': age_str,
+        })
+
+    result.sort(key=lambda p: (_status_order.get(p['status'], 15), p['name']))
+    return result
+
+
+def delete_kubi_pod(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    pod_name: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """Supprime un pod (force restart via le Deployment/StatefulSet qui le gère)."""
+    if not all([k8s_url, token, namespace, pod_name]):
+        raise ServiceError('k8s_url, token, namespace et pod_name requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    try:
+        resp = requests.delete(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/pods/{pod_name}',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError(f'Droits insuffisants pour supprimer "{pod_name}" (HTTP 403)', 403)
+    if resp.status_code == 404:
+        raise ServiceError(f'Pod "{pod_name}" introuvable (déjà supprimé ?)', 404)
+    if not resp.ok:
+        raise ServiceError(f'API K8s HTTP {resp.status_code} : {resp.text[:200]}', 502)
+
+    return {'deleted': pod_name}

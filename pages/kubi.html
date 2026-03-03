@@ -228,6 +228,79 @@
             .quota-row { grid-template-columns: 1fr; gap: 3px; }
         }
 
+        /* ── Pods card ───────────────────────────────── */
+        .pods-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .pods-card-header {
+            background: #1b5e20; color: white; padding: 14px 20px;
+            font-size: 15px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .pods-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
+        .pods-filters {
+            padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .pods-filters select {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; color: #333; cursor: pointer; min-width: 180px;
+        }
+        .pods-filters select:focus { border-color: #326ce5; outline: none; }
+        .pods-filters input[type="text"] {
+            padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; min-width: 180px; flex: 1;
+        }
+        .pods-filters input[type="text"]:focus { border-color: #326ce5; outline: none; }
+        .pods-filters label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; user-select: none;
+        }
+        .pods-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
+        .pods-body { padding: 16px 20px; }
+
+        .pods-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .pods-table th {
+            text-align: left; font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .4px; padding: 0 8px 8px 8px; border-bottom: 2px solid #f0f0f0;
+            font-weight: bold;
+        }
+        .pods-table td { padding: 7px 8px; border-bottom: 1px solid #f8f8f8; vertical-align: middle; }
+        .pods-table tr:last-child td { border-bottom: none; }
+        .pods-table tr:hover td { background: #fafafa; }
+
+        .pod-name { font-family: monospace; font-size: 12px; color: #333; word-break: break-all; }
+        .pod-ready { color: #555; text-align: center; }
+        .pod-restarts { text-align: center; font-weight: bold; }
+        .pod-restarts.high { color: #e53935; }
+        .pod-restarts.med  { color: #fb8c00; }
+        .pod-age { color: #777; text-align: right; white-space: nowrap; }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 12px; font-size: 11px;
+            font-weight: bold; white-space: nowrap;
+        }
+        .status-running    { background: #e8f5e9; color: #2e7d32; }
+        .status-pending    { background: #fff3e0; color: #e65100; }
+        .status-notready   { background: #fff8e1; color: #f57f17; }
+        .status-error      { background: #ffebee; color: #c62828; }
+        .status-terminating{ background: #f3e5f5; color: #6a1b9a; }
+        .status-succeeded  { background: #e0f2f1; color: #00695c; }
+        .status-unknown    { background: #f5f5f5; color: #757575; }
+
+        .btn-delete-pod {
+            padding: 4px 10px; background: #ffebee; color: #c62828;
+            border: 1px solid #ef9a9a; border-radius: 5px;
+            cursor: pointer; font-size: 12px; font-weight: bold;
+            transition: background .15s; white-space: nowrap;
+        }
+        .btn-delete-pod:hover { background: #ffcdd2; }
+        .btn-delete-pod:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-delete-pod.confirming { background: #e53935; color: white; border-color: #e53935; }
+
         /* ── Explain card ─────────────────────────────── */
         .explain-card {
             background: white; border-radius: 10px;
@@ -367,6 +440,27 @@
         <div class="quota-card-body" id="quotaCardBody"></div>
     </div>
 
+    <!-- ── Pods K8s ─────────────────────────────────────────────── -->
+    <div class="pods-card" id="podsCard" style="display:none">
+        <div class="pods-card-header">
+            <span>🚀 Pods Kubernetes</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="cluster-tag" id="podsClusterTag"></span>
+                <button class="btn-refresh" onclick="loadPods()">🔄 Rafraîchir</button>
+            </div>
+        </div>
+        <div class="pods-filters" id="podsFilters" style="display:none">
+            <select id="podsNsSelect" onchange="loadPods()"></select>
+            <input type="text" id="podsFilter" placeholder="🔎 Filtrer les pods…" oninput="renderPodsFiltered()">
+            <label>
+                <input type="checkbox" id="hideRunningPods" onchange="renderPodsFiltered()">
+                Masquer Running
+            </label>
+            <span class="pods-count" id="podsCount"></span>
+        </div>
+        <div class="pods-body" id="podsBody"></div>
+    </div>
+
     <!-- ── Analyser un token ─────────────────────────────────────── -->
     <div class="explain-card">
         <div class="explain-header" onclick="toggleExplain()">
@@ -391,6 +485,7 @@ let lastToken = '';
 let lastKubeconfig = '';
 let lastK8sUrl = '';
 let lastQuotaResults = [];
+let lastPodsData = [];
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function init() {
@@ -633,6 +728,10 @@ function initQuotaSection(clusterName) {
     document.getElementById('quotaFilters').style.display = 'none';
     document.getElementById('nsFilter').value = '';
     lastQuotaResults = [];
+    // Reset pods section
+    document.getElementById('podsCard').style.display = 'none';
+    document.getElementById('podsFilters').style.display = 'none';
+    lastPodsData = [];
     card.style.display = 'block';
     setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 150);
     loadAllQuotas();
@@ -683,6 +782,8 @@ function renderAllQuotas(results) {
     lastQuotaResults = [...results].sort((a, b) => _maxPct(b) - _maxPct(a));
     document.getElementById('quotaFilters').style.display = 'flex';
     applyFilters();
+    // Init section pods avec les namespaces qu'on vient de découvrir
+    initPodsSection();
 }
 
 function applyFilters() {
@@ -779,6 +880,166 @@ function fmtResourceVal(name, raw) {
         return raw; // Garde Gi, Mi, Ki tels quels
     }
     return raw;
+}
+
+// ── Pods ─────────────────────────────────────────────────────────────────
+
+const _STATUS_CLASS = {
+    'Running':      'status-running',
+    'Succeeded':    'status-succeeded',
+    'Completed':    'status-succeeded',
+    'Pending':      'status-pending',
+    'NotReady':     'status-notready',
+    'Terminating':  'status-terminating',
+    'Unknown':      'status-unknown',
+};
+function podStatusClass(s) {
+    if (_STATUS_CLASS[s]) return _STATUS_CLASS[s];
+    // CrashLoopBackOff, Error, ImagePullBackOff, OOMKilled, etc.
+    return 'status-error';
+}
+
+function initPodsSection() {
+    if (!lastQuotaResults.length) return;
+    const card = document.getElementById('podsCard');
+    const sel = document.getElementById('podsNsSelect');
+
+    document.getElementById('podsClusterTag').textContent =
+        document.getElementById('quotaClusterTag').textContent;
+    document.getElementById('podsFilter').value = '';
+
+    // Peuple le select avec les namespaces des quotas
+    const namespaces = lastQuotaResults.map(r => r.namespace);
+    sel.innerHTML = namespaces.map(n =>
+        '<option value="' + esc(n) + '">' + esc(n) + '</option>'
+    ).join('');
+
+    card.style.display = 'block';
+    loadPods();
+}
+
+async function loadPods() {
+    const ns = document.getElementById('podsNsSelect').value;
+    if (!ns || !lastK8sUrl || !lastToken) return;
+
+    const body = document.getElementById('podsBody');
+    document.getElementById('podsFilters').style.display = 'none';
+    body.innerHTML = '<div class="quota-msg">Chargement des pods…</div>';
+
+    try {
+        const r = await fetch('/api/kubi/pods', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl,
+                token: lastToken,
+                namespace: ns,
+                cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        lastPodsData = data.pods || [];
+        document.getElementById('podsFilters').style.display = 'flex';
+        renderPodsFiltered();
+    } catch(e) {
+        body.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
+    }
+}
+
+function renderPodsFiltered() {
+    const filterText = document.getElementById('podsFilter').value.toLowerCase().trim();
+    const hideRunning = document.getElementById('hideRunningPods').checked;
+    const body = document.getElementById('podsBody');
+
+    let pods = lastPodsData;
+    if (filterText) pods = pods.filter(p => p.name.toLowerCase().includes(filterText));
+    if (hideRunning) pods = pods.filter(p => p.status !== 'Running' && p.status !== 'Succeeded' && p.status !== 'Completed');
+
+    document.getElementById('podsCount').textContent =
+        pods.length + ' pod' + (pods.length > 1 ? 's' : '') +
+        (pods.length < lastPodsData.length ? ' sur ' + lastPodsData.length : '');
+
+    if (!pods.length) {
+        body.innerHTML = '<div class="quota-msg">Aucun pod à afficher avec ces filtres.</div>';
+        return;
+    }
+
+    body.innerHTML =
+        '<table class="pods-table">' +
+        '<thead><tr>' +
+            '<th>Nom</th><th>Statut</th><th style="text-align:center">Ready</th>' +
+            '<th style="text-align:center">Restarts</th><th style="text-align:right">Age</th>' +
+            '<th></th>' +
+        '</tr></thead><tbody>' +
+        pods.map(p => renderPodRow(p, document.getElementById('podsNsSelect').value)).join('') +
+        '</tbody></table>';
+}
+
+function renderPodRow(p, ns) {
+    const cls = podStatusClass(p.status);
+    const restartsCls = p.restarts >= 10 ? 'high' : p.restarts >= 3 ? 'med' : '';
+    const btnId = 'del-' + p.name.replace(/[^a-z0-9]/gi, '-');
+    return '<tr>' +
+        '<td class="pod-name">' + esc(p.name) + '</td>' +
+        '<td><span class="status-badge ' + cls + '">' + esc(p.status) + '</span></td>' +
+        '<td class="pod-ready">' + esc(p.ready) + '</td>' +
+        '<td class="pod-restarts ' + restartsCls + '">' + p.restarts + '</td>' +
+        '<td class="pod-age">' + esc(p.age) + '</td>' +
+        '<td><button class="btn-delete-pod" id="' + btnId + '"' +
+            ' onclick="confirmDeletePod(this,\'' + esc(ns) + '\',\'' + esc(p.name) + '\')">' +
+            '🗑 Supprimer' +
+        '</button></td>' +
+        '</tr>';
+}
+
+// Double-clic de confirmation : 1er clic → "Confirmer ?", 2e clic → supprime
+let _deleteTimers = {};
+async function confirmDeletePod(btn, ns, podName) {
+    if (!btn.classList.contains('confirming')) {
+        btn.classList.add('confirming');
+        btn.textContent = '⚠️ Confirmer ?';
+        _deleteTimers[podName] = setTimeout(() => {
+            btn.classList.remove('confirming');
+            btn.textContent = '🗑 Supprimer';
+        }, 3000);
+        return;
+    }
+    clearTimeout(_deleteTimers[podName]);
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+        const r = await fetch('/api/kubi/pods/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl,
+                token: lastToken,
+                namespace: ns,
+                pod_name: podName,
+                cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            btn.disabled = false;
+            btn.classList.remove('confirming');
+            btn.textContent = '🗑 Supprimer';
+            alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+            return;
+        }
+        // Recharge la liste après suppression
+        setTimeout(() => loadPods(), 800);
+    } catch(e) {
+        btn.disabled = false;
+        btn.classList.remove('confirming');
+        btn.textContent = '🗑 Supprimer';
+        alert('Erreur réseau : ' + e.message);
+    }
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
