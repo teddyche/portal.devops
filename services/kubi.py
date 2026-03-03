@@ -423,6 +423,24 @@ def get_all_kubi_quotas(
     return results
 
 
+# === Helpers ===
+
+def _fmt_age(ts_str: str, now: datetime) -> str:
+    """Convertit un timestamp ISO K8s en durée lisible (ex: 3h, 2j)."""
+    if not ts_str:
+        return '—'
+    try:
+        created = datetime.strptime(ts_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+        secs = int((now - created).total_seconds())
+        if secs < 0:      return '—'
+        if secs < 60:     return f'{secs}s'
+        if secs < 3600:   return f'{secs // 60}m'
+        if secs < 86400:  return f'{secs // 3600}h'
+        return f'{secs // 86400}j'
+    except ValueError:
+        return ts_str[:10] if len(ts_str) >= 10 else ts_str
+
+
 # === K8s API — Pods ===
 
 def _pod_display_status(pod: dict) -> str:
@@ -652,7 +670,13 @@ def get_kubi_namespace_describe(
     if ns_data is None:
         raise ServiceError(f'Namespace "{namespace}" introuvable (HTTP 404)', 404)
 
-    lr_data = _get(f'/api/v1/namespaces/{namespace}/limitranges') or {'items': []}
+    # Appels parallèles (séquentiels ici mais 403 tolérés)
+    lr_data      = _get(f'/api/v1/namespaces/{namespace}/limitranges')      or {'items': []}
+    events_data  = _get(f'/api/v1/namespaces/{namespace}/events')           or {'items': []}
+    pvc_data     = _get(f'/api/v1/namespaces/{namespace}/persistentvolumeclaims') or {'items': []}
+    ing_data     = _get(f'/apis/networking.k8s.io/v1/namespaces/{namespace}/ingresses') or {'items': []}
+
+    now = datetime.now(timezone.utc)
 
     # Nettoyage des labels/annotations K8s internes
     _skip_prefixes = ('kubernetes.io/', 'k8s.io/', 'kubectl.kubernetes.io/')
@@ -663,7 +687,7 @@ def get_kubi_namespace_describe(
 
     meta = ns_data.get('metadata', {})
 
-    # Parse LimitRanges
+    # LimitRanges
     limit_ranges = []
     for lr in lr_data.get('items', []):
         lr_name = lr.get('metadata', {}).get('name', '')
@@ -673,14 +697,78 @@ def get_kubi_namespace_describe(
                                 limit.get('default', {}) | limit.get('defaultRequest', {}))
             for resource in sorted(all_resources):
                 limit_ranges.append({
-                    'lr_name':        lr_name,
-                    'type':           lr_type,
-                    'resource':       resource,
-                    'min':            limit.get('min', {}).get(resource, '—'),
-                    'max':            limit.get('max', {}).get(resource, '—'),
-                    'default_limit':  limit.get('default', {}).get(resource, '—'),
-                    'default_req':    limit.get('defaultRequest', {}).get(resource, '—'),
+                    'lr_name':       lr_name,
+                    'type':          lr_type,
+                    'resource':      resource,
+                    'min':           limit.get('min', {}).get(resource, '—'),
+                    'max':           limit.get('max', {}).get(resource, '—'),
+                    'default_limit': limit.get('default', {}).get(resource, '—'),
+                    'default_req':   limit.get('defaultRequest', {}).get(resource, '—'),
                 })
+
+    # Events — triés par lastTimestamp desc, Warning en premier si même âge
+    events = []
+    for ev in events_data.get('items', []):
+        last_ts = ev.get('lastTimestamp') or ev.get('eventTime', '')
+        events.append({
+            'type':    ev.get('type', 'Normal'),
+            'reason':  ev.get('reason', ''),
+            'object':  ev.get('involvedObject', {}).get('kind', '') + '/' +
+                       ev.get('involvedObject', {}).get('name', ''),
+            'message': (ev.get('message') or '')[:200],
+            'count':   ev.get('count', 1),
+            'age':     _fmt_age(last_ts, now),
+            '_ts':     last_ts,
+        })
+    events.sort(key=lambda e: (0 if e['type'] == 'Warning' else 1, e['_ts']), reverse=False)
+    events.sort(key=lambda e: e['_ts'], reverse=True)
+    for e in events:
+        del e['_ts']
+    events = events[:50]
+
+    # PVC
+    pvcs = []
+    for pvc in pvc_data.get('items', []):
+        m = pvc.get('metadata', {})
+        spec = pvc.get('spec', {})
+        st = pvc.get('status', {})
+        capacity = (st.get('capacity') or {}).get('storage') or \
+                   (spec.get('resources') or {}).get('requests', {}).get('storage', '—')
+        pvcs.append({
+            'name':          m.get('name', ''),
+            'phase':         st.get('phase', 'Unknown'),
+            'capacity':      capacity,
+            'access_modes':  ', '.join(spec.get('accessModes', [])),
+            'storage_class': spec.get('storageClassName', '—'),
+            'age':           _fmt_age(m.get('creationTimestamp', ''), now),
+        })
+
+    # Ingresses
+    ingresses = []
+    for ing in ing_data.get('items', []):
+        m = ing.get('metadata', {})
+        spec = ing.get('spec', {})
+        ing_class = spec.get('ingressClassName') or \
+                    (m.get('annotations') or {}).get('kubernetes.io/ingress.class', '—')
+        rules = []
+        for rule in spec.get('rules', []):
+            host = rule.get('host', '*')
+            for path_item in (rule.get('http') or {}).get('paths', []):
+                svc = (path_item.get('backend') or {}).get('service') or {}
+                port_obj = svc.get('port') or {}
+                rules.append({
+                    'host':    host,
+                    'path':    path_item.get('path', '/'),
+                    'service': svc.get('name', '—'),
+                    'port':    str(port_obj.get('number') or port_obj.get('name', '—')),
+                })
+        ingresses.append({
+            'name':  m.get('name', ''),
+            'class': ing_class,
+            'rules': rules,
+            'tls':   [t.get('secretName', '?') for t in spec.get('tls', [])],
+            'age':   _fmt_age(m.get('creationTimestamp', ''), now),
+        })
 
     return {
         'name':         meta.get('name', namespace),
@@ -689,4 +777,7 @@ def get_kubi_namespace_describe(
         'labels':       _clean(meta.get('labels')),
         'annotations':  _clean(meta.get('annotations')),
         'limit_ranges': limit_ranges,
+        'events':       events,
+        'pvcs':         pvcs,
+        'ingresses':    ingresses,
     }
