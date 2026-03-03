@@ -320,6 +320,97 @@ def api_kubi_namespace_describe():
         return api_error(e.message, e.status)
 
 
+# === Quota PATCH ===
+
+@kubi_bp.route('/api/kubi/quota/patch', methods=['POST'])
+def api_kubi_quota_patch():
+    """Met à jour les limites hard d'un ResourceQuota (merge-patch)."""
+    try:
+        body = _require_json()
+        k8s_url    = body.get('k8s_url', '').strip()
+        token      = body.get('token', '').strip()
+        namespace  = body.get('namespace', '').strip()
+        quota_name = body.get('quota_name', '').strip()
+        hard       = body.get('hard', {})
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:    return api_error('k8s_url requis', 400)
+        if not token:      return api_error('token requis', 400)
+        if not namespace:  return api_error('namespace requis', 400)
+        if not quota_name: return api_error('quota_name requis', 400)
+        if not hard:       return api_error('hard (dict ressources→valeurs) requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        result = kubi_service.patch_namespace_quota(
+            k8s_url, token, namespace, quota_name, hard, insecure, proxy_url, use_proxy
+        )
+        _audit.warning('kubi_quota_patch user=%s cluster=%s ns=%s quota=%s hard=%s',
+                       _uid(), cluster_id, namespace, quota_name, hard)
+        return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+# === Logs pod ===
+
+@kubi_bp.route('/api/kubi/logs', methods=['POST'])
+def api_kubi_logs():
+    """Récupère les logs d'un container de pod (dernier N lignes)."""
+    try:
+        body = _require_json()
+        k8s_url    = body.get('k8s_url', '').strip()
+        token      = body.get('token', '').strip()
+        namespace  = body.get('namespace', '').strip()
+        pod_name   = body.get('pod_name', '').strip()
+        container  = body.get('container', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+        try:
+            tail = int(body.get('tail', 200))
+        except (ValueError, TypeError):
+            return api_error('tail doit être un entier', 400)
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+        if not pod_name:  return api_error('pod_name requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        result = kubi_service.get_pod_logs(
+            k8s_url, token, namespace, pod_name, container, tail, insecure, proxy_url, use_proxy
+        )
+        return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+@kubi_bp.route('/api/kubi/pods/containers', methods=['POST'])
+def api_kubi_pod_containers():
+    """Liste les containers (et initContainers) d'un pod."""
+    try:
+        body = _require_json()
+        k8s_url    = body.get('k8s_url', '').strip()
+        token      = body.get('token', '').strip()
+        namespace  = body.get('namespace', '').strip()
+        pod_name   = body.get('pod_name', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+        if not pod_name:  return api_error('pod_name requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        containers = kubi_service.get_pod_containers(
+            k8s_url, token, namespace, pod_name, insecure, proxy_url, use_proxy
+        )
+        return jsonify({'containers': containers})
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
 # === Explain (décode un JWT) ===
 
 @kubi_bp.route('/api/kubi/explain', methods=['POST'])

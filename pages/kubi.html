@@ -296,44 +296,93 @@
         .ing-path        { font-family: monospace; font-size: 12px; color: #555; }
         .describe-empty  { color: #bbb; font-size: 13px; font-style: italic; }
 
-        /* ── Pods tab ────────────────────────────────── */
-        .pods-filters {
+        /* ── Logs tab ────────────────────────────────── */
+        .logs-filters {
             padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
-            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
-        .pods-filters select {
+        .logs-filters select, .logs-filters input[type="text"] {
             padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 13px; color: #333; cursor: pointer; min-width: 180px;
+            font-size: 13px; color: #333; cursor: pointer;
         }
-        .pods-filters select:focus { border-color: #326ce5; outline: none; }
-        .pods-filters input[type="text"] {
-            padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 13px; min-width: 180px; flex: 1;
+        .logs-filters select:focus, .logs-filters input:focus { border-color: #326ce5; outline: none; }
+        .logs-filters select#logsNsSelect  { min-width: 180px; }
+        .logs-filters select#logsPodSelect { min-width: 200px; flex: 1; }
+        .logs-filters select#logsContainerSelect { min-width: 160px; }
+        .logs-filters select#logsTailSelect { min-width: 130px; }
+        .btn-load-logs {
+            padding: 7px 16px; background: #326ce5; color: white;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-size: 13px; font-weight: bold; white-space: nowrap;
         }
-        .pods-filters input[type="text"]:focus { border-color: #326ce5; outline: none; }
-        .pods-filters label {
-            display: flex; align-items: center; gap: 6px;
-            font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; user-select: none;
+        .btn-load-logs:hover:not(:disabled) { background: #1a56c4; }
+        .btn-load-logs:disabled { background: #9eb8f0; cursor: not-allowed; }
+        .btn-download-logs {
+            padding: 7px 14px; background: #e8f5e9; color: #2e7d32;
+            border: 1px solid #a5d6a7; border-radius: 6px;
+            cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap;
         }
-        .pods-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
-        .pods-body { padding: 16px 20px; }
+        .btn-download-logs:hover { background: #c8e6c9; }
+        .logs-body { padding: 0; }
+        .logs-output {
+            background: #1e1e2e; color: #cdd6f4; font-family: 'Courier New', monospace;
+            font-size: 12px; line-height: 1.5; padding: 16px 20px;
+            max-height: 520px; overflow-y: auto; white-space: pre-wrap;
+            word-break: break-all; border: none;
+        }
+        .logs-meta {
+            padding: 8px 20px; background: #f0f4ff; border-bottom: 1px solid #e0e8ff;
+            font-size: 12px; color: #555; display: flex; gap: 16px; flex-wrap: wrap;
+        }
+        .logs-empty { padding: 24px 20px; color: #888; font-size: 13px; }
 
-        .pods-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .pods-table th {
-            text-align: left; font-size: 11px; color: #888; text-transform: uppercase;
-            letter-spacing: .4px; padding: 0 8px 8px 8px; border-bottom: 2px solid #f0f0f0;
-            font-weight: bold;
+        /* ── Quota edit modal ────────────────────────── */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.45); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
         }
-        .pods-table td { padding: 7px 8px; border-bottom: 1px solid #f8f8f8; vertical-align: middle; }
-        .pods-table tr:last-child td { border-bottom: none; }
-        .pods-table tr:hover td { background: #fafafa; }
-
-        .pod-name { font-family: monospace; font-size: 12px; color: #333; word-break: break-all; }
-        .pod-ready { color: #555; text-align: center; }
-        .pod-restarts { text-align: center; font-weight: bold; }
-        .pod-restarts.high { color: #e53935; }
-        .pod-restarts.med  { color: #fb8c00; }
-        .pod-age { color: #777; text-align: right; white-space: nowrap; }
+        .modal-box {
+            background: white; border-radius: 12px; padding: 28px 32px;
+            min-width: 420px; max-width: 560px; width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,.25); max-height: 90vh; overflow-y: auto;
+        }
+        .modal-title { font-size: 17px; font-weight: bold; color: #1a237e; margin-bottom: 6px; }
+        .modal-subtitle { font-size: 12px; color: #888; margin-bottom: 20px; }
+        .modal-row {
+            display: grid; grid-template-columns: 1fr 140px 100px;
+            align-items: center; gap: 10px; margin-bottom: 10px;
+        }
+        .modal-row label { font-size: 13px; color: #444; font-weight: bold; }
+        .modal-row input {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; font-family: monospace;
+        }
+        .modal-row input:focus { border-color: #326ce5; outline: none; }
+        .modal-row .used-hint { font-size: 11px; color: #aaa; }
+        .modal-row-header {
+            display: grid; grid-template-columns: 1fr 140px 100px;
+            gap: 10px; margin-bottom: 6px;
+        }
+        .modal-row-header span { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .4px; font-weight: bold; }
+        .modal-sep { border: none; border-top: 1px solid #f0f0f0; margin: 14px 0; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-modal-cancel {
+            padding: 9px 20px; background: #f5f5f5; color: #555;
+            border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 14px;
+        }
+        .btn-modal-cancel:hover { background: #e0e0e0; }
+        .btn-modal-ok {
+            padding: 9px 20px; background: #1565c0; color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        .btn-modal-ok:hover:not(:disabled) { background: #0d47a1; }
+        .btn-modal-ok:disabled { background: #90caf9; cursor: not-allowed; }
+        .modal-feedback {
+            margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 13px; display: none;
+        }
+        .modal-feedback.ok  { background: #e8f5e9; color: #2e7d32; display: block; }
+        .modal-feedback.err { background: #ffebee; color: #c62828; display: block; }
 
         .status-badge {
             display: inline-flex; align-items: center; gap: 4px;
@@ -490,8 +539,8 @@
         <!-- Onglets -->
         <div class="k8s-tabs">
             <button class="tab-btn active" id="tab-btn-quotas"   onclick="switchTab('quotas')">📊 Quotas</button>
-            <button class="tab-btn"        id="tab-btn-pods"     onclick="switchTab('pods')">🚀 Pods</button>
             <button class="tab-btn"        id="tab-btn-describe" onclick="switchTab('describe')">ℹ️ Infos NS</button>
+            <button class="tab-btn"        id="tab-btn-logs"     onclick="switchTab('logs')">📋 Logs</button>
         </div>
 
         <!-- ── Onglet Quotas ── -->
@@ -507,27 +556,50 @@
             <div class="tab-body" id="quotaCardBody"></div>
         </div>
 
-        <!-- ── Onglet Pods ── -->
-        <div id="tab-pods" class="tab-pane">
-            <div class="pods-filters" id="podsFilters" style="display:none">
-                <select id="podsNsSelect" onchange="loadPods()"></select>
-                <input type="text" id="podsFilter" placeholder="🔎 Filtrer les pods…" oninput="renderPodsFiltered()">
-                <label>
-                    <input type="checkbox" id="hideRunningPods" onchange="renderPodsFiltered()">
-                    Masquer Running
-                </label>
-                <span class="pods-count" id="podsCount"></span>
-            </div>
-            <div class="pods-body" id="podsBody"><div class="quota-msg" style="padding:20px">Sélectionner un namespace dans l'onglet Quotas ou ci-dessus.</div></div>
-        </div>
-
-        <!-- ── Onglet Describe ── -->
+        <!-- ── Onglet Infos NS ── -->
         <div id="tab-describe" class="tab-pane">
             <div class="describe-filters">
                 <label style="font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;">Namespace</label>
                 <select id="describeNsSelect" onchange="loadDescribe()"></select>
             </div>
             <div class="tab-body" id="describeBody"><div class="quota-msg">Sélectionner un namespace ou cliquer sur 🔍 dans l'onglet Quotas.</div></div>
+        </div>
+
+        <!-- ── Onglet Logs ── -->
+        <div id="tab-logs" class="tab-pane">
+            <div class="logs-filters">
+                <select id="logsNsSelect" onchange="loadLogsPods()"><option value="">— Namespace —</option></select>
+                <select id="logsPodSelect" onchange="loadLogsContainers()"><option value="">— Pod —</option></select>
+                <select id="logsContainerSelect" style="display:none;"></select>
+                <select id="logsTailSelect">
+                    <option value="100">100 lignes</option>
+                    <option value="200" selected>200 lignes</option>
+                    <option value="500">500 lignes</option>
+                    <option value="1000">1000 lignes</option>
+                    <option value="5000">5000 lignes</option>
+                </select>
+                <button class="btn-load-logs" onclick="loadLogs()">📋 Charger</button>
+                <button class="btn-download-logs" id="btnDownloadLogs" onclick="downloadLogs()" style="display:none;">⬇️ Télécharger</button>
+            </div>
+            <div id="logsBody"><div class="logs-empty">Sélectionner un namespace et un pod pour afficher les logs.</div></div>
+        </div>
+    </div>
+
+    <!-- ── Modal édition quota ────────────────────────────────────── -->
+    <div id="editQuotaOverlay" class="modal-overlay" style="display:none;" onclick="closeEditQuota()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-title" id="editQuotaTitle">Modifier les quotas</div>
+            <div class="modal-subtitle" id="editQuotaSubtitle"></div>
+            <div class="modal-row-header">
+                <span>Ressource</span><span>Nouvelle limite</span><span>Actuel (utilisé)</span>
+            </div>
+            <hr class="modal-sep">
+            <div id="editQuotaForm"></div>
+            <div class="modal-feedback" id="editQuotaFeedback"></div>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="closeEditQuota()">Annuler</button>
+                <button class="btn-modal-ok" id="btnApplyQuota" onclick="applyQuotaEdit()">✅ Appliquer</button>
+            </div>
         </div>
     </div>
 
@@ -555,7 +627,8 @@ let lastToken = '';
 let lastKubeconfig = '';
 let lastK8sUrl = '';
 let lastQuotaResults = [];
-let lastPodsData = [];
+let _lastLogsText = '';
+let _editQuotaState = null; // {ns, quotaName, resources}
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function init() {
@@ -804,8 +877,8 @@ function switchTab(tab) {
 
 function refreshTab() {
     if (_currentTab === 'quotas')   loadAllQuotas();
-    if (_currentTab === 'pods')     loadPods();
     if (_currentTab === 'describe') loadDescribe();
+    if (_currentTab === 'logs')     loadLogs();
 }
 
 function openDescribe(ns) {
@@ -820,9 +893,7 @@ function initQuotaSection(clusterName) {
     document.getElementById('k8sClusterTag').textContent = clusterName;
     document.getElementById('quotaFilters').style.display = 'none';
     document.getElementById('nsFilter').value = '';
-    document.getElementById('podsFilters').style.display = 'none';
     lastQuotaResults = [];
-    lastPodsData = [];
     _currentTab = 'quotas';
     switchTab('quotas');
     card.style.display = 'block';
@@ -875,8 +946,8 @@ function renderAllQuotas(results) {
     lastQuotaResults = [...results].sort((a, b) => _maxPct(b) - _maxPct(a));
     document.getElementById('quotaFilters').style.display = 'flex';
     applyFilters();
-    // Init section pods avec les namespaces qu'on vient de découvrir
-    initPodsSection();
+    // Init les selects NS (describe + logs)
+    initNamespaceSelects();
 }
 
 function applyFilters() {
@@ -911,6 +982,7 @@ function applyFilters() {
             '<div class="quota-ns-title">' +
                 '📁 ' + esc(r.namespace) +
                 '<span class="ns-link" onclick="openDescribe(\'' + esc(r.namespace) + '\')" title="Describe ce namespace">🔍</span>' +
+                '<span class="ns-link" onclick="openEditQuota(\'' + esc(r.namespace) + '\')" title="Modifier les quotas">✏️</span>' +
             '</div>' +
             quotaHtml +
             '</div>';
@@ -995,143 +1067,224 @@ function podStatusClass(s) {
     return 'status-error';
 }
 
-function initPodsSection() {
+function initNamespaceSelects() {
     if (!lastQuotaResults.length) return;
-    document.getElementById('podsFilter').value = '';
-
-    const namespaces = lastQuotaResults.map(r => r.namespace);
-    const opts = namespaces.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
-
-    // Alimente les deux selects (pods + describe)
-    document.getElementById('podsNsSelect').innerHTML = opts;
+    const opts = lastQuotaResults.map(r =>
+        '<option value="' + esc(r.namespace) + '">' + esc(r.namespace) + '</option>'
+    ).join('');
     document.getElementById('describeNsSelect').innerHTML = opts;
-
-    // Précharge le premier namespace dans l'onglet pods (sans switcher dessus)
-    loadPods();
+    document.getElementById('logsNsSelect').innerHTML = '<option value="">— Namespace —</option>' + opts;
 }
 
-async function loadPods() {
-    const ns = document.getElementById('podsNsSelect').value;
+// ── Quota edit modal ──────────────────────────────────────────────────────
+
+function openEditQuota(ns) {
+    const nsResult = lastQuotaResults.find(r => r.namespace === ns);
+    if (!nsResult || !nsResult.quotas || !nsResult.quotas.length) return;
+
+    _editQuotaState = { ns, quotas: nsResult.quotas };
+
+    document.getElementById('editQuotaTitle').textContent = 'Modifier les quotas — ' + ns;
+    const totalRes = nsResult.quotas.reduce((n, q) => n + q.resources.length, 0);
+    document.getElementById('editQuotaSubtitle').textContent =
+        nsResult.quotas.length + ' ResourceQuota(s) · ' + totalRes + ' ressource(s)';
+    document.getElementById('editQuotaFeedback').className = 'modal-feedback';
+    document.getElementById('editQuotaFeedback').textContent = '';
+    document.getElementById('btnApplyQuota').disabled = false;
+
+    let html = '';
+    nsResult.quotas.forEach(q => {
+        if (nsResult.quotas.length > 1) {
+            html += '<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.4px;font-weight:bold;margin:14px 0 8px">' + esc(q.name) + '</div>';
+        }
+        q.resources.forEach(res => {
+            const inputId = 'eq-' + q.name.replace(/[^a-z0-9]/gi, '_') + '-' + res.name.replace(/[^a-z0-9]/gi, '_');
+            html += '<div class="modal-row">' +
+                '<label title="' + esc(res.name) + '">' + esc(fmtResourceName(res.name)) + '</label>' +
+                '<input type="text" id="' + inputId + '" value="' + esc(res.hard_raw || '') + '" placeholder="ex: 500m, 4Gi">' +
+                '<span class="used-hint">utilisé : ' + esc(res.used_raw || '0') + '</span>' +
+            '</div>';
+        });
+    });
+    document.getElementById('editQuotaForm').innerHTML = html;
+    document.getElementById('editQuotaOverlay').style.display = 'flex';
+}
+
+function closeEditQuota() {
+    document.getElementById('editQuotaOverlay').style.display = 'none';
+    _editQuotaState = null;
+}
+
+async function applyQuotaEdit() {
+    if (!_editQuotaState) return;
+    const { ns, quotas } = _editQuotaState;
+    const btn = document.getElementById('btnApplyQuota');
+    const fb  = document.getElementById('editQuotaFeedback');
+
+    btn.disabled = true;
+    fb.className = 'modal-feedback';
+    fb.textContent = '';
+
+    const errors = [];
+    for (const q of quotas) {
+        const hard = {};
+        q.resources.forEach(res => {
+            const inputId = 'eq-' + q.name.replace(/[^a-z0-9]/gi, '_') + '-' + res.name.replace(/[^a-z0-9]/gi, '_');
+            const el = document.getElementById(inputId);
+            if (el && el.value.trim()) hard[res.name] = el.value.trim();
+        });
+        if (!Object.keys(hard).length) continue;
+        try {
+            const r = await fetch('/api/kubi/quota/patch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    k8s_url: lastK8sUrl, token: lastToken, namespace: ns,
+                    quota_name: q.name, hard, cluster_id: selectedCluster?.id || '',
+                }),
+            });
+            const data = await r.json();
+            if (!r.ok) errors.push(q.name + ' : ' + (data.error || 'Erreur'));
+        } catch(e) {
+            errors.push(q.name + ' : Erreur réseau — ' + e.message);
+        }
+    }
+
+    if (errors.length) {
+        fb.className = 'modal-feedback err';
+        fb.textContent = '⚠️ ' + errors.join(' | ');
+        btn.disabled = false;
+    } else {
+        fb.className = 'modal-feedback ok';
+        fb.textContent = '✅ Quotas mis à jour avec succès !';
+        setTimeout(() => { closeEditQuota(); loadAllQuotas(); }, 1500);
+    }
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────
+
+async function loadLogsPods() {
+    const ns = document.getElementById('logsNsSelect').value;
+    const podSel = document.getElementById('logsPodSelect');
+    const containerSel = document.getElementById('logsContainerSelect');
+
+    podSel.innerHTML = '<option value="">— Pod —</option>';
+    containerSel.style.display = 'none';
+    containerSel.innerHTML = '';
+
     if (!ns || !lastK8sUrl || !lastToken) return;
 
-    const body = document.getElementById('podsBody');
-    document.getElementById('podsFilters').style.display = 'none';
-    body.innerHTML = '<div class="quota-msg">Chargement des pods…</div>';
-
+    podSel.innerHTML = '<option value="">⏳ Chargement…</option>';
     try {
         const r = await fetch('/api/kubi/pods', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                k8s_url: lastK8sUrl,
-                token: lastToken,
-                namespace: ns,
-                cluster_id: selectedCluster?.id || '',
+                k8s_url: lastK8sUrl, token: lastToken,
+                namespace: ns, cluster_id: selectedCluster?.id || '',
             }),
         });
         const data = await r.json();
-        if (!r.ok) {
-            body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
-            return;
-        }
-        lastPodsData = data.pods || [];
-        document.getElementById('podsFilters').style.display = 'flex';
-        renderPodsFiltered();
+        if (!r.ok) { podSel.innerHTML = '<option value="">⚠️ Erreur</option>'; return; }
+        const pods = data.pods || [];
+        podSel.innerHTML = '<option value="">— Pod —</option>' +
+            pods.map(p =>
+                '<option value="' + esc(p.name) + '">' + esc(p.name) + ' (' + esc(p.status) + ')</option>'
+            ).join('');
     } catch(e) {
-        body.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
+        podSel.innerHTML = '<option value="">⚠️ Erreur réseau</option>';
     }
 }
 
-function renderPodsFiltered() {
-    const filterText = document.getElementById('podsFilter').value.toLowerCase().trim();
-    const hideRunning = document.getElementById('hideRunningPods').checked;
-    const body = document.getElementById('podsBody');
+async function loadLogsContainers() {
+    const ns  = document.getElementById('logsNsSelect').value;
+    const pod = document.getElementById('logsPodSelect').value;
+    const containerSel = document.getElementById('logsContainerSelect');
 
-    let pods = lastPodsData;
-    if (filterText) pods = pods.filter(p => p.name.toLowerCase().includes(filterText));
-    if (hideRunning) pods = pods.filter(p => p.status !== 'Running' && p.status !== 'Succeeded' && p.status !== 'Completed');
+    containerSel.style.display = 'none';
+    containerSel.innerHTML = '';
 
-    document.getElementById('podsCount').textContent =
-        pods.length + ' pod' + (pods.length > 1 ? 's' : '') +
-        (pods.length < lastPodsData.length ? ' sur ' + lastPodsData.length : '');
-
-    if (!pods.length) {
-        body.innerHTML = '<div class="quota-msg">Aucun pod à afficher avec ces filtres.</div>';
-        return;
-    }
-
-    body.innerHTML =
-        '<table class="pods-table">' +
-        '<thead><tr>' +
-            '<th>Nom</th><th>Statut</th><th style="text-align:center">Ready</th>' +
-            '<th style="text-align:center">Restarts</th><th style="text-align:right">Age</th>' +
-            '<th></th>' +
-        '</tr></thead><tbody>' +
-        pods.map(p => renderPodRow(p, document.getElementById('podsNsSelect').value)).join('') +
-        '</tbody></table>';
-}
-
-function renderPodRow(p, ns) {
-    const cls = podStatusClass(p.status);
-    const restartsCls = p.restarts >= 10 ? 'high' : p.restarts >= 3 ? 'med' : '';
-    const btnId = 'del-' + p.name.replace(/[^a-z0-9]/gi, '-');
-    return '<tr>' +
-        '<td class="pod-name">' + esc(p.name) + '</td>' +
-        '<td><span class="status-badge ' + cls + '">' + esc(p.status) + '</span></td>' +
-        '<td class="pod-ready">' + esc(p.ready) + '</td>' +
-        '<td class="pod-restarts ' + restartsCls + '">' + p.restarts + '</td>' +
-        '<td class="pod-age">' + esc(p.age) + '</td>' +
-        '<td><button class="btn-delete-pod" id="' + btnId + '"' +
-            ' onclick="confirmDeletePod(this,\'' + esc(ns) + '\',\'' + esc(p.name) + '\')">' +
-            '🗑 Supprimer' +
-        '</button></td>' +
-        '</tr>';
-}
-
-// Double-clic de confirmation : 1er clic → "Confirmer ?", 2e clic → supprime
-let _deleteTimers = {};
-async function confirmDeletePod(btn, ns, podName) {
-    if (!btn.classList.contains('confirming')) {
-        btn.classList.add('confirming');
-        btn.textContent = '⚠️ Confirmer ?';
-        _deleteTimers[podName] = setTimeout(() => {
-            btn.classList.remove('confirming');
-            btn.textContent = '🗑 Supprimer';
-        }, 3000);
-        return;
-    }
-    clearTimeout(_deleteTimers[podName]);
-    btn.disabled = true;
-    btn.textContent = '…';
+    if (!ns || !pod || !lastK8sUrl || !lastToken) return;
 
     try {
-        const r = await fetch('/api/kubi/pods/delete', {
+        const r = await fetch('/api/kubi/pods/containers', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                k8s_url: lastK8sUrl,
-                token: lastToken,
-                namespace: ns,
-                pod_name: podName,
+                k8s_url: lastK8sUrl, token: lastToken,
+                namespace: ns, pod_name: pod, cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) return;
+        const containers = data.containers || [];
+        if (containers.length > 1) {
+            containerSel.innerHTML = containers.map(c =>
+                '<option value="' + esc(c.name) + '">' + esc(c.name) + (c.type === 'init' ? ' (init)' : '') + '</option>'
+            ).join('');
+            containerSel.style.display = '';
+        }
+    } catch(e) {}
+}
+
+async function loadLogs() {
+    const ns  = document.getElementById('logsNsSelect').value;
+    const pod = document.getElementById('logsPodSelect').value;
+    const containerSel = document.getElementById('logsContainerSelect');
+    const container = containerSel.style.display !== 'none' ? containerSel.value : '';
+    const tail = document.getElementById('logsTailSelect').value;
+    const logsBody = document.getElementById('logsBody');
+
+    if (!ns)  { logsBody.innerHTML = '<div class="logs-empty">Sélectionner un namespace.</div>'; return; }
+    if (!pod) { logsBody.innerHTML = '<div class="logs-empty">Sélectionner un pod.</div>'; return; }
+    if (!lastK8sUrl || !lastToken) return;
+
+    logsBody.innerHTML = '<div class="logs-empty">⏳ Chargement des logs…</div>';
+    document.getElementById('btnDownloadLogs').style.display = 'none';
+    _lastLogsText = '';
+
+    try {
+        const r = await fetch('/api/kubi/logs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl, token: lastToken, namespace: ns,
+                pod_name: pod, container, tail: parseInt(tail),
                 cluster_id: selectedCluster?.id || '',
             }),
         });
         const data = await r.json();
         if (!r.ok) {
-            btn.disabled = false;
-            btn.classList.remove('confirming');
-            btn.textContent = '🗑 Supprimer';
-            alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+            logsBody.innerHTML = '<div class="logs-empty" style="color:#c62828">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
             return;
         }
-        // Recharge la liste après suppression
-        setTimeout(() => loadPods(), 800);
+        const logs = data.logs || '';
+        _lastLogsText = logs;
+        const containerInfo = data.container ? ' · ' + esc(data.container) : '';
+        logsBody.innerHTML =
+            '<div class="logs-meta">' +
+                '<span><b>' + esc(pod) + '</b>' + containerInfo + '</span>' +
+                '<span>' + (data.lines || 0) + ' ligne(s)</span>' +
+                '<span>' + tail + ' max</span>' +
+            '</div>' +
+            '<pre class="logs-output">' + esc(logs || '(logs vides)') + '</pre>';
+        document.getElementById('btnDownloadLogs').style.display = logs ? '' : 'none';
     } catch(e) {
-        btn.disabled = false;
-        btn.classList.remove('confirming');
-        btn.textContent = '🗑 Supprimer';
-        alert('Erreur réseau : ' + e.message);
+        logsBody.innerHTML = '<div class="logs-empty" style="color:#c62828">Erreur réseau : ' + esc(e.message) + '</div>';
     }
+}
+
+function downloadLogs() {
+    if (!_lastLogsText) return;
+    const ns  = document.getElementById('logsNsSelect').value;
+    const pod = document.getElementById('logsPodSelect').value;
+    const blob = new Blob([_lastLogsText], {type: 'text/plain'});
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'logs-' + pod + '-' + ns + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 // ── Describe ─────────────────────────────────────────────────────────────

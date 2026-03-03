@@ -799,3 +799,181 @@ def get_kubi_namespace_describe(
         'pvcs':         pvcs,
         'ingresses':    ingresses,
     }
+
+
+# === K8s API — Quota PATCH ===
+
+def patch_namespace_quota(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    quota_name: str,
+    hard: dict,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """Met à jour les limites (hard) d'un ResourceQuota via PATCH (merge-patch)."""
+    if not all([k8s_url, token, namespace, quota_name]) or not hard:
+        raise ServiceError('k8s_url, token, namespace, quota_name et hard requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    try:
+        resp = requests.patch(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/resourcequotas/{quota_name}',
+            headers={
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/merge-patch+json',
+            },
+            json={'spec': {'hard': hard}},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError('Droits insuffisants pour modifier les quotas (HTTP 403)', 403)
+    if resp.status_code == 404:
+        raise ServiceError(f'Quota "{quota_name}" dans "{namespace}" introuvable', 404)
+    if not resp.ok:
+        raise ServiceError(f'API K8s HTTP {resp.status_code} : {resp.text[:200]}', 502)
+
+    return {'success': True, 'namespace': namespace, 'quota_name': quota_name}
+
+
+# === K8s API — Pod Logs ===
+
+def get_pod_logs(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    pod_name: str,
+    container: str = '',
+    tail: int = 200,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """Récupère les logs d'un container d'un pod (dernier N lignes)."""
+    if not all([k8s_url, token, namespace, pod_name]):
+        raise ServiceError('k8s_url, token, namespace et pod_name requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    params: dict = {'tailLines': str(min(max(int(tail), 1), 5000))}
+    if container:
+        params['container'] = container
+
+    try:
+        resp = requests.get(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/pods/{pod_name}/log',
+            headers={'Authorization': f'Bearer {token}'},
+            params=params,
+            verify=not insecure,
+            proxies=proxies,
+            timeout=30,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (30s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError(f'Accès refusé aux logs de "{pod_name}" (HTTP 403)', 403)
+    if resp.status_code == 404:
+        raise ServiceError(f'Pod "{pod_name}" ou container introuvable', 404)
+    if not resp.ok:
+        try:
+            msg = resp.json().get('message', resp.text[:300])
+        except Exception:
+            msg = resp.text[:300]
+        raise ServiceError(f'API K8s HTTP {resp.status_code} : {msg}', 502)
+
+    logs = resp.text
+    return {
+        'logs': logs,
+        'lines': len(logs.splitlines()),
+        'pod': pod_name,
+        'container': container or '',
+        'namespace': namespace,
+        'tail': tail,
+    }
+
+
+def get_pod_containers(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    pod_name: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> list:
+    """Retourne la liste des containers (spec + initContainers) d'un pod."""
+    if not all([k8s_url, token, namespace, pod_name]):
+        raise ServiceError('k8s_url, token, namespace et pod_name requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    try:
+        resp = requests.get(
+            f'{k8s_url}/api/v1/namespaces/{namespace}/pods/{pod_name}',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (15s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if resp.status_code == 403:
+        raise ServiceError(f'Accès refusé au pod "{pod_name}" (HTTP 403)', 403)
+    if resp.status_code == 404:
+        raise ServiceError(f'Pod "{pod_name}" introuvable', 404)
+    if not resp.ok:
+        raise ServiceError(f'API K8s HTTP {resp.status_code}', 502)
+
+    spec = resp.json().get('spec', {})
+    containers = [{'name': c['name'], 'type': 'container'} for c in spec.get('containers', [])]
+    init_containers = [{'name': c['name'], 'type': 'init'} for c in spec.get('initContainers', [])]
+    return containers + init_containers
