@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab Config</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f4f8; }
+        .container { max-width: 640px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px;
+        }
+        .header h1 { color: #e24329; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+        .header a { color: #e24329; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        .card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden; margin-bottom: 20px;
+        }
+        .card-header {
+            background: #e24329; color: white; padding: 14px 20px;
+            font-size: 15px; font-weight: bold; display: flex; align-items: center; gap: 8px;
+        }
+        .card-body { padding: 24px; }
+
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block; font-size: 12px; color: #555;
+            font-weight: bold; text-transform: uppercase; letter-spacing: .3px;
+            margin-bottom: 6px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 14px; transition: border-color .15s;
+        }
+        .form-group input:focus {
+            border-color: #e24329; outline: none;
+            box-shadow: 0 0 0 3px rgba(226,67,41,.12);
+        }
+        .form-hint { font-size: 12px; color: #888; margin-top: 5px; }
+
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 40px; }
+        .pw-wrap button {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 16px;
+            color: #888; padding: 4px;
+        }
+
+        .checkbox-row {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 18px;
+        }
+        .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+        .checkbox-row label { font-size: 13px; color: #444; cursor: pointer; }
+
+        .btn-save {
+            width: 100%; padding: 12px; background: #e24329; color: white;
+            border: none; border-radius: 8px; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: background .15s;
+        }
+        .btn-save:hover:not(:disabled) { background: #c0392b; }
+        .btn-save:disabled { background: #f0a89a; cursor: not-allowed; }
+
+        .alert {
+            border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+            font-size: 14px; display: none; align-items: center; gap: 8px;
+        }
+        .alert.show { display: flex; }
+        .alert-success { background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32; }
+        .alert-error   { background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; }
+
+        .scope-info {
+            background: #fff3e0; border: 1px solid #ffcc80; border-radius: 8px;
+            padding: 14px 16px; font-size: 13px; color: #e65100; line-height: 1.6;
+        }
+        .scope-info code {
+            background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>🦊 GitLab — Configuration</h1>
+        <a href="/gitlab">← Retour</a>
+    </div>
+
+    <!-- ── Info scopes ──────────────────────────────────────── -->
+    <div class="scope-info" style="margin-bottom:20px;">
+        ℹ️ Le token doit avoir les scopes <code>read_api</code> ou <code>api</code> pour lister
+        les tokens des projets et groupes. Sans <code>api</code>, seuls les tokens Personal
+        accessibles seront remontés.
+    </div>
+
+    <!-- ── Formulaire config ────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">⚙️ Paramètres de connexion</div>
+        <div class="card-body">
+
+            <div class="alert alert-success" id="alertSuccess">
+                <span>✅</span><span id="successMsg">Configuration sauvegardée.</span>
+            </div>
+            <div class="alert alert-error" id="alertError">
+                <span>⚠️</span><span id="errorMsg"></span>
+            </div>
+
+            <div class="form-group">
+                <label>URL GitLab</label>
+                <input type="text" id="cfgUrl" placeholder="https://gitlab.monentreprise.com">
+                <div class="form-hint">URL de l'instance GitLab sans slash final.</div>
+            </div>
+
+            <div class="form-group">
+                <label>Token API (Personal Access Token)</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cfgToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx">
+                    <button type="button" onclick="togglePw()" title="Afficher/masquer">👁</button>
+                </div>
+                <div class="form-hint">
+                    Créer dans GitLab → Préférences → Access Tokens.<br>
+                    Laisser vide pour conserver le token existant.
+                </div>
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="cfgInsecure">
+                <label for="cfgInsecure">Ignorer les erreurs SSL (certificat auto-signé)</label>
+            </div>
+
+            <button class="btn-save" id="btnSave" onclick="saveConfig()">💾 Sauvegarder</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+async function init() {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) {
+            const u = await me.json();
+            window._csrf = u.csrf_token || '';
+            patchFetch();
+        }
+    } catch(e) {}
+
+    // Charge config existante
+    try {
+        const r = await fetch('/api/gitlab/config');
+        if (r.ok) {
+            const cfg = await r.json();
+            document.getElementById('cfgUrl').value      = cfg.url || '';
+            document.getElementById('cfgToken').value    = cfg.has_token ? cfg.token : '';
+            document.getElementById('cfgInsecure').checked = cfg.insecure || false;
+        }
+    } catch(e) {}
+}
+
+function patchFetch() {
+    const _orig = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        }
+        return _orig.call(this, url, opts);
+    };
+}
+
+async function saveConfig() {
+    hideAlerts();
+    const btn = document.getElementById('btnSave');
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+        const r = await fetch('/api/gitlab/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                url:      document.getElementById('cfgUrl').value.trim(),
+                token:    document.getElementById('cfgToken').value.trim(),
+                insecure: document.getElementById('cfgInsecure').checked,
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            showError(data.error || 'Erreur lors de la sauvegarde');
+            return;
+        }
+        showSuccess('Configuration sauvegardée.');
+        setTimeout(() => { window.location.href = '/gitlab'; }, 1200);
+    } catch(e) {
+        showError('Erreur réseau : ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Sauvegarder';
+    }
+}
+
+function togglePw() {
+    const inp = document.getElementById('cfgToken');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function showSuccess(msg) {
+    document.getElementById('successMsg').textContent = msg;
+    document.getElementById('alertSuccess').classList.add('show');
+}
+
+function showError(msg) {
+    document.getElementById('errorMsg').textContent = msg;
+    document.getElementById('alertError').classList.add('show');
+}
+
+function hideAlerts() {
+    document.getElementById('alertSuccess').classList.remove('show');
+    document.getElementById('alertError').classList.remove('show');
+}
+
+init();
+</script>
+</body>
+</html>

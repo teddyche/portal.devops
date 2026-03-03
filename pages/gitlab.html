@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab IHM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f4f8; }
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* ── Header ─────────────────────────────────── */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px;
+        }
+        .header h1 { color: #e24329; font-size: 26px; display: flex; align-items: center; gap: 10px; }
+        .header-links { display: flex; gap: 16px; }
+        .header a { color: #e24329; text-decoration: none; font-size: 14px; }
+        .header a:hover { text-decoration: underline; }
+
+        /* ── Status bar ─────────────────────────────── */
+        .status-bar {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 14px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .status-bar .status-item { display: flex; flex-direction: column; gap: 2px; }
+        .status-bar .status-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .3px; }
+        .status-bar .status-value { font-size: 14px; font-weight: bold; color: #222; }
+        .status-sep { width: 1px; height: 32px; background: #e0e0e0; }
+        .conn-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .conn-ok      { background: #e8f5e9; color: #2e7d32; }
+        .conn-error   { background: #ffebee; color: #c62828; }
+        .conn-unknown { background: #f5f5f5; color: #757575; }
+
+        /* ── Stat cards ─────────────────────────────── */
+        .stat-cards {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 16px 20px; flex: 1; min-width: 130px;
+            border-left: 4px solid #ccc;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .stat-card .stat-num  { font-size: 28px; font-weight: bold; color: #222; }
+        .stat-card .stat-lbl  { font-size: 12px; color: #888; }
+        .stat-card.total      { border-left-color: #e24329; }
+        .stat-card.expired    { border-left-color: #e53935; }
+        .stat-card.warning    { border-left-color: #fb8c00; }
+        .stat-card.personal   { border-left-color: #7b1fa2; }
+        .stat-card.project    { border-left-color: #1565c0; }
+        .stat-card.group      { border-left-color: #2e7d32; }
+
+        /* ── Toolbar ─────────────────────────────────── */
+        .toolbar {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 12px 16px; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .toolbar input[type="text"] {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; min-width: 240px; flex: 1;
+        }
+        .toolbar input[type="text"]:focus { border-color: #e24329; outline: none; box-shadow: 0 0 0 3px rgba(226,67,41,.1); }
+        .toolbar select {
+            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; color: #333; cursor: pointer;
+        }
+        .toolbar select:focus { border-color: #e24329; outline: none; }
+        .token-count { font-size: 12px; color: #888; margin-left: auto; white-space: nowrap; }
+
+        .btn-load {
+            padding: 8px 18px; background: #e24329; color: white;
+            border: none; border-radius: 6px; font-size: 13px; font-weight: bold;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+            transition: background .15s; white-space: nowrap;
+        }
+        .btn-load:hover:not(:disabled) { background: #c0392b; }
+        .btn-load:disabled { background: #f0a89a; cursor: not-allowed; }
+
+        /* ── Spinner ─────────────────────────────────── */
+        .spinner {
+            display: inline-block; width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.4); border-top-color: white;
+            border-radius: 50%; animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Token table ─────────────────────────────── */
+        .table-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .token-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .token-table th {
+            text-align: left; font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .4px; padding: 10px 12px; border-bottom: 2px solid #f0f0f0;
+            font-weight: bold; background: #fafafa; white-space: nowrap;
+        }
+        .token-table td { padding: 9px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+        .token-table tr:last-child td { border-bottom: none; }
+        .token-table tr:hover td { background: #fafafa; }
+        .token-table tr.row-expired td { background: #fff8f8; }
+        .token-table tr.row-warning td { background: #fffde7; }
+
+        .tok-name  { font-weight: bold; color: #222; }
+        .tok-scope { font-size: 12px; color: #555; font-family: monospace; max-width: 220px;
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tok-scopes { font-size: 11px; color: #888; max-width: 180px;
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tok-date  { white-space: nowrap; font-size: 12px; color: #555; }
+
+        .type-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;
+            white-space: nowrap;
+        }
+        .type-personal { background: #f3e5f5; color: #7b1fa2; }
+        .type-project  { background: #e3f2fd; color: #1565c0; }
+        .type-group    { background: #e8f5e9; color: #2e7d32; }
+
+        .expiry-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;
+            white-space: nowrap;
+        }
+        .expiry-expired { background: #ffebee; color: #c62828; }
+        .expiry-urgent  { background: #fff3e0; color: #e65100; }
+        .expiry-warning { background: #fffde7; color: #f57f17; }
+        .expiry-ok      { background: #e8f5e9; color: #2e7d32; }
+        .expiry-none    { background: #f5f5f5; color: #9e9e9e; }
+        .expiry-revoked { background: #fce4ec; color: #880e4f; }
+
+        /* ── Messages ─────────────────────────────────── */
+        .msg-box {
+            padding: 24px; text-align: center;
+            font-size: 14px; color: #888;
+        }
+        .msg-error { color: #c62828; }
+
+        @media (max-width: 700px) {
+            .stat-cards { flex-direction: column; }
+            .tok-scope, .tok-scopes { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>🦊 GitLab IHM</h1>
+        <div class="header-links">
+            <a href="/gitlab/config">⚙ Config</a>
+            <a href="/">← Accueil</a>
+        </div>
+    </div>
+
+    <!-- ── Status bar ──────────────────────────────────────────── -->
+    <div class="status-bar" id="statusBar">
+        <div class="status-item">
+            <div class="status-label">Statut</div>
+            <div class="status-value"><span class="conn-badge conn-unknown" id="connBadge">⏳ Non testé</span></div>
+        </div>
+        <div class="status-sep"></div>
+        <div class="status-item">
+            <div class="status-label">Instance</div>
+            <div class="status-value" id="instanceUrl">—</div>
+        </div>
+        <div class="status-sep"></div>
+        <div class="status-item">
+            <div class="status-label">Token</div>
+            <div class="status-value" id="tokenInfo">—</div>
+        </div>
+        <div class="status-sep"></div>
+        <div class="status-item">
+            <div class="status-label">Expire</div>
+            <div class="status-value" id="tokenExpiry">—</div>
+        </div>
+    </div>
+
+    <!-- ── Stat cards ───────────────────────────────────────────── -->
+    <div class="stat-cards" id="statCards" style="display:none">
+        <div class="stat-card total">
+            <div class="stat-num" id="statTotal">—</div>
+            <div class="stat-lbl">Total tokens</div>
+        </div>
+        <div class="stat-card expired">
+            <div class="stat-num" id="statExpired">—</div>
+            <div class="stat-lbl">Expirés / révoqués</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-num" id="statWarning">—</div>
+            <div class="stat-lbl">≤ 30 jours</div>
+        </div>
+        <div class="stat-card personal">
+            <div class="stat-num" id="statPersonal">—</div>
+            <div class="stat-lbl">Personal</div>
+        </div>
+        <div class="stat-card project">
+            <div class="stat-num" id="statProject">—</div>
+            <div class="stat-lbl">Project</div>
+        </div>
+        <div class="stat-card group">
+            <div class="stat-num" id="statGroup">—</div>
+            <div class="stat-lbl">Group</div>
+        </div>
+    </div>
+
+    <!-- ── Toolbar ──────────────────────────────────────────────── -->
+    <div class="toolbar">
+        <input type="text" id="tokenFilter" placeholder="🔎 Filtrer par nom, projet, groupe…" oninput="applyFilters()">
+        <select id="typeFilter" onchange="applyFilters()">
+            <option value="">Tous les types</option>
+            <option value="Personal">Personal</option>
+            <option value="Project">Project</option>
+            <option value="Group">Group</option>
+        </select>
+        <select id="statusFilter" onchange="applyFilters()">
+            <option value="">Tous les statuts</option>
+            <option value="expired">Expirés / révoqués</option>
+            <option value="urgent">Urgents (≤ 7 jours)</option>
+            <option value="warning">Attention (≤ 30 jours)</option>
+            <option value="ok">OK</option>
+        </select>
+        <span class="token-count" id="tokenCount"></span>
+        <button class="btn-load" id="btnLoad" onclick="loadTokens()">
+            🔄 Charger les tokens
+        </button>
+    </div>
+
+    <!-- ── Token table ──────────────────────────────────────────── -->
+    <div class="table-card">
+        <div id="tableBody">
+            <div class="msg-box">Cliquer sur <b>Charger les tokens</b> pour lancer l'analyse.<br>
+            <span style="font-size:12px;color:#aaa;">Peut prendre quelques secondes selon le nombre de projets.</span></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ── État ─────────────────────────────────────────────────────────────────
+let _allTokens = [];
+let _configUrl = '';
+
+// ── Init ─────────────────────────────────────────────────────────────────
+async function init() {
+    // CSRF
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) {
+            const u = await me.json();
+            window._csrf = u.csrf_token || '';
+            patchFetch();
+        }
+    } catch(e) {}
+
+    // Config
+    try {
+        const r = await fetch('/api/gitlab/config');
+        if (r.ok) {
+            const cfg = await r.json();
+            _configUrl = cfg.url || '';
+            document.getElementById('instanceUrl').textContent = cfg.url || '—';
+            if (cfg.has_token) {
+                testConnection();
+            } else {
+                document.getElementById('connBadge').className = 'conn-badge conn-error';
+                document.getElementById('connBadge').textContent = '⚠️ Non configuré';
+            }
+        }
+    } catch(e) {}
+}
+
+function patchFetch() {
+    const _orig = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        }
+        return _orig.call(this, url, opts);
+    };
+}
+
+// ── Test connexion ───────────────────────────────────────────────────────
+async function testConnection() {
+    const badge = document.getElementById('connBadge');
+    badge.className = 'conn-badge conn-unknown';
+    badge.textContent = '⏳ Test…';
+    try {
+        const r = await fetch('/api/gitlab/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({}),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            badge.className = 'conn-badge conn-error';
+            badge.textContent = '❌ ' + (data.error || 'Erreur');
+            return;
+        }
+        badge.className = 'conn-badge conn-ok';
+        badge.textContent = '✅ Connecté';
+        document.getElementById('tokenInfo').textContent =
+            data.name + ' (' + (data.username || '—') + ')';
+        const d = data.days_left;
+        const expText = data.expires_at === '—' ? 'Pas d\'expiration' :
+            (data.expired ? '⚠️ Expiré' :
+            (typeof d === 'number' ? 'dans ' + d + 'j' : data.expires_at));
+        document.getElementById('tokenExpiry').textContent = expText;
+        if (data.expired) document.getElementById('tokenExpiry').style.color = '#c62828';
+        else if (typeof d === 'number' && d <= 30) document.getElementById('tokenExpiry').style.color = '#e65100';
+    } catch(e) {
+        badge.className = 'conn-badge conn-error';
+        badge.textContent = '❌ Erreur réseau';
+    }
+}
+
+// ── Chargement des tokens ────────────────────────────────────────────────
+async function loadTokens() {
+    const btn = document.getElementById('btnLoad');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Chargement… (peut prendre 30s+)';
+    document.getElementById('tableBody').innerHTML =
+        '<div class="msg-box">🔍 Récupération des tokens Personal, Project et Group…<br>' +
+        '<span style="font-size:12px;color:#aaa">L\'analyse parcourt tous les projets accessibles.</span></div>';
+    document.getElementById('statCards').style.display = 'none';
+
+    try {
+        const r = await fetch('/api/gitlab/tokens', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({}),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            document.getElementById('tableBody').innerHTML =
+                '<div class="msg-box msg-error">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        _allTokens = data.tokens || [];
+        renderStats(data.stats || {});
+        applyFilters();
+    } catch(e) {
+        document.getElementById('tableBody').innerHTML =
+            '<div class="msg-box msg-error">Erreur réseau : ' + esc(e.message) + '</div>';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔄 Rafraîchir';
+    }
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────
+function renderStats(s) {
+    document.getElementById('statTotal').textContent    = s.total    ?? '—';
+    document.getElementById('statExpired').textContent  = s.expired  ?? '—';
+    document.getElementById('statWarning').textContent  = s.warning  ?? '—';
+    document.getElementById('statPersonal').textContent = s.personal ?? '—';
+    document.getElementById('statProject').textContent  = s.project  ?? '—';
+    document.getElementById('statGroup').textContent    = s.group    ?? '—';
+    document.getElementById('statCards').style.display = 'flex';
+
+    // Couleur rouge si des tokens expirés
+    document.querySelector('.stat-card.expired .stat-num').style.color =
+        (s.expired > 0) ? '#e53935' : '#222';
+    document.querySelector('.stat-card.warning .stat-num').style.color =
+        (s.warning > 0) ? '#fb8c00' : '#222';
+}
+
+// ── Filtres ──────────────────────────────────────────────────────────────
+function applyFilters() {
+    const text   = document.getElementById('tokenFilter').value.toLowerCase().trim();
+    const type   = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    let filtered = _allTokens;
+
+    if (text) {
+        filtered = filtered.filter(t =>
+            t.name.toLowerCase().includes(text) ||
+            t.scope.toLowerCase().includes(text) ||
+            t.scopes.toLowerCase().includes(text)
+        );
+    }
+    if (type) {
+        filtered = filtered.filter(t => t.type === type);
+    }
+    if (status) {
+        filtered = filtered.filter(t => {
+            if (status === 'expired') return t.expired || t.revoked;
+            if (status === 'urgent')  return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 7 && t.days_left >= 0;
+            if (status === 'warning') return !t.expired && !t.revoked && typeof t.days_left === 'number' && t.days_left <= 30 && t.days_left >= 0;
+            if (status === 'ok')      return !t.expired && !t.revoked && (t.days_left === null || t.days_left > 30);
+            return true;
+        });
+    }
+
+    document.getElementById('tokenCount').textContent =
+        filtered.length + ' token' + (filtered.length > 1 ? 's' : '') +
+        (filtered.length < _allTokens.length ? ' sur ' + _allTokens.length : '');
+
+    renderTable(filtered);
+}
+
+// ── Rendu table ──────────────────────────────────────────────────────────
+function renderTable(tokens) {
+    const body = document.getElementById('tableBody');
+    if (!tokens.length) {
+        body.innerHTML = '<div class="msg-box">Aucun token correspondant aux filtres.</div>';
+        return;
+    }
+
+    body.innerHTML =
+        '<table class="token-table">' +
+        '<thead><tr>' +
+            '<th>Nom</th>' +
+            '<th>Type</th>' +
+            '<th>Portée (projet / groupe)</th>' +
+            '<th>Scopes</th>' +
+            '<th>Créé le</th>' +
+            '<th>Expire le</th>' +
+            '<th>Statut</th>' +
+        '</tr></thead><tbody>' +
+        tokens.map(t => renderTokenRow(t)).join('') +
+        '</tbody></table>';
+}
+
+function renderTokenRow(t) {
+    const rowCls = (t.expired || t.revoked) ? 'row-expired'
+        : (typeof t.days_left === 'number' && t.days_left <= 30 && t.days_left >= 0) ? 'row-warning'
+        : '';
+
+    const typeCls = t.type === 'Personal' ? 'type-personal'
+        : t.type === 'Project' ? 'type-project' : 'type-group';
+    const typeIcon = t.type === 'Personal' ? '👤' : t.type === 'Project' ? '📁' : '👥';
+
+    let expiryBadge;
+    if (t.revoked) {
+        expiryBadge = '<span class="expiry-badge expiry-revoked">🚫 Révoqué</span>';
+    } else if (t.expired) {
+        expiryBadge = '<span class="expiry-badge expiry-expired">❌ Expiré</span>';
+    } else if (t.days_left === null) {
+        expiryBadge = '<span class="expiry-badge expiry-none">∞ Illimité</span>';
+    } else if (t.days_left <= 7) {
+        expiryBadge = '<span class="expiry-badge expiry-urgent">🔴 ' + t.days_left + 'j</span>';
+    } else if (t.days_left <= 30) {
+        expiryBadge = '<span class="expiry-badge expiry-warning">🟡 ' + t.days_left + 'j</span>';
+    } else {
+        expiryBadge = '<span class="expiry-badge expiry-ok">✅ ' + t.days_left + 'j</span>';
+    }
+
+    const expDate = t.expires_at === '—' ? '—' : t.expires_at.slice(0, 10);
+
+    return '<tr class="' + rowCls + '">' +
+        '<td class="tok-name">' + esc(t.name) + '</td>' +
+        '<td><span class="type-badge ' + typeCls + '">' + typeIcon + ' ' + esc(t.type) + '</span></td>' +
+        '<td class="tok-scope" title="' + esc(t.scope) + '">' + esc(t.scope) + '</td>' +
+        '<td class="tok-scopes" title="' + esc(t.scopes) + '">' + esc(t.scopes) + '</td>' +
+        '<td class="tok-date">' + esc(t.created_at || '—') + '</td>' +
+        '<td class="tok-date">' + esc(expDate) + '</td>' +
+        '<td>' + expiryBadge + '</td>' +
+    '</tr>';
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+</body>
+</html>

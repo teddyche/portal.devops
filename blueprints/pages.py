@@ -158,3 +158,15 @@ def kubi_page():
 @pages_bp.route('/kubi/config')
 def kubi_config_page():
     return _page('kubi_config.html')
+
+
+# === GitLab ===
+
+@pages_bp.route('/gitlab')
+def gitlab_page():
+    return _page('gitlab.html')
+
+
+@pages_bp.route('/gitlab/config')
+def gitlab_config_page():
+    return _page('gitlab_config.html')
