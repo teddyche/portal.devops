@@ -1203,6 +1203,28 @@ function renderDescribe(d) {
           ).join('') + '</tbody></table>'
         : '<span class="describe-empty">Aucun LimitRange configuré</span>';
 
+    // ── Deployments
+    const deplHtml = (d.deployments || []).length
+        ? '<table class="describe-table"><thead><tr>' +
+            '<th>Nom</th><th style="text-align:center">Ready</th>' +
+            '<th style="text-align:center">Up-to-date</th><th style="text-align:center">Disponible</th>' +
+            '<th style="text-align:right">Age</th>' +
+          '</tr></thead><tbody>' +
+          d.deployments.map(dep => {
+              const ok = dep.ready >= dep.desired && dep.desired > 0;
+              const zero = dep.desired === 0;
+              const cls = zero ? 'status-unknown' : ok ? 'status-running' : 'status-error';
+              const readyStr = dep.ready + '/' + dep.desired;
+              return '<tr>' +
+                '<td style="font-family:monospace;font-size:12px">' + esc(dep.name) + '</td>' +
+                '<td style="text-align:center"><span class="status-badge ' + cls + '">' + readyStr + '</span></td>' +
+                '<td style="text-align:center">' + dep.up_to_date + '</td>' +
+                '<td style="text-align:center">' + dep.available + '</td>' +
+                '<td style="text-align:right;color:#888">' + esc(dep.age) + '</td>' +
+              '</tr>';
+          }).join('') + '</tbody></table>'
+        : '<span class="describe-empty">Aucun Deployment</span>';
+
     // ── PVC
     const pvcHtml = (d.pvcs || []).length
         ? '<table class="describe-table"><thead><tr>' +
@@ -1274,6 +1296,7 @@ function renderDescribe(d) {
             _sec('Annotations', annoHtml) +
             _sec('Quotas',      quotaHtml) +
             _sec('LimitRanges', lrHtml) +
+            _sec('Deployments (' + (d.deployments||[]).length + ')', deplHtml) +
             _sec('PVC (' + (d.pvcs||[]).length + ')',      pvcHtml) +
             _sec('Ingresses (' + (d.ingresses||[]).length + ')', ingHtml) +
             _sec('Events — ' + (d.events||[]).length + ' (⚠ ' + warnings.length + ' warnings)', evHtml) +

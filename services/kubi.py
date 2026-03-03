@@ -675,6 +675,7 @@ def get_kubi_namespace_describe(
     events_data  = _get(f'/api/v1/namespaces/{namespace}/events')           or {'items': []}
     pvc_data     = _get(f'/api/v1/namespaces/{namespace}/persistentvolumeclaims') or {'items': []}
     ing_data     = _get(f'/apis/networking.k8s.io/v1/namespaces/{namespace}/ingresses') or {'items': []}
+    dep_data     = _get(f'/apis/apps/v1/namespaces/{namespace}/deployments')            or {'items': []}
 
     now = datetime.now(timezone.utc)
 
@@ -770,6 +771,22 @@ def get_kubi_namespace_describe(
             'age':   _fmt_age(m.get('creationTimestamp', ''), now),
         })
 
+    # Deployments
+    deployments = []
+    for dep in dep_data.get('items', []):
+        m = dep.get('metadata', {})
+        spec = dep.get('spec', {})
+        status = dep.get('status', {})
+        desired = spec.get('replicas') or 0
+        deployments.append({
+            'name':       m.get('name', ''),
+            'desired':    desired,
+            'ready':      status.get('readyReplicas') or 0,
+            'available':  status.get('availableReplicas') or 0,
+            'up_to_date': status.get('updatedReplicas') or 0,
+            'age':        _fmt_age(m.get('creationTimestamp', ''), now),
+        })
+
     return {
         'name':         meta.get('name', namespace),
         'status':       ns_data.get('status', {}).get('phase', 'Unknown'),
@@ -777,6 +794,7 @@ def get_kubi_namespace_describe(
         'labels':       _clean(meta.get('labels')),
         'annotations':  _clean(meta.get('annotations')),
         'limit_ranges': limit_ranges,
+        'deployments':  deployments,
         'events':       events,
         'pvcs':         pvcs,
         'ingresses':    ingresses,
