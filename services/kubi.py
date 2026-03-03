@@ -597,3 +597,96 @@ def delete_kubi_pod(
         raise ServiceError(f'API K8s HTTP {resp.status_code} : {resp.text[:200]}', 502)
 
     return {'deleted': pod_name}
+
+
+# === K8s API — Namespace Describe ===
+
+def get_kubi_namespace_describe(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """
+    Décrit un namespace : métadonnées (labels, annotations, statut) + LimitRanges.
+    Équivalent de `kubectl describe namespace <ns>`.
+    """
+    if not all([k8s_url, token, namespace]):
+        raise ServiceError('k8s_url, token et namespace requis', 400)
+
+    k8s_url = k8s_url.rstrip('/')
+
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxy_base = proxy_url.strip().rstrip('/')
+        proxies = {'http': proxy_base, 'https': proxy_base}
+
+    headers = {'Authorization': f'Bearer {token}'}
+    req_kwargs = dict(headers=headers, verify=not insecure, proxies=proxies, timeout=15)
+
+    def _get(path: str):
+        try:
+            resp = requests.get(f'{k8s_url}{path}', **req_kwargs)
+        except requests.exceptions.ConnectionError as e:
+            raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+        except requests.exceptions.Timeout:
+            raise ServiceError('Timeout K8s (15s)', 504)
+        except requests.exceptions.RequestException as e:
+            raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+        if resp.status_code == 401:
+            raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+        if resp.status_code == 403:
+            raise ServiceError(f'Accès refusé (HTTP 403)', 403)
+        if resp.status_code == 404:
+            return None
+        if not resp.ok:
+            raise ServiceError(f'API K8s HTTP {resp.status_code}', 502)
+        return resp.json()
+
+    ns_data = _get(f'/api/v1/namespaces/{namespace}')
+    if ns_data is None:
+        raise ServiceError(f'Namespace "{namespace}" introuvable (HTTP 404)', 404)
+
+    lr_data = _get(f'/api/v1/namespaces/{namespace}/limitranges') or {'items': []}
+
+    # Nettoyage des labels/annotations K8s internes
+    _skip_prefixes = ('kubernetes.io/', 'k8s.io/', 'kubectl.kubernetes.io/')
+
+    def _clean(d: dict) -> dict:
+        return {k: v for k, v in (d or {}).items()
+                if not any(k.startswith(p) for p in _skip_prefixes)}
+
+    meta = ns_data.get('metadata', {})
+
+    # Parse LimitRanges
+    limit_ranges = []
+    for lr in lr_data.get('items', []):
+        lr_name = lr.get('metadata', {}).get('name', '')
+        for limit in lr.get('spec', {}).get('limits', []):
+            lr_type = limit.get('type', 'Container')
+            all_resources = set(limit.get('max', {}) | limit.get('min', {}) |
+                                limit.get('default', {}) | limit.get('defaultRequest', {}))
+            for resource in sorted(all_resources):
+                limit_ranges.append({
+                    'lr_name':        lr_name,
+                    'type':           lr_type,
+                    'resource':       resource,
+                    'min':            limit.get('min', {}).get(resource, '—'),
+                    'max':            limit.get('max', {}).get(resource, '—'),
+                    'default_limit':  limit.get('default', {}).get(resource, '—'),
+                    'default_req':    limit.get('defaultRequest', {}).get(resource, '—'),
+                })
+
+    return {
+        'name':         meta.get('name', namespace),
+        'status':       ns_data.get('status', {}).get('phase', 'Unknown'),
+        'created':      meta.get('creationTimestamp', ''),
+        'labels':       _clean(meta.get('labels')),
+        'annotations':  _clean(meta.get('annotations')),
+        'limit_ranges': limit_ranges,
+    }

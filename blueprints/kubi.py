@@ -296,6 +296,30 @@ def api_kubi_pods_delete():
         return api_error(e.message, e.status)
 
 
+@kubi_bp.route('/api/kubi/namespace/describe', methods=['POST'])
+def api_kubi_namespace_describe():
+    """Décrit un namespace : métadonnées, labels, annotations, LimitRanges."""
+    try:
+        body = _require_json()
+        k8s_url   = body.get('k8s_url', '').strip()
+        token     = body.get('token', '').strip()
+        namespace = body.get('namespace', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        result = kubi_service.get_kubi_namespace_describe(
+            k8s_url, token, namespace, insecure, proxy_url, use_proxy
+        )
+        return jsonify(result)
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
 # === Explain (décode un JWT) ===
 
 @kubi_bp.route('/api/kubi/explain', methods=['POST'])

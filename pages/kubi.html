@@ -154,18 +154,35 @@
         .json-num { color: #fab387; }
         .json-bool { color: #f38ba8; }
 
-        /* ── Quota card ──────────────────────────────── */
-        .quota-card {
+        /* ── K8s card (tabulé) ───────────────────────── */
+        .k8s-card {
             background: white; border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px; overflow: hidden;
         }
-        .quota-card-header {
+        .k8s-card-header {
             background: #0d47a1; color: white; padding: 14px 20px;
             font-size: 15px; font-weight: bold;
             display: flex; justify-content: space-between; align-items: center;
         }
-        .quota-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
+        .k8s-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
+
+        .k8s-tabs {
+            display: flex; border-bottom: 2px solid #e8eaf6;
+            background: #fafafa; padding: 0 12px;
+        }
+        .tab-btn {
+            padding: 11px 18px; border: none; background: none;
+            font-size: 13px; font-weight: bold; color: #888;
+            cursor: pointer; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color .15s, border-color .15s;
+        }
+        .tab-btn:hover { color: #326ce5; }
+        .tab-btn.active { color: #1a237e; border-bottom-color: #326ce5; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+        .tab-body { padding: 20px; }
+
         .quota-card-body { padding: 20px; }
 
         .quota-filters {
@@ -195,8 +212,12 @@
         .quota-ns-block:last-child { border-bottom: none; }
         .quota-ns-title {
             font-size: 13px; color: #1a237e; font-weight: bold;
-            margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
         }
+        .ns-link {
+            font-size: 13px; cursor: pointer; opacity: .5; transition: opacity .15s;
+        }
+        .ns-link:hover { opacity: 1; }
         .quota-group { margin-bottom: 16px; }
         .quota-group-name {
             font-size: 11px; color: #aaa; text-transform: uppercase;
@@ -228,18 +249,47 @@
             .quota-row { grid-template-columns: 1fr; gap: 3px; }
         }
 
-        /* ── Pods card ───────────────────────────────── */
-        .pods-card {
-            background: white; border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px; overflow: hidden;
+        /* ── Describe tab ────────────────────────────── */
+        .describe-ns-header {
+            background: #e8eaf6; border-radius: 8px; padding: 14px 18px;
+            margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;
         }
-        .pods-card-header {
-            background: #1b5e20; color: white; padding: 14px 20px;
-            font-size: 15px; font-weight: bold;
-            display: flex; justify-content: space-between; align-items: center;
+        .describe-ns-name { font-size: 17px; font-weight: bold; color: #1a237e; }
+        .describe-status-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
         }
-        .pods-card-header .cluster-tag { font-size: 12px; font-weight: normal; opacity: .8; }
+        .describe-status-active   { background: #e8f5e9; color: #2e7d32; }
+        .describe-status-other    { background: #ffebee; color: #c62828; }
+        .describe-section { margin-bottom: 20px; }
+        .describe-section-title {
+            font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .5px; font-weight: bold; margin-bottom: 10px;
+        }
+        .label-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .label-tag {
+            background: #e3f2fd; color: #1565c0; border-radius: 4px;
+            padding: 3px 8px; font-size: 12px; font-family: monospace;
+        }
+        .describe-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .describe-table th {
+            text-align: left; font-size: 11px; color: #888; text-transform: uppercase;
+            letter-spacing: .4px; padding: 0 10px 8px 0; border-bottom: 2px solid #f0f0f0;
+            font-weight: bold;
+        }
+        .describe-table td { padding: 6px 10px 6px 0; border-bottom: 1px solid #f8f8f8; }
+        .describe-table tr:last-child td { border-bottom: none; }
+        .describe-filters {
+            padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .describe-filters select {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; color: #333; cursor: pointer; min-width: 220px;
+        }
+        .describe-filters select:focus { border-color: #326ce5; outline: none; }
+
+        /* ── Pods tab ────────────────────────────────── */
         .pods-filters {
             padding: 10px 20px; background: #f5f7fa; border-bottom: 1px solid #e8eaf6;
             display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -420,45 +470,58 @@
         </div>
     </div>
 
-    <!-- ── Quotas K8s ────────────────────────────────────────────── -->
-    <div class="quota-card" id="quotaCard" style="display:none">
-        <div class="quota-card-header">
-            <span>📊 Quotas Kubernetes</span>
+    <!-- ── Kubernetes (tabulé) ───────────────────────────────────── -->
+    <div class="k8s-card" id="k8sCard" style="display:none">
+        <div class="k8s-card-header">
+            <span>☸ Kubernetes</span>
             <div style="display:flex;align-items:center;gap:10px;">
-                <span class="cluster-tag" id="quotaClusterTag"></span>
-                <button class="btn-refresh" onclick="loadAllQuotas()">🔄 Rafraîchir</button>
+                <span class="cluster-tag" id="k8sClusterTag"></span>
+                <button class="btn-refresh" onclick="refreshTab()">🔄 Rafraîchir</button>
             </div>
         </div>
-        <div class="quota-filters" id="quotaFilters" style="display:none">
-            <input type="text" id="nsFilter" placeholder="🔎 Filtrer les namespaces…" oninput="applyFilters()">
-            <label>
-                <input type="checkbox" id="hideZero" checked onchange="applyFilters()">
-                Masquer les ressources à 0%
-            </label>
-            <span class="quota-count" id="quotaCount"></span>
-        </div>
-        <div class="quota-card-body" id="quotaCardBody"></div>
-    </div>
 
-    <!-- ── Pods K8s ─────────────────────────────────────────────── -->
-    <div class="pods-card" id="podsCard" style="display:none">
-        <div class="pods-card-header">
-            <span>🚀 Pods Kubernetes</span>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span class="cluster-tag" id="podsClusterTag"></span>
-                <button class="btn-refresh" onclick="loadPods()">🔄 Rafraîchir</button>
+        <!-- Onglets -->
+        <div class="k8s-tabs">
+            <button class="tab-btn active" id="tab-btn-quotas"   onclick="switchTab('quotas')">📊 Quotas</button>
+            <button class="tab-btn"        id="tab-btn-pods"     onclick="switchTab('pods')">🚀 Pods</button>
+            <button class="tab-btn"        id="tab-btn-describe" onclick="switchTab('describe')">🔍 Describe</button>
+        </div>
+
+        <!-- ── Onglet Quotas ── -->
+        <div id="tab-quotas" class="tab-pane active">
+            <div class="quota-filters" id="quotaFilters" style="display:none">
+                <input type="text" id="nsFilter" placeholder="🔎 Filtrer les namespaces…" oninput="applyFilters()">
+                <label>
+                    <input type="checkbox" id="hideZero" checked onchange="applyFilters()">
+                    Masquer les ressources à 0%
+                </label>
+                <span class="quota-count" id="quotaCount"></span>
             </div>
+            <div class="tab-body" id="quotaCardBody"></div>
         </div>
-        <div class="pods-filters" id="podsFilters" style="display:none">
-            <select id="podsNsSelect" onchange="loadPods()"></select>
-            <input type="text" id="podsFilter" placeholder="🔎 Filtrer les pods…" oninput="renderPodsFiltered()">
-            <label>
-                <input type="checkbox" id="hideRunningPods" onchange="renderPodsFiltered()">
-                Masquer Running
-            </label>
-            <span class="pods-count" id="podsCount"></span>
+
+        <!-- ── Onglet Pods ── -->
+        <div id="tab-pods" class="tab-pane">
+            <div class="pods-filters" id="podsFilters" style="display:none">
+                <select id="podsNsSelect" onchange="loadPods()"></select>
+                <input type="text" id="podsFilter" placeholder="🔎 Filtrer les pods…" oninput="renderPodsFiltered()">
+                <label>
+                    <input type="checkbox" id="hideRunningPods" onchange="renderPodsFiltered()">
+                    Masquer Running
+                </label>
+                <span class="pods-count" id="podsCount"></span>
+            </div>
+            <div class="pods-body" id="podsBody"><div class="quota-msg" style="padding:20px">Sélectionner un namespace dans l'onglet Quotas ou ci-dessus.</div></div>
         </div>
-        <div class="pods-body" id="podsBody"></div>
+
+        <!-- ── Onglet Describe ── -->
+        <div id="tab-describe" class="tab-pane">
+            <div class="describe-filters">
+                <label style="font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;">Namespace</label>
+                <select id="describeNsSelect" onchange="loadDescribe()"></select>
+            </div>
+            <div class="tab-body" id="describeBody"><div class="quota-msg">Sélectionner un namespace ou cliquer sur 📁 dans l'onglet Quotas.</div></div>
+        </div>
     </div>
 
     <!-- ── Analyser un token ─────────────────────────────────────── -->
@@ -624,7 +687,7 @@ function renderResult(data, clusterName) {
     if (lastK8sUrl) {
         initQuotaSection(clusterName);
     } else {
-        document.getElementById('quotaCard').style.display = 'none';
+        document.getElementById('k8sCard').style.display = 'none';
     }
 }
 
@@ -722,16 +785,39 @@ async function explainToken() {
 
 // ── Quotas ────────────────────────────────────────────────────────────────
 
+let _currentTab = 'quotas';
+
+function switchTab(tab) {
+    _currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-btn-' + tab).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function refreshTab() {
+    if (_currentTab === 'quotas')   loadAllQuotas();
+    if (_currentTab === 'pods')     loadPods();
+    if (_currentTab === 'describe') loadDescribe();
+}
+
+function openDescribe(ns) {
+    const sel = document.getElementById('describeNsSelect');
+    if (sel) sel.value = ns;
+    switchTab('describe');
+    loadDescribe();
+}
+
 function initQuotaSection(clusterName) {
-    const card = document.getElementById('quotaCard');
-    document.getElementById('quotaClusterTag').textContent = clusterName;
+    const card = document.getElementById('k8sCard');
+    document.getElementById('k8sClusterTag').textContent = clusterName;
     document.getElementById('quotaFilters').style.display = 'none';
     document.getElementById('nsFilter').value = '';
-    lastQuotaResults = [];
-    // Reset pods section
-    document.getElementById('podsCard').style.display = 'none';
     document.getElementById('podsFilters').style.display = 'none';
+    lastQuotaResults = [];
     lastPodsData = [];
+    _currentTab = 'quotas';
+    switchTab('quotas');
     card.style.display = 'block';
     setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 150);
     loadAllQuotas();
@@ -815,7 +901,10 @@ function applyFilters() {
         if (!quotaHtml) return '';
         rendered++;
         return '<div class="quota-ns-block">' +
-            '<div class="quota-ns-title">📁 ' + esc(r.namespace) + '</div>' +
+            '<div class="quota-ns-title">' +
+                '📁 ' + esc(r.namespace) +
+                '<span class="ns-link" onclick="openDescribe(\'' + esc(r.namespace) + '\')" title="Describe ce namespace">🔍</span>' +
+            '</div>' +
             quotaHtml +
             '</div>';
     }).filter(Boolean).join('');
@@ -901,20 +990,16 @@ function podStatusClass(s) {
 
 function initPodsSection() {
     if (!lastQuotaResults.length) return;
-    const card = document.getElementById('podsCard');
-    const sel = document.getElementById('podsNsSelect');
-
-    document.getElementById('podsClusterTag').textContent =
-        document.getElementById('quotaClusterTag').textContent;
     document.getElementById('podsFilter').value = '';
 
-    // Peuple le select avec les namespaces des quotas
     const namespaces = lastQuotaResults.map(r => r.namespace);
-    sel.innerHTML = namespaces.map(n =>
-        '<option value="' + esc(n) + '">' + esc(n) + '</option>'
-    ).join('');
+    const opts = namespaces.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
 
-    card.style.display = 'block';
+    // Alimente les deux selects (pods + describe)
+    document.getElementById('podsNsSelect').innerHTML = opts;
+    document.getElementById('describeNsSelect').innerHTML = opts;
+
+    // Précharge le premier namespace dans l'onglet pods (sans switcher dessus)
     loadPods();
 }
 
@@ -1040,6 +1125,109 @@ async function confirmDeletePod(btn, ns, podName) {
         btn.textContent = '🗑 Supprimer';
         alert('Erreur réseau : ' + e.message);
     }
+}
+
+// ── Describe ─────────────────────────────────────────────────────────────
+
+async function loadDescribe() {
+    const ns = document.getElementById('describeNsSelect').value;
+    const body = document.getElementById('describeBody');
+    if (!ns || !lastK8sUrl || !lastToken) return;
+
+    body.innerHTML = '<div class="quota-msg" style="padding:20px">Chargement du describe…</div>';
+
+    try {
+        const r = await fetch('/api/kubi/namespace/describe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                k8s_url: lastK8sUrl,
+                token: lastToken,
+                namespace: ns,
+                cluster_id: selectedCluster?.id || '',
+            }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            body.innerHTML = '<div class="quota-err" style="padding:20px">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
+            return;
+        }
+        renderDescribe(data);
+    } catch(e) {
+        body.innerHTML = '<div class="quota-err" style="padding:20px">Erreur réseau : ' + esc(e.message) + '</div>';
+    }
+}
+
+function renderDescribe(d) {
+    const body = document.getElementById('describeBody');
+
+    // Header namespace
+    const statusCls = d.status === 'Active' ? 'describe-status-active' : 'describe-status-other';
+    const created = d.created ? new Date(d.created).toLocaleDateString('fr-FR',
+        {day:'2-digit', month:'2-digit', year:'numeric'}) : '—';
+
+    // Labels
+    const labelEntries = Object.entries(d.labels || {});
+    const labelsHtml = labelEntries.length
+        ? '<div class="label-tags">' +
+            labelEntries.map(([k, v]) => '<span class="label-tag">' + esc(k) + (v ? '=' + esc(v) : '') + '</span>').join('') +
+          '</div>'
+        : '<span class="quota-msg">Aucun</span>';
+
+    // Annotations
+    const annoEntries = Object.entries(d.annotations || {});
+    const annoHtml = annoEntries.length
+        ? '<div class="label-tags">' +
+            annoEntries.map(([k, v]) => '<span class="label-tag" style="background:#f3e5f5;color:#6a1b9a">' + esc(k) + (v ? '=' + esc(v) : '') + '</span>').join('') +
+          '</div>'
+        : '<span class="quota-msg">Aucune</span>';
+
+    // LimitRanges
+    const lrHtml = d.limit_ranges && d.limit_ranges.length
+        ? '<table class="describe-table">' +
+            '<thead><tr><th>Type</th><th>Ressource</th><th>Min</th><th>Max</th><th>Défaut Req</th><th>Défaut Limit</th></tr></thead>' +
+            '<tbody>' +
+            d.limit_ranges.map(lr =>
+                '<tr>' +
+                '<td>' + esc(lr.type) + '</td>' +
+                '<td><b>' + esc(lr.resource) + '</b></td>' +
+                '<td>' + esc(lr.min) + '</td>' +
+                '<td>' + esc(lr.max) + '</td>' +
+                '<td>' + esc(lr.default_req) + '</td>' +
+                '<td>' + esc(lr.default_limit) + '</td>' +
+                '</tr>'
+            ).join('') +
+            '</tbody></table>'
+        : '<span class="quota-msg">Aucun LimitRange configuré</span>';
+
+    // Quotas (depuis lastQuotaResults)
+    const nsResult = lastQuotaResults.find(r => r.namespace === d.name);
+    let quotaHtml = '<span class="quota-msg">Non chargés</span>';
+    if (nsResult && nsResult.quotas && nsResult.quotas.length) {
+        quotaHtml = nsResult.quotas.map(q =>
+            '<div style="margin-bottom:12px;">' +
+            (nsResult.quotas.length > 1 ? '<div class="describe-section-title">' + esc(q.name) + '</div>' : '') +
+            q.resources.map(r => renderQuotaRow(r)).join('') +
+            '</div>'
+        ).join('');
+    } else if (nsResult) {
+        quotaHtml = '<span class="quota-msg">Aucun ResourceQuota configuré</span>';
+    }
+
+    body.innerHTML =
+        '<div style="padding:20px">' +
+            '<div class="describe-ns-header">' +
+                '<div>' +
+                    '<div class="describe-ns-name">📁 ' + esc(d.name) + '</div>' +
+                    '<div style="font-size:12px;color:#888;margin-top:4px;">Créé le ' + created + '</div>' +
+                '</div>' +
+                '<span class="describe-status-badge ' + statusCls + '">' + esc(d.status) + '</span>' +
+            '</div>' +
+            '<div class="describe-section"><div class="describe-section-title">Labels</div>' + labelsHtml + '</div>' +
+            '<div class="describe-section"><div class="describe-section-title">Annotations</div>' + annoHtml + '</div>' +
+            '<div class="describe-section"><div class="describe-section-title">Quotas</div>' + quotaHtml + '</div>' +
+            '<div class="describe-section"><div class="describe-section-title">LimitRanges</div>' + lrHtml + '</div>' +
+        '</div>';
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
