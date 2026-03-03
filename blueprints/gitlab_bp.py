@@ -146,3 +146,14 @@ def api_gitlab_snapshot_get(snapshot_id: str):
         return jsonify(snap)
     except ServiceError as e:
         return api_error(e.message, e.status)
+
+
+@gitlab_bp.route('/api/gitlab/snapshots/<snapshot_id>', methods=['DELETE'])
+def api_gitlab_snapshot_delete(snapshot_id: str):
+    """Supprime un snapshot."""
+    try:
+        gitlab_service.delete_snapshot(_dd(), snapshot_id)
+        _audit.info('gitlab_snapshot_deleted user=%s id=%s', _uid(), snapshot_id)
+        return jsonify({'deleted': snapshot_id})
+    except ServiceError as e:
+        return api_error(e.message, e.status)

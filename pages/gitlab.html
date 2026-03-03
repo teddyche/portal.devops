@@ -183,6 +183,15 @@
         .snap-current { font-size: 11px; color: #888; font-style: italic; }
         .snap-empty { font-size: 13px; color: #aaa; font-style: italic; padding: 8px 0; }
 
+        .btn-del-snap {
+            margin-left: auto; flex-shrink: 0;
+            background: none; border: 1px solid transparent; border-radius: 5px;
+            color: #bbb; font-size: 16px; cursor: pointer; padding: 2px 7px;
+            transition: all .15s; line-height: 1;
+        }
+        .btn-del-snap:hover { color: #e53935; border-color: #ef9a9a; background: #ffebee; }
+        .btn-del-snap.confirming { color: white; background: #e53935; border-color: #e53935; font-size: 12px; font-weight: bold; padding: 3px 8px; }
+
         /* ── Diff banner ──────────────────────────────── */
         .diff-banner {
             background: #fff3e0; border: 1px solid #ffcc80; border-radius: 8px;
@@ -506,18 +515,21 @@ function renderSnapshotList() {
         const expiredCls = (stats.expired > 0) ? 'red' : '';
         const warnCls    = (stats.warning > 0) ? 'orange' : '';
         const isCurrent  = (_viewMode === 'snapshot' && _snapId === s.id);
-        return '<div class="snap-item' + (isCurrent ? ' active' : '') + '"' +
-            ' onclick="viewSnapshot(\'' + s.id + '\')">' +
-            '<div class="snap-date">📸 ' + esc(fmtSnapDate(s.timestamp)) + '</div>' +
-            '<div class="snap-stats">' +
-                '<span class="snap-stat">Total: <b>' + (stats.total ?? '—') + '</b></span>' +
-                (stats.expired ? '<span class="snap-stat ' + expiredCls + '">Expirés: ' + stats.expired + '</span>' : '') +
-                (stats.warning ? '<span class="snap-stat ' + warnCls + '">≤30j: ' + stats.warning + '</span>' : '') +
-                '<span class="snap-stat">Personal: ' + (stats.personal ?? 0) + '</span>' +
-                '<span class="snap-stat">Project: ' + (stats.project ?? 0) + '</span>' +
-                '<span class="snap-stat">Group: ' + (stats.group ?? 0) + '</span>' +
+        return '<div class="snap-item' + (isCurrent ? ' active' : '') + '" id="snap-item-' + s.id + '">' +
+            '<div style="flex:1;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="viewSnapshot(\'' + s.id + '\')">' +
+                '<div class="snap-date">📸 ' + esc(fmtSnapDate(s.timestamp)) + '</div>' +
+                '<div class="snap-stats">' +
+                    '<span class="snap-stat">Total: <b>' + (stats.total ?? '—') + '</b></span>' +
+                    (stats.expired ? '<span class="snap-stat ' + expiredCls + '">Expirés: ' + stats.expired + '</span>' : '') +
+                    (stats.warning ? '<span class="snap-stat ' + warnCls + '">≤30j: ' + stats.warning + '</span>' : '') +
+                    '<span class="snap-stat">Personal: ' + (stats.personal ?? 0) + '</span>' +
+                    '<span class="snap-stat">Project: ' + (stats.project ?? 0) + '</span>' +
+                    '<span class="snap-stat">Group: ' + (stats.group ?? 0) + '</span>' +
+                '</div>' +
+                (idx === 0 && _viewMode !== 'snapshot' ? '<span class="snap-current">← dernier live</span>' : '') +
             '</div>' +
-            (idx === 0 && _viewMode !== 'snapshot' ? '<span class="snap-current">← dernier chargement live</span>' : '') +
+            '<button class="btn-del-snap" id="delbtn-' + s.id + '"' +
+                ' onclick="confirmDeleteSnapshot(event,\'' + s.id + '\')" title="Supprimer ce snapshot">✕</button>' +
         '</div>';
     }).join('');
 }
@@ -544,6 +556,62 @@ async function viewSnapshot(sid) {
 
         renderSnapshotList();
     } catch(e) {}
+}
+
+let _delTimers = {};
+async function confirmDeleteSnapshot(evt, sid) {
+    evt.stopPropagation(); // ne pas déclencher viewSnapshot
+    const btn = document.getElementById('delbtn-' + sid);
+    if (!btn) return;
+
+    if (!btn.classList.contains('confirming')) {
+        btn.classList.add('confirming');
+        btn.textContent = '⚠️ Confirmer ?';
+        _delTimers[sid] = setTimeout(() => {
+            btn.classList.remove('confirming');
+            btn.textContent = '✕';
+        }, 3000);
+        return;
+    }
+
+    clearTimeout(_delTimers[sid]);
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+        const r = await fetch('/api/gitlab/snapshots/' + sid, {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+        });
+        if (r.ok) {
+            // Si on était en train de voir ce snapshot → repasser en live
+            if (_snapId === sid) switchToLive();
+            // Retire l'item du DOM directement
+            const item = document.getElementById('snap-item-' + sid);
+            if (item) item.remove();
+            // Met à jour la liste interne
+            _snapshots = _snapshots.filter(s => s.id !== sid);
+            if (!_snapshots.length) {
+                document.getElementById('historyList').innerHTML =
+                    '<div class="snap-empty">Aucun snapshot disponible.</div>';
+            }
+            // Met à jour l'info "Dernier snapshot"
+            if (_snapshots.length) {
+                document.getElementById('snapInfo').textContent =
+                    'Dernier : ' + fmtSnapDate(_snapshots[0].timestamp);
+            } else {
+                document.getElementById('snapInfo').textContent = '—';
+            }
+        } else {
+            btn.disabled = false;
+            btn.classList.remove('confirming');
+            btn.textContent = '✕';
+        }
+    } catch(e) {
+        btn.disabled = false;
+        btn.classList.remove('confirming');
+        btn.textContent = '✕';
+    }
 }
 
 function toggleHistory() {

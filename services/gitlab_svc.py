@@ -361,6 +361,20 @@ def get_snapshot(datas_dir: str, snapshot_id: str) -> dict:
         raise ServiceError(f'Erreur lecture snapshot : {e}', 500)
 
 
+def delete_snapshot(datas_dir: str, snapshot_id: str) -> None:
+    """Supprime un snapshot par son ID."""
+    if not re.match(r'^[0-9_]+$', snapshot_id):
+        raise ServiceError('ID snapshot invalide', 400)
+    filepath = os.path.join(_snap_dir(datas_dir), f'{snapshot_id}.json')
+    if not os.path.exists(filepath):
+        raise ServiceError(f'Snapshot "{snapshot_id}" introuvable', 404)
+    try:
+        os.remove(filepath)
+        logger.info('gitlab_snapshot_deleted id=%s', snapshot_id)
+    except Exception as e:
+        raise ServiceError(f'Erreur suppression snapshot : {e}', 500)
+
+
 def purge_old_snapshots(datas_dir: str, retention_days: int) -> int:
     """
     Supprime les snapshots plus vieux que retention_days jours.
