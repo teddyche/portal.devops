@@ -972,36 +972,68 @@ async function loadAllQuotas() {
     if (!lastK8sUrl || !lastToken) return;
     const body = document.getElementById('quotaCardBody');
     document.getElementById('quotaFilters').style.display = 'none';
-    body.innerHTML = '<div class="quota-msg">🔍 Découverte des namespaces et chargement des quotas…</div>';
+    body.innerHTML = '<div class="quota-msg">🔍 Chargement des quotas…</div>';
 
-    const payload = JSON.stringify({
-        k8s_url: lastK8sUrl,
-        token: lastToken,
-        cluster_id: selectedCluster?.id || '',
+    const basePayload = { k8s_url: lastK8sUrl, token: lastToken, cluster_id: selectedCluster?.id || '' };
+    const hdrs = { 'Content-Type': 'application/json' };
+    const post = (url, extra) => fetch(url, {
+        method: 'POST', headers: hdrs,
+        body: JSON.stringify(Object.assign({}, basePayload, extra)),
     });
-    const headers = {'Content-Type': 'application/json'};
 
     try {
+        // Quotas + métriques cluster-wide en parallèle
         const [quotasResp, metricsResp] = await Promise.all([
-            fetch('/api/kubi/quotas/all',        { method: 'POST', headers, body: payload }),
-            fetch('/api/kubi/metrics/pods/all',  { method: 'POST', headers, body: payload }),
+            post('/api/kubi/quotas/all'),
+            post('/api/kubi/metrics/pods/all'),
         ]);
         const data = await quotasResp.json();
         if (!quotasResp.ok) {
             body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
             return;
         }
-        // Metrics silencieux — {} si metrics-server indisponible
+        const results = data.results || [];
+
         if (metricsResp.ok) {
             const mdata = await metricsResp.json();
             lastPodsMetrics = mdata.metrics || {};
         } else {
             lastPodsMetrics = {};
         }
-        renderAllQuotas(data.results || []);
+
+        // Fallback par namespace si cluster-wide vide (droits RBAC insuffisants)
+        if (!Object.keys(lastPodsMetrics).length && results.length) {
+            const perNs = await Promise.all(
+                results.map(r =>
+                    post('/api/kubi/metrics/pods', { namespace: r.namespace })
+                        .then(resp => resp.ok ? resp.json() : null)
+                        .catch(() => null)
+                )
+            );
+            const map = {};
+            results.forEach((r, i) => {
+                const m = perNs[i];
+                if (!m || !m.metrics) return;
+                let cpu_m = 0, mem_ki = 0;
+                Object.values(m.metrics).forEach(p => { cpu_m += (p.cpu_m || 0); mem_ki += (p.mem_ki || 0); });
+                if (cpu_m || mem_ki) map[r.namespace] = {
+                    cpu_display: (cpu_m / 1000).toFixed(2) + ' cores',
+                    mem_display: _fmtMemKi(mem_ki),
+                };
+            });
+            lastPodsMetrics = map;
+        }
+
+        renderAllQuotas(results);
     } catch(e) {
         body.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
     }
+}
+
+function _fmtMemKi(ki) {
+    if (ki >= 1024 * 1024) return (ki / 1024 / 1024).toFixed(2) + ' Gi';
+    if (ki >= 1024)        return (ki / 1024).toFixed(2) + ' Mi';
+    return ki + ' Ki';
 }
 
 // Calcule le % d'utilisation max d'un namespace (pour tri)

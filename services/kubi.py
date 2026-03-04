@@ -961,6 +961,11 @@ def _fmt_cpu_m(m: int) -> str:
     return f'{m / 1000:.2f} c' if m >= 1000 else f'{m}m'
 
 
+def _fmt_cpu_cores(m: int) -> str:
+    """Format en 'cores' (même unité que les ResourceQuotas)."""
+    return f'{m / 1000:.2f} cores'
+
+
 def _fmt_mem_ki(ki: int) -> str:
     if ki >= 1024 * 1024: return f'{ki / (1024 * 1024):.1f} Gi'
     if ki >= 1024:        return f'{ki / 1024:.0f} Mi'
@@ -1149,7 +1154,7 @@ def get_all_namespaces_pod_metrics(
     return {
         ns: {
             'cpu_m':       v['cpu_m'],
-            'cpu_display': _fmt_cpu_m(v['cpu_m']),
+            'cpu_display': _fmt_cpu_cores(v['cpu_m']),   # cohérent avec les quotas
             'mem_ki':      v['mem_ki'],
             'mem_display': _fmt_mem_ki(v['mem_ki']),
         }
