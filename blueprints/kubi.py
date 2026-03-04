@@ -411,6 +411,52 @@ def api_kubi_pod_containers():
         return api_error(e.message, e.status)
 
 
+# === Métriques (metrics-server) ===
+
+@kubi_bp.route('/api/kubi/metrics/pods', methods=['POST'])
+def api_kubi_metrics_pods():
+    """Métriques CPU/mémoire temps réel des pods d'un namespace (via metrics-server)."""
+    try:
+        body = _require_json()
+        k8s_url   = body.get('k8s_url', '').strip()
+        token     = body.get('token', '').strip()
+        namespace = body.get('namespace', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url:   return api_error('k8s_url requis', 400)
+        if not token:     return api_error('token requis', 400)
+        if not namespace: return api_error('namespace requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        metrics = kubi_service.get_pod_metrics(
+            k8s_url, token, namespace, insecure, proxy_url, use_proxy
+        )
+        return jsonify({'metrics': metrics})
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
+@kubi_bp.route('/api/kubi/metrics/nodes', methods=['POST'])
+def api_kubi_metrics_nodes():
+    """Métriques CPU/mémoire temps réel des nœuds du cluster (via metrics-server)."""
+    try:
+        body = _require_json()
+        k8s_url   = body.get('k8s_url', '').strip()
+        token     = body.get('token', '').strip()
+        cluster_id = body.get('cluster_id', '').strip()
+
+        if not k8s_url: return api_error('k8s_url requis', 400)
+        if not token:   return api_error('token requis', 400)
+
+        insecure, proxy_url, use_proxy = _pod_proxy_params(cluster_id)
+        nodes = kubi_service.get_node_metrics(k8s_url, token, insecure, proxy_url, use_proxy)
+        return jsonify({'nodes': nodes})
+
+    except ServiceError as e:
+        return api_error(e.message, e.status)
+
+
 # === Explain (décode un JWT) ===
 
 @kubi_bp.route('/api/kubi/explain', methods=['POST'])

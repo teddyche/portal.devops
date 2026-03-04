@@ -927,6 +927,177 @@ def get_pod_logs(
     }
 
 
+# === K8s API — Metrics (metrics-server) ===
+
+def _parse_cpu_to_millicores(val: str) -> int:
+    """Parse valeur CPU K8s en millicores (nanocores, microcores, millicores, cores)."""
+    val = str(val or '0').strip()
+    if val.endswith('n'): return max(0, int(int(val[:-1]) / 1_000_000))
+    if val.endswith('u'): return max(0, int(int(val[:-1]) / 1_000))
+    if val.endswith('m'): return max(0, int(val[:-1]))
+    try:
+        return max(0, int(float(val) * 1000))
+    except ValueError:
+        return 0
+
+
+def _parse_memory_to_ki(val: str) -> int:
+    """Parse valeur mémoire K8s en KiB."""
+    val = str(val or '0').strip()
+    if val.endswith('Ki'): return int(val[:-2])
+    if val.endswith('Mi'): return int(val[:-2]) * 1024
+    if val.endswith('Gi'): return int(val[:-2]) * 1024 * 1024
+    if val.endswith('Ti'): return int(val[:-2]) * 1024 ** 3
+    if val.endswith('k'):  return int(float(val[:-1]) * 1000 / 1024)
+    if val.endswith('M'):  return int(float(val[:-1]) * 1_000_000 / 1024)
+    if val.endswith('G'):  return int(float(val[:-1]) * 1_000_000_000 / 1024)
+    try:
+        return max(0, int(int(val) / 1024))
+    except ValueError:
+        return 0
+
+
+def _fmt_cpu_m(m: int) -> str:
+    return f'{m / 1000:.2f} c' if m >= 1000 else f'{m}m'
+
+
+def _fmt_mem_ki(ki: int) -> str:
+    if ki >= 1024 * 1024: return f'{ki / (1024 * 1024):.1f} Gi'
+    if ki >= 1024:        return f'{ki / 1024:.0f} Mi'
+    return f'{ki} Ki'
+
+
+def get_pod_metrics(
+    k8s_url: str,
+    token: str,
+    namespace: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """
+    Retourne les métriques CPU/mémoire temps réel des pods d'un namespace.
+    Retourne {} si metrics-server non disponible (dégradation silencieuse).
+    Format : {pod_name: {cpu_m, cpu_display, mem_ki, mem_display}}
+    """
+    if not all([k8s_url, token, namespace]):
+        return {}
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxies = {'http': proxy_url.strip(), 'https': proxy_url.strip()}
+    try:
+        resp = requests.get(
+            f'{k8s_url}/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=10,
+        )
+        if not resp.ok:
+            return {}
+        data = resp.json()
+    except Exception:
+        return {}
+    result = {}
+    for item in data.get('items', []):
+        pod_name = item['metadata']['name']
+        cpu_m  = sum(_parse_cpu_to_millicores(c.get('usage', {}).get('cpu', '0'))
+                     for c in item.get('containers', []))
+        mem_ki = sum(_parse_memory_to_ki(c.get('usage', {}).get('memory', '0'))
+                     for c in item.get('containers', []))
+        result[pod_name] = {
+            'cpu_m':       cpu_m,
+            'cpu_display': _fmt_cpu_m(cpu_m),
+            'mem_ki':      mem_ki,
+            'mem_display': _fmt_mem_ki(mem_ki),
+        }
+    return result
+
+
+def get_node_metrics(
+    k8s_url: str,
+    token: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> list:
+    """
+    Retourne les métriques CPU/mémoire des nœuds avec % d'utilisation vs allocatable.
+    Lève ServiceError si metrics-server non disponible (HTTP 404).
+    """
+    if not all([k8s_url, token]):
+        raise ServiceError('k8s_url et token requis', 400)
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxies = {'http': proxy_url.strip(), 'https': proxy_url.strip()}
+    req_kw = dict(
+        headers={'Authorization': f'Bearer {token}'},
+        verify=not insecure,
+        proxies=proxies,
+        timeout=10,
+    )
+    try:
+        metrics_resp = requests.get(f'{k8s_url}/apis/metrics.k8s.io/v1beta1/nodes', **req_kw)
+        nodes_resp   = requests.get(f'{k8s_url}/api/v1/nodes', **req_kw)
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceError(f'Impossible de joindre l\'API K8s : {e}', 502)
+    except requests.exceptions.Timeout:
+        raise ServiceError('Timeout K8s (10s)', 504)
+    except requests.exceptions.RequestException as e:
+        raise ServiceError(f'Erreur réseau K8s : {e}', 502)
+
+    if metrics_resp.status_code == 404:
+        raise ServiceError(
+            'metrics-server non installé sur ce cluster (API metrics.k8s.io introuvable)', 503
+        )
+    if metrics_resp.status_code == 401:
+        raise ServiceError('Token expiré ou invalide (HTTP 401)', 401)
+    if metrics_resp.status_code == 403:
+        raise ServiceError('Accès refusé aux métriques nœuds (HTTP 403)', 403)
+    if not metrics_resp.ok:
+        raise ServiceError(f'API métriques HTTP {metrics_resp.status_code}', 502)
+
+    # Capacités allocatable par nœud
+    allocatable: dict = {}
+    if nodes_resp.ok:
+        for node in nodes_resp.json().get('items', []):
+            name  = node['metadata']['name']
+            alloc = node.get('status', {}).get('allocatable', {})
+            allocatable[name] = {
+                'cpu_m':  _parse_cpu_to_millicores(alloc.get('cpu', '0')),
+                'mem_ki': _parse_memory_to_ki(alloc.get('memory', '0')),
+            }
+
+    result = []
+    for item in metrics_resp.json().get('items', []):
+        name   = item['metadata']['name']
+        usage  = item.get('usage', {})
+        cpu_m  = _parse_cpu_to_millicores(usage.get('cpu', '0'))
+        mem_ki = _parse_memory_to_ki(usage.get('memory', '0'))
+        alloc  = allocatable.get(name, {})
+        alloc_cpu_m  = alloc.get('cpu_m', 0)
+        alloc_mem_ki = alloc.get('mem_ki', 0)
+        cpu_pct = round(cpu_m  / alloc_cpu_m  * 100, 1) if alloc_cpu_m  > 0 else 0.0
+        mem_pct = round(mem_ki / alloc_mem_ki * 100, 1) if alloc_mem_ki > 0 else 0.0
+        result.append({
+            'name':              name,
+            'cpu_display':       _fmt_cpu_m(cpu_m),
+            'cpu_alloc_display': _fmt_cpu_m(alloc_cpu_m),
+            'cpu_pct':           cpu_pct,
+            'mem_display':       _fmt_mem_ki(mem_ki),
+            'mem_alloc_display': _fmt_mem_ki(alloc_mem_ki),
+            'mem_pct':           mem_pct,
+        })
+    result.sort(key=lambda n: n['cpu_pct'], reverse=True)
+    return result
+
+
 def get_pod_containers(
     k8s_url: str,
     token: str,
