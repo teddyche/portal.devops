@@ -958,12 +958,9 @@ def _parse_memory_to_ki(val: str) -> int:
 
 
 def _fmt_cpu_m(m: int) -> str:
-    return f'{m / 1000:.2f} c' if m >= 1000 else f'{m}m'
-
-
-def _fmt_cpu_cores(m: int) -> str:
-    """Format en 'cores' (même unité que les ResourceQuotas)."""
-    return f'{m / 1000:.2f} cores'
+    """Format CPU en cores — cohérent avec les ResourceQuotas (ex: 0.016 cores, 1.5 cores)."""
+    s = f'{m / 1000:.3f}'.rstrip('0').rstrip('.')
+    return f'{s} cores'
 
 
 def _fmt_mem_ki(ki: int) -> str:
@@ -1154,7 +1151,7 @@ def get_all_namespaces_pod_metrics(
     return {
         ns: {
             'cpu_m':       v['cpu_m'],
-            'cpu_display': _fmt_cpu_cores(v['cpu_m']),   # cohérent avec les quotas
+            'cpu_display': _fmt_cpu_m(v['cpu_m']),
             'mem_ki':      v['mem_ki'],
             'mem_display': _fmt_mem_ki(v['mem_ki']),
         }

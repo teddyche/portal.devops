@@ -982,11 +982,8 @@ async function loadAllQuotas() {
     });
 
     try {
-        // Quotas + métriques cluster-wide en parallèle
-        const [quotasResp, metricsResp] = await Promise.all([
-            post('/api/kubi/quotas/all'),
-            post('/api/kubi/metrics/pods/all'),
-        ]);
+        // 1. Quotas
+        const quotasResp = await post('/api/kubi/quotas/all');
         const data = await quotasResp.json();
         if (!quotasResp.ok) {
             body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
@@ -994,15 +991,9 @@ async function loadAllQuotas() {
         }
         const results = data.results || [];
 
-        if (metricsResp.ok) {
-            const mdata = await metricsResp.json();
-            lastPodsMetrics = mdata.metrics || {};
-        } else {
-            lastPodsMetrics = {};
-        }
-
-        // Fallback par namespace si cluster-wide vide (droits RBAC insuffisants)
-        if (!Object.keys(lastPodsMetrics).length && results.length) {
+        // 2. Métriques par namespace en parallèle (droits namespace suffisants)
+        lastPodsMetrics = {};
+        if (results.length) {
             const perNs = await Promise.all(
                 results.map(r =>
                     post('/api/kubi/metrics/pods', { namespace: r.namespace })
@@ -1010,24 +1001,26 @@ async function loadAllQuotas() {
                         .catch(() => null)
                 )
             );
-            const map = {};
             results.forEach((r, i) => {
                 const m = perNs[i];
                 if (!m || !m.metrics) return;
                 let cpu_m = 0, mem_ki = 0;
                 Object.values(m.metrics).forEach(p => { cpu_m += (p.cpu_m || 0); mem_ki += (p.mem_ki || 0); });
-                if (cpu_m || mem_ki) map[r.namespace] = {
-                    cpu_display: (cpu_m / 1000).toFixed(2) + ' cores',
+                if (cpu_m || mem_ki) lastPodsMetrics[r.namespace] = {
+                    cpu_display: _fmtCpuCores(cpu_m),
                     mem_display: _fmtMemKi(mem_ki),
                 };
             });
-            lastPodsMetrics = map;
         }
 
         renderAllQuotas(results);
     } catch(e) {
         body.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
     }
+}
+
+function _fmtCpuCores(m) {
+    return parseFloat((m / 1000).toFixed(3)) + ' cores';
 }
 
 function _fmtMemKi(ki) {
