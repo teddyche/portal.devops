@@ -244,6 +244,11 @@
         .quota-pct { font-weight: bold; min-width: 36px; text-align: right; }
         .quota-msg { color: #888; font-size: 13px; padding: 8px 0; }
         .quota-err { color: #c62828; font-size: 13px; padding: 8px 0; }
+        .quota-real-usage {
+            font-size: 12px; color: #555; padding: 6px 0 0;
+            border-top: 1px solid #f0f0f0; margin-top: 6px;
+        }
+        .quota-real-usage b { color: #1a237e; }
 
         @media (max-width: 600px) {
             .quota-row { grid-template-columns: 1fr; gap: 3px; }
@@ -296,32 +301,6 @@
         .ing-path        { font-family: monospace; font-size: 12px; color: #555; }
         .describe-empty  { color: #bbb; font-size: 13px; font-style: italic; }
 
-        /* ── Top tab (métriques temps réel) ─────────── */
-        .top-section-title {
-            font-size: 11px; color: #888; text-transform: uppercase;
-            letter-spacing: .5px; font-weight: bold;
-            padding: 12px 20px 6px; border-top: 1px solid #f0f0f0; margin-top: 2px;
-        }
-        .top-section-title:first-child { border-top: none; margin-top: 0; }
-        .top-filters {
-            padding: 8px 20px 10px; background: #f5f7fa;
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        }
-        .top-filters input[type="text"] {
-            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 13px; color: #333; min-width: 180px; flex: 1; max-width: 240px;
-        }
-        .top-filters input[type="text"]:focus { border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.1); }
-        .top-node-card {
-            display: grid; grid-template-columns: 200px 1fr;
-            align-items: center; gap: 12px;
-            padding: 10px 20px; border-bottom: 1px solid #f5f5f5;
-        }
-        .top-node-name { font-size: 12px; font-weight: bold; color: #1a237e; font-family: monospace; word-break: break-all; }
-        .top-metric-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .top-metric-row:last-child { margin-bottom: 0; }
-        .top-metric-label { font-size: 11px; color: #aaa; width: 28px; text-align: right; flex-shrink: 0; }
-        .top-metric-val { font-size: 12px; white-space: nowrap; min-width: 160px; font-family: monospace; }
         .pod-cpu, .pod-mem { text-align: right; font-size: 12px; font-family: monospace; color: #555; }
 
         /* ── Pods tab ────────────────────────────────── */
@@ -599,7 +578,6 @@
             <button class="tab-btn active" id="tab-btn-quotas"   onclick="switchTab('quotas')">📊 Quotas</button>
             <button class="tab-btn"        id="tab-btn-describe" onclick="switchTab('describe')">ℹ️ Infos NS</button>
             <button class="tab-btn"        id="tab-btn-pods"     onclick="switchTab('pods')">🚀 Pods</button>
-            <button class="tab-btn"        id="tab-btn-top"      onclick="switchTab('top')">📈 Top</button>
             <button class="tab-btn"        id="tab-btn-logs"     onclick="switchTab('logs')">📋 Logs</button>
         </div>
 
@@ -642,19 +620,6 @@
                 <span class="pods-count" id="podsCount"></span>
             </div>
             <div class="tab-body" id="podsBody"><div class="quota-msg">Sélectionner un namespace pour afficher les pods.</div></div>
-        </div>
-
-        <!-- ── Onglet Top (métriques) ── -->
-        <div id="tab-top" class="tab-pane">
-            <div class="top-section-title">🖥 Nœuds du cluster</div>
-            <div id="topNodesBody"><div class="quota-msg">Sélectionner un cluster pour afficher les métriques.</div></div>
-            <div class="top-section-title">🚀 Top Pods</div>
-            <div class="top-filters">
-                <input type="text" id="topNsInput" list="topNsList"
-                       placeholder="🔎 Namespace…" oninput="onTopNsInput()" autocomplete="off">
-                <datalist id="topNsList"></datalist>
-            </div>
-            <div id="topPodsBody"><div class="quota-msg">Sélectionner un namespace pour afficher le top pods.</div></div>
         </div>
 
         <!-- ── Onglet Logs ── -->
@@ -722,6 +687,7 @@ let lastKubeconfig = '';
 let lastK8sUrl = '';
 let lastQuotaResults = [];
 let lastPodsData = [];
+let lastPodsMetrics = {};   // {ns: {cpu_display, mem_display}}
 let _lastLogsText = '';
 let _editQuotaState = null; // {ns, quotaName, resources}
 
@@ -968,16 +934,13 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-btn-' + tab).classList.add('active');
     document.getElementById('tab-' + tab).classList.add('active');
-    // Auto-charge les nœuds dès qu'on arrive sur le tab Top
-    if (tab === 'top' && lastK8sUrl && lastToken) loadTopNodes();
 }
 
 function refreshTab() {
     if (_currentTab === 'quotas')   loadAllQuotas();
     if (_currentTab === 'describe') loadDescribe();
     if (_currentTab === 'pods')     loadPods();
-    if (_currentTab === 'top')      { loadTopNodes(); const ns = document.getElementById('topNsInput')?.value.trim(); if (ns) loadTopPods(); }
-    if (_currentTab === 'logs')     loadLogs();
+if (_currentTab === 'logs')     loadLogs();
 }
 
 function openDescribe(ns) {
@@ -994,10 +957,10 @@ function initQuotaSection(clusterName) {
     document.getElementById('nsFilter').value = '';
     document.getElementById('describeNsInput').value = '';
     document.getElementById('podsNsInput').value = '';
-    document.getElementById('topNsInput').value = '';
-    document.getElementById('logsNsInput').value = '';
+document.getElementById('logsNsInput').value = '';
     lastQuotaResults = [];
     lastPodsData = [];
+    lastPodsMetrics = {};
     _currentTab = 'quotas';
     switchTab('quotas');
     card.style.display = 'block';
@@ -1011,20 +974,29 @@ async function loadAllQuotas() {
     document.getElementById('quotaFilters').style.display = 'none';
     body.innerHTML = '<div class="quota-msg">🔍 Découverte des namespaces et chargement des quotas…</div>';
 
+    const payload = JSON.stringify({
+        k8s_url: lastK8sUrl,
+        token: lastToken,
+        cluster_id: selectedCluster?.id || '',
+    });
+    const headers = {'Content-Type': 'application/json'};
+
     try {
-        const r = await fetch('/api/kubi/quotas/all', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                k8s_url: lastK8sUrl,
-                token: lastToken,
-                cluster_id: selectedCluster?.id || '',
-            }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
+        const [quotasResp, metricsResp] = await Promise.all([
+            fetch('/api/kubi/quotas/all',        { method: 'POST', headers, body: payload }),
+            fetch('/api/kubi/metrics/pods/all',  { method: 'POST', headers, body: payload }),
+        ]);
+        const data = await quotasResp.json();
+        if (!quotasResp.ok) {
             body.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
             return;
+        }
+        // Metrics silencieux — {} si metrics-server indisponible
+        if (metricsResp.ok) {
+            const mdata = await metricsResp.json();
+            lastPodsMetrics = mdata.metrics || {};
+        } else {
+            lastPodsMetrics = {};
         }
         renderAllQuotas(data.results || []);
     } catch(e) {
@@ -1082,6 +1054,10 @@ function applyFilters() {
         }).join('');
         if (!quotaHtml) return '';
         rendered++;
+        const realUsage = lastPodsMetrics[r.namespace];
+        const realHtml = realUsage
+            ? '<div class="quota-real-usage">⚡ Usage réel pods — CPU\u00a0: <b>' + esc(realUsage.cpu_display) + '</b> · RAM\u00a0: <b>' + esc(realUsage.mem_display) + '</b></div>'
+            : '';
         return '<div class="quota-ns-block">' +
             '<div class="quota-ns-title">' +
                 '📁 ' + esc(r.namespace) +
@@ -1089,6 +1065,7 @@ function applyFilters() {
                 '<span class="ns-link" onclick="openEditQuota(\'' + esc(r.namespace) + '\')" title="Modifier les quotas">✏️</span>' +
             '</div>' +
             quotaHtml +
+            realHtml +
             '</div>';
     }).filter(Boolean).join('');
 
@@ -1176,8 +1153,7 @@ function initNamespaceSelects() {
     const opts = lastQuotaResults.map(r => '<option value="' + esc(r.namespace) + '">').join('');
     document.getElementById('describeNsList').innerHTML = opts;
     document.getElementById('podsNsList').innerHTML = opts;
-    document.getElementById('topNsList').innerHTML = opts;
-    document.getElementById('logsNsList').innerHTML = opts;
+document.getElementById('logsNsList').innerHTML = opts;
 }
 
 function onDescribeNsInput() {
@@ -1192,125 +1168,6 @@ function onLogsNsInput() {
     } else {
         document.getElementById('logsPodSelect').innerHTML = '<option value="">— Pod —</option>';
         document.getElementById('logsContainerSelect').style.display = 'none';
-    }
-}
-
-function onTopNsInput() {
-    const val = document.getElementById('topNsInput').value.trim();
-    if (lastQuotaResults.some(r => r.namespace === val)) {
-        loadTopPods();
-    } else {
-        document.getElementById('topPodsBody').innerHTML =
-            '<div class="quota-msg">Sélectionner un namespace pour afficher le top pods.</div>';
-    }
-}
-
-async function loadTopNodes() {
-    const topBody = document.getElementById('topNodesBody');
-    if (!lastK8sUrl || !lastToken) return;
-    topBody.innerHTML = '<div class="quota-msg">⏳ Chargement des métriques nœuds…</div>';
-    try {
-        const r = await fetch('/api/kubi/metrics/nodes', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ k8s_url: lastK8sUrl, token: lastToken, cluster_id: selectedCluster?.id || '' }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            topBody.innerHTML = '<div class="quota-err">⚠️ ' + esc(data.error || 'Erreur') + '</div>';
-            return;
-        }
-        renderTopNodes(data.nodes || []);
-    } catch(e) {
-        topBody.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
-    }
-}
-
-function renderTopNodes(nodes) {
-    const topBody = document.getElementById('topNodesBody');
-    if (!nodes.length) {
-        topBody.innerHTML = '<div class="quota-msg">Aucun nœud retourné.</div>';
-        return;
-    }
-    topBody.innerHTML = nodes.map(n => {
-        const cpuColor = n.cpu_pct >= 80 ? '#f44336' : n.cpu_pct >= 60 ? '#ff9800' : '#4caf50';
-        const memColor = n.mem_pct >= 80 ? '#f44336' : n.mem_pct >= 60 ? '#ff9800' : '#4caf50';
-        const cpuW = Math.min(n.cpu_pct, 100).toFixed(0);
-        const memW = Math.min(n.mem_pct, 100).toFixed(0);
-        return '<div class="top-node-card">' +
-            '<div class="top-node-name">🖥 ' + esc(n.name) + '</div>' +
-            '<div>' +
-                '<div class="top-metric-row">' +
-                    '<span class="top-metric-label">CPU</span>' +
-                    '<div class="quota-bar-bg"><div class="quota-bar-fill" style="width:' + cpuW + '%;background:' + cpuColor + '"></div></div>' +
-                    '<span class="top-metric-val" style="color:' + cpuColor + '">' +
-                        n.cpu_pct.toFixed(0) + '% &nbsp; ' + esc(n.cpu_display) + ' / ' + esc(n.cpu_alloc_display) +
-                    '</span>' +
-                '</div>' +
-                '<div class="top-metric-row">' +
-                    '<span class="top-metric-label">Mém</span>' +
-                    '<div class="quota-bar-bg"><div class="quota-bar-fill" style="width:' + memW + '%;background:' + memColor + '"></div></div>' +
-                    '<span class="top-metric-val" style="color:' + memColor + '">' +
-                        n.mem_pct.toFixed(0) + '% &nbsp; ' + esc(n.mem_display) + ' / ' + esc(n.mem_alloc_display) +
-                    '</span>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-    }).join('');
-}
-
-async function loadTopPods() {
-    const ns = document.getElementById('topNsInput').value.trim();
-    const topPodsBody = document.getElementById('topPodsBody');
-    if (!ns || !lastK8sUrl || !lastToken) return;
-    topPodsBody.innerHTML = '<div class="quota-msg">⏳ Chargement…</div>';
-    const payload = JSON.stringify({ k8s_url: lastK8sUrl, token: lastToken, namespace: ns, cluster_id: selectedCluster?.id || '' });
-    try {
-        const [podsResp, metricsResp] = await Promise.all([
-            fetch('/api/kubi/pods',         { method: 'POST', headers: {'Content-Type': 'application/json'}, body: payload }),
-            fetch('/api/kubi/metrics/pods', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: payload }),
-        ]);
-        const podsData    = await podsResp.json();
-        const metricsData = metricsResp.ok ? await metricsResp.json() : { metrics: {} };
-        if (!podsResp.ok) {
-            topPodsBody.innerHTML = '<div class="quota-err">⚠️ ' + esc(podsData.error || 'Erreur') + '</div>';
-            return;
-        }
-        const metrics = metricsData.metrics || {};
-        const pods = (podsData.pods || []).map(p => ({
-            ...p,
-            cpu_m:       metrics[p.name]?.cpu_m       ?? -1,
-            cpu_display: metrics[p.name]?.cpu_display || '—',
-            mem_ki:      metrics[p.name]?.mem_ki      ?? -1,
-            mem_display: metrics[p.name]?.mem_display || '—',
-        })).sort((a, b) => b.cpu_m - a.cpu_m);
-
-        if (!pods.length) {
-            topPodsBody.innerHTML = '<div class="quota-msg">Aucun pod dans ce namespace.</div>';
-            return;
-        }
-        topPodsBody.innerHTML =
-            '<table class="pods-table">' +
-            '<thead><tr>' +
-            '<th>Pod</th><th style="text-align:center">Statut</th>' +
-            '<th style="text-align:right">CPU</th><th style="text-align:right">Mémoire</th>' +
-            '<th style="text-align:center">Restarts</th><th style="text-align:right">Age</th>' +
-            '</tr></thead><tbody>' +
-            pods.map(p => {
-                const cls     = podStatusClass(p.status);
-                const restCls = p.restarts >= 10 ? 'high' : p.restarts >= 3 ? 'med' : '';
-                return '<tr>' +
-                    '<td class="pod-name">' + esc(p.name) + '</td>' +
-                    '<td style="text-align:center"><span class="status-badge ' + cls + '">' + esc(p.status) + '</span></td>' +
-                    '<td class="pod-cpu">' + esc(p.cpu_display) + '</td>' +
-                    '<td class="pod-mem">' + esc(p.mem_display) + '</td>' +
-                    '<td class="pod-restarts ' + restCls + '">' + (p.restarts || 0) + '</td>' +
-                    '<td class="pod-age">' + esc(p.age || '—') + '</td>' +
-                    '</tr>';
-            }).join('') +
-            '</tbody></table>';
-    } catch(e) {
-        topPodsBody.innerHTML = '<div class="quota-err">Erreur réseau : ' + esc(e.message) + '</div>';
     }
 }
 

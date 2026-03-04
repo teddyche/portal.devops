@@ -1098,6 +1098,65 @@ def get_node_metrics(
     return result
 
 
+def get_all_namespaces_pod_metrics(
+    k8s_url: str,
+    token: str,
+    insecure: bool = True,
+    proxy_url: str = '',
+    use_proxy: bool = False,
+) -> dict:
+    """
+    Retourne la consommation CPU/mémoire réelle par namespace en sommant tous les pods.
+    Appelle GET /apis/metrics.k8s.io/v1beta1/pods (cluster-wide, une seule requête).
+    Retourne {} si metrics-server non disponible (dégradation silencieuse).
+    Format : {namespace: {cpu_m, cpu_display, mem_ki, mem_display}}
+    """
+    if not all([k8s_url, token]):
+        return {}
+    k8s_url = k8s_url.rstrip('/')
+    if insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    proxies: Optional[dict] = None
+    if use_proxy and proxy_url.strip():
+        proxies = {'http': proxy_url.strip(), 'https': proxy_url.strip()}
+    try:
+        resp = requests.get(
+            f'{k8s_url}/apis/metrics.k8s.io/v1beta1/pods',
+            headers={'Authorization': f'Bearer {token}'},
+            verify=not insecure,
+            proxies=proxies,
+            timeout=15,
+        )
+        if not resp.ok:
+            return {}
+        data = resp.json()
+    except Exception:
+        return {}
+
+    ns_totals: dict = {}
+    for item in data.get('items', []):
+        ns = item.get('metadata', {}).get('namespace', '')
+        if not ns:
+            continue
+        cpu_m  = sum(_parse_cpu_to_millicores(c.get('usage', {}).get('cpu', '0'))
+                     for c in item.get('containers', []))
+        mem_ki = sum(_parse_memory_to_ki(c.get('usage', {}).get('memory', '0'))
+                     for c in item.get('containers', []))
+        t = ns_totals.setdefault(ns, {'cpu_m': 0, 'mem_ki': 0})
+        t['cpu_m']  += cpu_m
+        t['mem_ki'] += mem_ki
+
+    return {
+        ns: {
+            'cpu_m':       v['cpu_m'],
+            'cpu_display': _fmt_cpu_m(v['cpu_m']),
+            'mem_ki':      v['mem_ki'],
+            'mem_display': _fmt_mem_ki(v['mem_ki']),
+        }
+        for ns, v in ns_totals.items()
+    }
+
+
 def get_pod_containers(
     k8s_url: str,
     token: str,
