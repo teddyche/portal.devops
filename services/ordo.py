@@ -2,19 +2,22 @@
 Service Ordo Plans — référentiel visuel d'ordonnancement par équipe.
 Stocke les boards (ordos) et leurs jobs dans datas/ordo_boards.json.
 """
+import os
 import uuid
 
 from services.store import load_json, save_json, ServiceError
 
-_FILE = 'ordo_boards.json'
+
+def _path(dd: str) -> str:
+    return os.path.join(dd, 'ordo_boards.json')
 
 
 def _load(dd: str) -> dict:
-    return load_json(dd, _FILE, default={'boards': []})
+    return load_json(_path(dd)) or {'boards': []}
 
 
 def _save(dd: str, data: dict) -> None:
-    save_json(dd, _FILE, data)
+    save_json(_path(dd), data)
 
 
 def _new_id() -> str:
