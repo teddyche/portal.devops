@@ -172,6 +172,13 @@ def gitlab_config_page():
     return _page('gitlab_config.html')
 
 
+# === Ordo Plans ===
+
+@pages_bp.route('/ordo')
+def ordo_page():
+    return _page('ordo.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

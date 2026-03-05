@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordo Plans</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f4f8; min-height: 100vh; }
+
+        /* ── Header ─────────────────────────────────── */
+        .top-bar {
+            background: #1a237e; color: white; padding: 14px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
+        }
+        .top-bar h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+        .top-bar a  { color: rgba(255,255,255,.8); text-decoration: none; font-size: 13px; }
+        .top-bar a:hover { color: white; }
+
+        /* ── Container ──────────────────────────────── */
+        .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+        /* ── Buttons ─────────────────────────────────── */
+        .btn {
+            padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; transition: opacity .15s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { opacity: .85; }
+        .btn-primary   { background: #326ce5; color: white; }
+        .btn-secondary { background: #e8eaf6; color: #1a237e; border: 1px solid #c5cae9; }
+        .btn-danger    { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* ── Board list ──────────────────────────────── */
+        .list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .list-header h2 { font-size: 18px; color: #1a237e; }
+
+        .team-section { margin-bottom: 28px; }
+        .team-label {
+            font-size: 11px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: .6px; color: #888; margin-bottom: 12px;
+            padding-bottom: 6px; border-bottom: 2px solid #e8eaf6;
+        }
+        .boards-row { display: flex; flex-wrap: wrap; gap: 14px; }
+
+        .board-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+            padding: 18px 20px; min-width: 220px; max-width: 280px;
+            cursor: pointer; transition: all .15s;
+            border-left: 4px solid #326ce5;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .board-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.14); }
+        .board-card-name { font-size: 15px; font-weight: bold; color: #1a237e; }
+        .board-card-desc { font-size: 12px; color: #777; }
+        .board-card-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 4px;
+        }
+        .board-card-count { font-size: 12px; color: #888; }
+        .board-open-btn {
+            font-size: 12px; color: #326ce5; font-weight: bold; text-decoration: none;
+        }
+
+        .empty-state {
+            text-align: center; padding: 48px 20px; color: #aaa; font-size: 14px;
+        }
+        .empty-state span { font-size: 48px; display: block; margin-bottom: 12px; }
+
+        /* ── Board detail ────────────────────────────── */
+        .board-header {
+            background: white; border-bottom: 2px solid #e8eaf6;
+            padding: 14px 24px; display: flex; align-items: center;
+            justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .board-header-left  { display: flex; align-items: center; gap: 12px; }
+        .board-header-right { display: flex; align-items: center; gap: 8px; }
+        .board-name-badge {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .board-color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        .board-title-text { font-size: 17px; font-weight: bold; color: #1a237e; }
+        .team-chip {
+            background: #e8eaf6; color: #3949ab; border-radius: 20px;
+            padding: 3px 10px; font-size: 12px; font-weight: bold;
+        }
+
+        .view-toggle {
+            display: flex; border: 1px solid #c5cae9; border-radius: 6px; overflow: hidden;
+        }
+        .view-btn {
+            padding: 6px 14px; border: none; background: none; cursor: pointer;
+            font-size: 12px; font-weight: bold; color: #888; transition: all .15s;
+        }
+        .view-btn.active { background: #326ce5; color: white; }
+        .view-btn:not(.active):hover { background: #e8eaf6; color: #1a237e; }
+
+        /* ── Week grid ───────────────────────────────── */
+        .grid-wrap {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            overflow: hidden; margin-top: 20px;
+        }
+        .week-table-wrap { overflow-y: auto; max-height: calc(100vh - 220px); }
+        .week-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        .week-table th {
+            position: sticky; top: 0; z-index: 10;
+            background: #1a237e; color: white;
+            padding: 10px 8px; font-size: 12px; font-weight: bold;
+            text-align: center; white-space: nowrap;
+        }
+        .week-table th:first-child { width: 64px; background: #0d47a1; }
+        .week-table th.today { background: #326ce5; }
+        .week-table th .day-name { font-size: 13px; }
+        .week-table th .day-num  { font-size: 18px; font-weight: bold; margin-top: 2px; }
+
+        .week-table td {
+            border: 1px solid #f0f0f0; vertical-align: top;
+            height: 52px; padding: 3px 4px; font-size: 11px;
+        }
+        .week-table td.hour-label {
+            background: #fafafa; text-align: right; padding-right: 8px;
+            font-size: 12px; color: #999; font-weight: bold; vertical-align: middle;
+            position: sticky; left: 0; z-index: 5; border-right: 2px solid #e0e0e0;
+        }
+        .week-table tr:nth-child(even) td:not(.hour-label) { background: #fafeff; }
+        .week-table tr.midnight-sep td { border-top: 2px solid #c5cae9; }
+
+        /* ── Job chip ────────────────────────────────── */
+        .job-chip {
+            border-radius: 4px; padding: 3px 6px; margin-bottom: 2px;
+            cursor: pointer; transition: opacity .1s;
+            border-left: 3px solid;
+            line-height: 1.3;
+        }
+        .job-chip:hover { opacity: .8; }
+        .job-chip-name {
+            font-weight: bold; font-size: 11px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .job-chip-meta { font-size: 10px; opacity: .8; }
+
+        /* ── Month grid ──────────────────────────────── */
+        .month-nav {
+            display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .month-nav-title { font-size: 16px; font-weight: bold; color: #1a237e; }
+        .month-nav .btn-sm { font-size: 16px; padding: 4px 10px; }
+
+        .month-table { border-collapse: collapse; width: 100%; }
+        .month-table th {
+            padding: 10px; background: #f5f7ff; color: #555;
+            font-size: 12px; text-align: center; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .4px; border: 1px solid #e8eaf6;
+        }
+        .month-table td {
+            border: 1px solid #e8eaf6; padding: 6px; vertical-align: top;
+            height: 90px; width: calc(100% / 7);
+        }
+        .month-day-num {
+            font-size: 13px; font-weight: bold; color: #333; margin-bottom: 4px;
+        }
+        .month-day-num.today { color: #326ce5; }
+        .month-day-num.other-month { color: #ccc; }
+        .month-empty { background: #fafafa; }
+
+        .month-chip {
+            border-radius: 3px; padding: 1px 5px; margin-bottom: 2px;
+            font-size: 10px; font-weight: bold; cursor: pointer;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            border-left: 2px solid;
+        }
+        .month-chip:hover { opacity: .8; }
+
+        /* ── Legend ─────────────────────────────────── */
+        .legend {
+            padding: 12px 16px; background: #fafafa; border-top: 1px solid #f0f0f0;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        }
+        .legend-label { font-size: 11px; color: #888; font-weight: bold; margin-right: 4px; }
+        .legend-item {
+            display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555;
+        }
+        .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+        /* ── No jobs ─────────────────────────────────── */
+        .no-jobs {
+            padding: 40px; text-align: center; color: #bbb; font-size: 14px;
+        }
+        .no-jobs span { font-size: 36px; display: block; margin-bottom: 8px; }
+
+        /* ── Modal ───────────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: white; border-radius: 12px; padding: 28px 30px;
+            min-width: 420px; max-width: 540px; width: 92%;
+            box-shadow: 0 8px 32px rgba(0,0,0,.25); max-height: 90vh; overflow-y: auto;
+        }
+        .modal-title { font-size: 17px; font-weight: bold; color: #1a237e; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block; font-size: 12px; font-weight: bold; color: #555;
+            text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="time"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; transition: border-color .15s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #326ce5; outline: none; box-shadow: 0 0 0 3px rgba(50,108,229,.1);
+        }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* Color swatches */
+        .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .color-swatch {
+            width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+            border: 3px solid transparent; transition: transform .1s;
+        }
+        .color-swatch:hover  { transform: scale(1.15); }
+        .color-swatch.active { border-color: #1a237e; transform: scale(1.1); }
+
+        /* Days checkboxes */
+        .days-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+        .day-cb { display: none; }
+        .day-label {
+            width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; border: 2px solid #e0e0e0; cursor: pointer;
+            font-size: 12px; font-weight: bold; color: #888; transition: all .15s;
+            user-select: none;
+        }
+        .day-cb:checked + .day-label { background: #326ce5; color: white; border-color: #326ce5; }
+
+        /* Month days */
+        .month-days-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .mday-cb { display: none; }
+        .mday-label {
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            border-radius: 4px; border: 1px solid #e0e0e0; cursor: pointer;
+            font-size: 11px; font-weight: bold; color: #888; transition: all .1s;
+            user-select: none;
+        }
+        .mday-cb:checked + .mday-label { background: #326ce5; color: white; border-color: #326ce5; }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+        .modal-feedback {
+            margin-top: 10px; padding: 9px 12px; border-radius: 6px; font-size: 13px; display: none;
+        }
+        .modal-feedback.ok  { background: #e8f5e9; color: #2e7d32; display: block; }
+        .modal-feedback.err { background: #ffebee; color: #c62828; display: block; }
+
+        .freq-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+        .freq-tab {
+            flex: 1; padding: 7px; text-align: center; border-radius: 6px;
+            border: 1px solid #ddd; cursor: pointer; font-size: 12px; font-weight: bold;
+            color: #888; transition: all .15s; user-select: none;
+        }
+        .freq-tab.active { background: #e8eaf6; color: #1a237e; border-color: #c5cae9; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<div class="top-bar">
+    <h1>📅 Ordo Plans</h1>
+    <a href="/">← Accueil</a>
+</div>
+
+<!-- ── Board list view ────────────────────────────────────────────────── -->
+<div id="listView">
+    <div class="container">
+        <div class="list-header">
+            <h2>Référentiels d'ordonnancement</h2>
+            <button class="btn btn-primary" onclick="openBoardModal()">+ Nouvel Ordo</button>
+        </div>
+        <div id="boardsContainer"></div>
+    </div>
+</div>
+
+<!-- ── Board detail view ──────────────────────────────────────────────── -->
+<div id="detailView" style="display:none;">
+    <div class="board-header">
+        <div class="board-header-left">
+            <button class="btn btn-secondary btn-sm" onclick="backToList()">← Retour</button>
+            <div class="board-name-badge">
+                <div class="board-color-dot" id="detailDot"></div>
+                <span class="board-title-text" id="detailTitle"></span>
+                <span class="team-chip" id="detailTeam"></span>
+            </div>
+        </div>
+        <div class="board-header-right">
+            <div class="view-toggle">
+                <button class="view-btn active" id="btnWeek"  onclick="switchView('week')">📅 Semaine</button>
+                <button class="view-btn"        id="btnMonth" onclick="switchView('month')">🗓 Mois</button>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openJobModal()">+ Job</button>
+            <button class="btn btn-secondary btn-sm" onclick="openBoardModal(currentBoard)">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="confirmDeleteBoard()">🗑</button>
+        </div>
+    </div>
+    <div class="container" style="padding-top:16px;">
+        <div id="weekView"  class="grid-wrap"></div>
+        <div id="monthView" class="grid-wrap" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- ── Modal Board ────────────────────────────────────────────────────── -->
+<div id="boardModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeBoardModal()">
+    <div class="modal-box">
+        <div class="modal-title" id="boardModalTitle">Nouvel Ordo</div>
+        <div class="form-group">
+            <label>Nom de l'Ordo *</label>
+            <input type="text" id="bmName" placeholder="ex: AAP - Production">
+        </div>
+        <div class="form-group">
+            <label>Équipe</label>
+            <input type="text" id="bmTeam" placeholder="ex: SRE, PSSIT, CAD…">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="bmDesc" placeholder="Description optionnelle…"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Couleur</label>
+            <div class="color-swatches" id="boardColorSwatches"></div>
+        </div>
+        <div class="modal-feedback" id="boardModalFeedback"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeBoardModal()">Annuler</button>
+            <button class="btn btn-danger"    id="btnDeleteBoard" onclick="confirmDeleteBoard()" style="display:none;">🗑 Supprimer</button>
+            <button class="btn btn-primary"   id="btnSaveBoard"   onclick="saveBoard()">Créer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal Job ──────────────────────────────────────────────────────── -->
+<div id="jobModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeJobModal()">
+    <div class="modal-box">
+        <div class="modal-title" id="jobModalTitle">Nouveau Job</div>
+        <div class="form-group">
+            <label>Nom du job *</label>
+            <input type="text" id="jmName" placeholder="ex: backup_postgresql">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="jmDesc" placeholder="ex: Sauvegarde BDD production">
+        </div>
+        <div class="form-group">
+            <label>Fréquence</label>
+            <div class="freq-tabs">
+                <div class="freq-tab active" data-freq="daily"   onclick="setFreq('daily')">Quotidien</div>
+                <div class="freq-tab"        data-freq="weekly"  onclick="setFreq('weekly')">Hebdomadaire</div>
+                <div class="freq-tab"        data-freq="monthly" onclick="setFreq('monthly')">Mensuel</div>
+            </div>
+            <!-- Weekly days -->
+            <div id="freqWeekly" style="display:none;">
+                <div class="days-grid">
+                    <input type="checkbox" class="day-cb" id="dLun" value="0"><label class="day-label" for="dLun">Lun</label>
+                    <input type="checkbox" class="day-cb" id="dMar" value="1"><label class="day-label" for="dMar">Mar</label>
+                    <input type="checkbox" class="day-cb" id="dMer" value="2"><label class="day-label" for="dMer">Mer</label>
+                    <input type="checkbox" class="day-cb" id="dJeu" value="3"><label class="day-label" for="dJeu">Jeu</label>
+                    <input type="checkbox" class="day-cb" id="dVen" value="4"><label class="day-label" for="dVen">Ven</label>
+                    <input type="checkbox" class="day-cb" id="dSam" value="5"><label class="day-label" for="dSam">Sam</label>
+                    <input type="checkbox" class="day-cb" id="dDim" value="6"><label class="day-label" for="dDim">Dim</label>
+                </div>
+            </div>
+            <!-- Monthly days -->
+            <div id="freqMonthly" style="display:none;" id="freqMonthlyGrid">
+                <div class="month-days-grid" id="monthDaysGrid"></div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="margin:0">
+                <label>Heure *</label>
+                <input type="time" id="jmTime" value="08:00">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>Durée (min)</label>
+                <input type="number" id="jmDuration" value="30" min="1" max="1440">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Couleur</label>
+            <div class="color-swatches" id="jobColorSwatches"></div>
+        </div>
+        <div class="modal-feedback" id="jobModalFeedback"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeJobModal()">Annuler</button>
+            <button class="btn btn-danger"    id="btnDeleteJob" onclick="deleteCurrentJob()" style="display:none;">🗑 Supprimer</button>
+            <button class="btn btn-primary"   id="btnSaveJob"   onclick="saveJob()">Créer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let boards       = [];
+let currentBoard = null;
+let currentView  = 'week';
+let _editBoardId = null;
+let _editJobId   = null;
+let _selectedBoardColor = '#326ce5';
+let _selectedJobColor   = '#4caf50';
+let _currentFreq = 'daily';
+let _monthOffset = 0;  // 0 = mois courant
+
+const BOARD_COLORS = ['#326ce5','#4caf50','#ff9800','#f44336','#9c27b0','#00bcd4','#795548','#607d8b','#e91e63','#009688'];
+const JOB_COLORS   = ['#4caf50','#2196f3','#ff9800','#f44336','#9c27b0','#00bcd4','#ff5722','#607d8b','#e91e63','#8bc34a'];
+const DAYS_FR      = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function init() {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) {
+            const u = await me.json();
+            window._csrf = u.csrf_token || '';
+            patchFetch();
+        }
+    } catch(e) {}
+    buildMonthDaysGrid();
+    await loadBoards();
+}
+
+function patchFetch() {
+    const _orig = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase()))
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        return _orig.call(this, url, opts);
+    };
+}
+
+// ── Load boards ───────────────────────────────────────────────────────────
+async function loadBoards() {
+    const r = await fetch('/api/ordo/boards');
+    if (r.ok) { const d = await r.json(); boards = d.boards || []; }
+    renderBoardList();
+}
+
+// ── Board list ─────────────────────────────────────────────────────────────
+function renderBoardList() {
+    const c = document.getElementById('boardsContainer');
+    if (!boards.length) {
+        c.innerHTML = '<div class="empty-state"><span>📅</span>Aucun Ordo créé — cliquez sur « + Nouvel Ordo » pour commencer.</div>';
+        return;
+    }
+    // Group by team
+    const teams = {};
+    boards.forEach(b => {
+        const t = b.team || 'Non assigné';
+        if (!teams[t]) teams[t] = [];
+        teams[t].push(b);
+    });
+    c.innerHTML = Object.entries(teams).map(([team, blist]) =>
+        '<div class="team-section">' +
+        '<div class="team-label">🏷 ' + esc(team) + '</div>' +
+        '<div class="boards-row">' +
+        blist.map(b => boardCard(b)).join('') +
+        '</div></div>'
+    ).join('');
+}
+
+function boardCard(b) {
+    const n = (b.jobs || []).length;
+    return '<div class="board-card" style="border-left-color:' + esc(b.color) + '" onclick="openBoard(\'' + b.id + '\')">' +
+        '<div class="board-card-name">' + esc(b.name) + '</div>' +
+        (b.description ? '<div class="board-card-desc">' + esc(b.description) + '</div>' : '') +
+        '<div class="board-card-meta">' +
+            '<span class="board-card-count">' + n + ' job' + (n > 1 ? 's' : '') + '</span>' +
+            '<span class="board-open-btn">Ouvrir →</span>' +
+        '</div>' +
+    '</div>';
+}
+
+// ── Open / back ────────────────────────────────────────────────────────────
+function openBoard(id) {
+    currentBoard = boards.find(b => b.id === id) || null;
+    if (!currentBoard) return;
+    document.getElementById('listView').style.display   = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    document.getElementById('detailTitle').textContent  = currentBoard.name;
+    document.getElementById('detailTeam').textContent   = currentBoard.team || '';
+    document.getElementById('detailDot').style.background = currentBoard.color;
+    _monthOffset = 0;
+    renderCurrentView();
+}
+
+function backToList() {
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('listView').style.display   = 'block';
+    currentBoard = null;
+}
+
+// ── View switch ────────────────────────────────────────────────────────────
+function switchView(v) {
+    currentView = v;
+    document.getElementById('btnWeek').classList.toggle('active',  v === 'week');
+    document.getElementById('btnMonth').classList.toggle('active', v === 'month');
+    document.getElementById('weekView').style.display  = v === 'week'  ? 'block' : 'none';
+    document.getElementById('monthView').style.display = v === 'month' ? 'block' : 'none';
+    renderCurrentView();
+}
+
+function renderCurrentView() {
+    if (currentView === 'week')  renderWeekView();
+    else                         renderMonthView();
+}
+
+// ── Week view ──────────────────────────────────────────────────────────────
+function buildWeekGrid(jobs) {
+    const grid = {};
+    for (let h = 0; h < 24; h++) grid[h] = [[], [], [], [], [], [], []];
+    for (const j of jobs) {
+        const hh = parseInt((j.time || '00:00').split(':')[0], 10);
+        const allDays = j.freq_type === 'daily' ? [0,1,2,3,4,5,6] : (j.days || []);
+        for (const d of allDays) {
+            if (d >= 0 && d < 7 && j.freq_type !== 'monthly') grid[hh][d].push(j);
+        }
+    }
+    return grid;
+}
+
+function renderWeekView() {
+    const el = document.getElementById('weekView');
+    const jobs = currentBoard?.jobs || [];
+    const today = new Date().getDay(); // 0=Sun
+    const todayIdx = today === 0 ? 6 : today - 1; // convert to Mon=0
+
+    if (!jobs.length) {
+        el.innerHTML = '<div class="no-jobs"><span>🗓</span>Aucun job — cliquez sur « + Job » pour en ajouter.</div>';
+        return;
+    }
+
+    const grid = buildWeekGrid(jobs);
+    // Find used hours
+    const usedHours = new Set();
+    for (let h = 0; h < 24; h++)
+        if (grid[h].some(col => col.length)) usedHours.add(h);
+
+    let html = '<div class="week-table-wrap"><table class="week-table"><thead><tr>';
+    html += '<th style="width:64px"></th>';
+    DAYS_FR.forEach((d, i) =>
+        html += '<th' + (i === todayIdx ? ' class="today"' : '') + '><div class="day-name">' + d + '</div></th>'
+    );
+    html += '</tr></thead><tbody>';
+
+    for (let h = 0; h < 24; h++) {
+        const hasJobs = grid[h].some(col => col.length);
+        if (!hasJobs && usedHours.size > 0) continue; // skip empty hours (show only first/last empty)
+        html += '<tr' + (h % 6 === 0 && h > 0 ? ' class="midnight-sep"' : '') + '>';
+        html += '<td class="hour-label">' + String(h).padStart(2,'0') + ':00</td>';
+        for (let d = 0; d < 7; d++) {
+            html += '<td>';
+            for (const j of grid[h][d]) {
+                const bgColor = j.color + '22';
+                html += '<div class="job-chip" style="background:' + bgColor + ';border-left-color:' + j.color + ';color:' + j.color + '" ' +
+                    'onclick="openJobModal(\'' + j.id + '\')" title="' + esc(j.description || j.name) + '">' +
+                    '<div class="job-chip-name">' + esc(j.name) + '</div>' +
+                    '<div class="job-chip-meta">' + esc(j.time) + ' · ' + j.duration_min + 'min</div>' +
+                    '</div>';
+            }
+            html += '</td>';
+        }
+        html += '</tr>';
+    }
+
+    // If no hours at all
+    if (!usedHours.size) {
+        el.innerHTML = '<div class="no-jobs"><span>🗓</span>Aucun job hebdomadaire — les jobs mensuels sont visibles en vue Mois.</div>';
+        return;
+    }
+
+    html += '</tbody></table></div>';
+    html += buildLegend(jobs);
+    el.innerHTML = html;
+}
+
+// ── Month view ─────────────────────────────────────────────────────────────
+function renderMonthView() {
+    const el = document.getElementById('monthView');
+    const jobs = currentBoard?.jobs || [];
+    const now   = new Date();
+    const year  = new Date(now.getFullYear(), now.getMonth() + _monthOffset, 1).getFullYear();
+    const month = new Date(now.getFullYear(), now.getMonth() + _monthOffset, 1).getMonth();
+    const today = now.getDate();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month;
+
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // getDay() : 0=Sun, make Mon=0
+    let startDow = firstDay.getDay();
+    startDow = startDow === 0 ? 6 : startDow - 1;
+
+    let html = '<div class="month-nav">' +
+        '<button class="btn btn-secondary btn-sm" onclick="_monthOffset--;renderMonthView()">◀</button>' +
+        '<div class="month-nav-title">' + MONTHS_FR[month] + ' ' + year + '</div>' +
+        '<button class="btn btn-secondary btn-sm" onclick="_monthOffset++;renderMonthView()">▶</button>' +
+        '</div>';
+
+    html += '<table class="month-table"><thead><tr>';
+    DAYS_FR.forEach(d => html += '<th>' + d + '</th>');
+    html += '</tr></thead><tbody>';
+
+    let day = 1;
+    for (let week = 0; week < 6; week++) {
+        if (day > daysInMonth) break;
+        html += '<tr>';
+        for (let dow = 0; dow < 7; dow++) {
+            const cell = week * 7 + dow;
+            if (cell < startDow || day > daysInMonth) {
+                html += '<td class="month-empty"></td>';
+            } else {
+                const isToday = isCurrentMonth && day === today;
+                const dayJobs = getJobsForDay(jobs, dow, day);
+                html += '<td><div class="month-day-num' + (isToday ? ' today' : '') + '">' + day + '</div>';
+                dayJobs.slice(0, 4).forEach(j => {
+                    const bg = j.color + '22';
+                    html += '<div class="month-chip" style="background:' + bg + ';border-left-color:' + j.color + ';color:' + j.color + '" ' +
+                        'onclick="openJobModal(\'' + j.id + '\')" title="' + esc(j.time + ' · ' + j.name) + '">' +
+                        esc(j.time) + ' ' + esc(j.name) + '</div>';
+                });
+                if (dayJobs.length > 4)
+                    html += '<div style="font-size:10px;color:#888;">+' + (dayJobs.length - 4) + ' autres</div>';
+                html += '</td>';
+                day++;
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    html += buildLegend(jobs);
+    el.innerHTML = html;
+}
+
+function getJobsForDay(jobs, dow, dayOfMonth) {
+    return jobs.filter(j => {
+        if (j.freq_type === 'daily')   return true;
+        if (j.freq_type === 'weekly')  return (j.days || []).includes(dow);
+        if (j.freq_type === 'monthly') return (j.days || []).includes(dayOfMonth);
+        return false;
+    });
+}
+
+// ── Legend ─────────────────────────────────────────────────────────────────
+function buildLegend(jobs) {
+    if (!jobs.length) return '';
+    const html = '<div class="legend"><span class="legend-label">Légende :</span>' +
+        jobs.map(j =>
+            '<div class="legend-item">' +
+            '<div class="legend-dot" style="background:' + j.color + '"></div>' +
+            esc(j.name) + ' (' + freqLabel(j) + ')' +
+            '</div>'
+        ).join('') + '</div>';
+    return html;
+}
+
+function freqLabel(j) {
+    if (j.freq_type === 'daily') return 'Quotidien';
+    if (j.freq_type === 'monthly') return 'Mensuel J' + (j.days || []).join(',');
+    const dnames = (j.days || []).map(d => DAYS_FR[d] || d).join(', ');
+    return dnames || 'Hebdo';
+}
+
+// ── Board modal ────────────────────────────────────────────────────────────
+function renderColorSwatches(containerId, colors, selected, onSelect) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = colors.map(c =>
+        '<div class="color-swatch' + (c === selected ? ' active' : '') + '" style="background:' + c + '" ' +
+        'onclick="selectColor(\'' + containerId + '\',\'' + c + '\',\'' + onSelect + '\')" title="' + c + '"></div>'
+    ).join('');
+}
+
+function selectColor(containerId, color, varName) {
+    if (varName === 'board') _selectedBoardColor = color;
+    else                     _selectedJobColor   = color;
+    document.querySelectorAll('#' + containerId + ' .color-swatch').forEach(s => {
+        s.classList.toggle('active', s.style.background === color || s.style.backgroundColor === color);
+    });
+}
+
+function openBoardModal(board) {
+    _editBoardId = board ? board.id : null;
+    _selectedBoardColor = board ? board.color : '#326ce5';
+    document.getElementById('boardModalTitle').textContent = board ? 'Modifier l\'Ordo' : 'Nouvel Ordo';
+    document.getElementById('bmName').value = board ? board.name : '';
+    document.getElementById('bmTeam').value = board ? (board.team || '') : '';
+    document.getElementById('bmDesc').value = board ? (board.description || '') : '';
+    document.getElementById('btnSaveBoard').textContent = board ? 'Enregistrer' : 'Créer';
+    document.getElementById('btnDeleteBoard').style.display = board ? 'inline-flex' : 'none';
+    document.getElementById('boardModalFeedback').className = 'modal-feedback';
+    renderColorSwatches('boardColorSwatches', BOARD_COLORS, _selectedBoardColor, 'board');
+    document.getElementById('boardModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('bmName').focus(), 50);
+}
+
+function closeBoardModal() {
+    document.getElementById('boardModal').style.display = 'none';
+}
+
+async function saveBoard() {
+    const name  = document.getElementById('bmName').value.trim();
+    const team  = document.getElementById('bmTeam').value.trim();
+    const desc  = document.getElementById('bmDesc').value.trim();
+    const fb    = document.getElementById('boardModalFeedback');
+    if (!name) { fb.textContent = 'Nom requis.'; fb.className = 'modal-feedback err'; return; }
+
+    const btn = document.getElementById('btnSaveBoard');
+    btn.disabled = true;
+    try {
+        const method = _editBoardId ? 'PUT' : 'POST';
+        const url    = _editBoardId ? '/api/ordo/boards/' + _editBoardId : '/api/ordo/boards';
+        const r = await fetch(url, {
+            method, headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, team, color: _selectedBoardColor, description: desc }),
+        });
+        const d = await r.json();
+        if (!r.ok) { fb.textContent = d.error || 'Erreur'; fb.className = 'modal-feedback err'; return; }
+        closeBoardModal();
+        await loadBoards();
+        if (_editBoardId) {
+            currentBoard = boards.find(b => b.id === _editBoardId) || null;
+            if (currentBoard) {
+                document.getElementById('detailTitle').textContent = currentBoard.name;
+                document.getElementById('detailTeam').textContent  = currentBoard.team || '';
+                document.getElementById('detailDot').style.background = currentBoard.color;
+            }
+        }
+    } catch(e) {
+        fb.textContent = 'Erreur réseau.'; fb.className = 'modal-feedback err';
+    } finally { btn.disabled = false; }
+}
+
+async function confirmDeleteBoard() {
+    if (!currentBoard) return;
+    if (!confirm('Supprimer l\'Ordo « ' + currentBoard.name + ' » et tous ses jobs ?')) return;
+    closeBoardModal();
+    await fetch('/api/ordo/boards/' + currentBoard.id, { method: 'DELETE' });
+    await loadBoards();
+    backToList();
+}
+
+// ── Job modal ──────────────────────────────────────────────────────────────
+function setFreq(freq) {
+    _currentFreq = freq;
+    document.querySelectorAll('.freq-tab').forEach(t => t.classList.toggle('active', t.dataset.freq === freq));
+    document.getElementById('freqWeekly').style.display  = freq === 'weekly'  ? 'block' : 'none';
+    document.getElementById('freqMonthly').style.display = freq === 'monthly' ? 'block' : 'none';
+}
+
+function buildMonthDaysGrid() {
+    const grid = document.getElementById('monthDaysGrid');
+    let html = '';
+    for (let d = 1; d <= 31; d++) {
+        html += '<input type="checkbox" class="mday-cb" id="md' + d + '" value="' + d + '">' +
+                '<label class="mday-label" for="md' + d + '">' + d + '</label>';
+    }
+    grid.innerHTML = html;
+}
+
+function openJobModal(jobId) {
+    _editJobId          = jobId || null;
+    const job           = jobId ? (currentBoard?.jobs || []).find(j => j.id === jobId) : null;
+    _selectedJobColor   = job ? job.color : '#4caf50';
+    _currentFreq        = job ? (job.freq_type || 'daily') : 'daily';
+
+    document.getElementById('jobModalTitle').textContent = job ? 'Modifier le job' : 'Nouveau Job';
+    document.getElementById('jmName').value     = job ? job.name : '';
+    document.getElementById('jmDesc').value     = job ? (job.description || '') : '';
+    document.getElementById('jmTime').value     = job ? (job.time || '08:00') : '08:00';
+    document.getElementById('jmDuration').value = job ? (job.duration_min || 30) : 30;
+    document.getElementById('btnSaveJob').textContent = job ? 'Enregistrer' : 'Créer';
+    document.getElementById('btnDeleteJob').style.display = job ? 'inline-flex' : 'none';
+    document.getElementById('jobModalFeedback').className = 'modal-feedback';
+
+    // Freq
+    setFreq(_currentFreq);
+    // Reset checkboxes
+    document.querySelectorAll('.day-cb').forEach(cb => cb.checked = job && job.freq_type === 'weekly' && (job.days || []).includes(parseInt(cb.value)));
+    document.querySelectorAll('.mday-cb').forEach(cb => cb.checked = job && job.freq_type === 'monthly' && (job.days || []).includes(parseInt(cb.value)));
+
+    renderColorSwatches('jobColorSwatches', JOB_COLORS, _selectedJobColor, 'job');
+    document.getElementById('jobModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('jmName').focus(), 50);
+}
+
+function closeJobModal() {
+    document.getElementById('jobModal').style.display = 'none';
+}
+
+function getSelectedDays() {
+    if (_currentFreq === 'daily') return [];
+    if (_currentFreq === 'weekly')
+        return [...document.querySelectorAll('.day-cb:checked')].map(c => parseInt(c.value));
+    if (_currentFreq === 'monthly')
+        return [...document.querySelectorAll('.mday-cb:checked')].map(c => parseInt(c.value));
+    return [];
+}
+
+async function saveJob() {
+    const name = document.getElementById('jmName').value.trim();
+    const fb   = document.getElementById('jobModalFeedback');
+    if (!name) { fb.textContent = 'Nom requis.'; fb.className = 'modal-feedback err'; return; }
+
+    const payload = {
+        name,
+        description:  document.getElementById('jmDesc').value.trim(),
+        freq_type:    _currentFreq,
+        days:         getSelectedDays(),
+        time:         document.getElementById('jmTime').value,
+        duration_min: parseInt(document.getElementById('jmDuration').value) || 30,
+        color:        _selectedJobColor,
+    };
+
+    const btn = document.getElementById('btnSaveJob');
+    btn.disabled = true;
+    try {
+        const method = _editJobId ? 'PUT' : 'POST';
+        const url    = _editJobId
+            ? '/api/ordo/boards/' + currentBoard.id + '/jobs/' + _editJobId
+            : '/api/ordo/boards/' + currentBoard.id + '/jobs';
+        const r = await fetch(url, {
+            method, headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) { fb.textContent = d.error || 'Erreur'; fb.className = 'modal-feedback err'; return; }
+        closeJobModal();
+        await reloadCurrentBoard();
+        renderCurrentView();
+    } catch(e) {
+        fb.textContent = 'Erreur réseau.'; fb.className = 'modal-feedback err';
+    } finally { btn.disabled = false; }
+}
+
+async function deleteCurrentJob() {
+    if (!_editJobId || !currentBoard) return;
+    const job = (currentBoard.jobs || []).find(j => j.id === _editJobId);
+    if (!confirm('Supprimer le job « ' + (job?.name || '') + ' » ?')) return;
+    closeJobModal();
+    await fetch('/api/ordo/boards/' + currentBoard.id + '/jobs/' + _editJobId, { method: 'DELETE' });
+    await reloadCurrentBoard();
+    renderCurrentView();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+async function reloadCurrentBoard() {
+    const r = await fetch('/api/ordo/boards');
+    if (r.ok) {
+        const d = await r.json();
+        boards = d.boards || [];
+        currentBoard = boards.find(b => b.id === currentBoard?.id) || null;
+    }
+}
+
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
