@@ -274,6 +274,46 @@
             color: #888; transition: all .15s; user-select: none;
         }
         .freq-tab.active { background: #e8eaf6; color: #1a237e; border-color: #c5cae9; }
+
+        /* ── Print / PDF export ──────────────────────────────── */
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+            .top-bar, .board-header, .modal-overlay,
+            #listView, #btnWeek, #btnMonth,
+            .month-nav button { display: none !important; }
+
+            body { background: white !important; }
+
+            .print-header {
+                display: block !important;
+                padding: 0 0 10px; margin-bottom: 14px;
+                border-bottom: 2px solid #1a237e;
+            }
+            .print-header-title { font-size: 18px; font-weight: bold; color: #1a237e; }
+            .print-header-meta  { font-size: 12px; color: #777; margin-top: 3px; }
+
+            #detailView   { display: block !important; }
+            .container    { padding: 0 !important; max-width: 100% !important; }
+            .grid-wrap    { box-shadow: none !important; border: 1px solid #ddd; margin-top: 8px !important; }
+            .week-table-wrap { max-height: none !important; overflow: visible !important; }
+            .week-table   { font-size: 10px !important; }
+            .week-table th { position: static !important; font-size: 10px !important; padding: 6px 4px !important; }
+            .week-table td { height: 36px !important; }
+            .week-table td.hour-label { position: static !important; font-size: 10px !important; }
+            .job-chip     { font-size: 9px !important; padding: 1px 3px !important; margin-bottom: 1px !important; }
+            .job-chip-name { font-size: 9px !important; }
+            .job-chip-meta { font-size: 8px !important; }
+
+            .month-table  { font-size: 10px !important; }
+            .month-table th { font-size: 10px !important; padding: 6px 4px !important; }
+            .month-table td { height: 60px !important; }
+            .month-chip   { font-size: 9px !important; }
+
+            .legend { border-top: 1px solid #ddd !important; padding: 6px 8px !important; font-size: 10px !important; }
+            .legend-dot { width: 8px !important; height: 8px !important; }
+        }
+        .print-header { display: none; }
     </style>
 </head>
 <body>
@@ -311,12 +351,17 @@
                 <button class="view-btn active" id="btnWeek"  onclick="switchView('week')">📅 Semaine</button>
                 <button class="view-btn"        id="btnMonth" onclick="switchView('month')">🗓 Mois</button>
             </div>
+            <button class="btn btn-secondary btn-sm" onclick="exportPDF()" title="Exporter en PDF">🖨 PDF</button>
             <button class="btn btn-primary btn-sm" onclick="openJobModal()">+ Job</button>
             <button class="btn btn-secondary btn-sm" onclick="openBoardModal(currentBoard)">✏️</button>
             <button class="btn btn-danger btn-sm" onclick="confirmDeleteBoard()">🗑</button>
         </div>
     </div>
     <div class="container" style="padding-top:16px;">
+        <div class="print-header" id="printHeader">
+            <div class="print-header-title" id="printTitle"></div>
+            <div class="print-header-meta"  id="printMeta"></div>
+        </div>
         <div id="weekView"  class="grid-wrap"></div>
         <div id="monthView" class="grid-wrap" style="display:none;"></div>
     </div>
@@ -863,7 +908,20 @@ async function deleteCurrentJob() {
     renderCurrentView();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Export PDF ─────────────────────────────────────────────────────────────
+function exportPDF() {
+    if (!currentBoard) return;
+    const now  = new Date();
+    const view = currentView === 'week' ? 'Vue Semaine' : 'Vue Mois';
+    const date = now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    document.getElementById('printTitle').textContent =
+        '📅 Ordo Plans — ' + currentBoard.name + (currentBoard.team ? '  ·  ' + currentBoard.team : '');
+    document.getElementById('printMeta').textContent =
+        view + '  ·  Exporté le ' + date;
+    window.print();
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 async function reloadCurrentBoard() {
     const r = await fetch('/api/ordo/boards');
     if (r.ok) {
