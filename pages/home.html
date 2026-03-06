@@ -23,7 +23,7 @@
         }
 
         .card {
-            background: white; border-radius: 12px; padding: 32px;
+            background: white; border-radius: 12px; padding: 28px 32px 32px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             transition: transform 0.15s, box-shadow 0.15s;
             cursor: pointer; text-decoration: none; color: inherit;
@@ -34,32 +34,47 @@
             transform: translateY(-4px);
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
-        .card h2 { font-size: 24px; margin-bottom: 10px; }
+        .card h2 { font-size: 22px; margin-bottom: 8px; }
         .card .desc { color: #666; font-size: 14px; line-height: 1.5; }
 
-        .card-sre { border-top-color: #1565c0; }
+        /* ── Card logo ─────────────────────────────────────────── */
+        .card-logo {
+            width: 54px; height: 54px; border-radius: 14px;
+            margin-bottom: 18px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; flex-shrink: 0;
+        }
+        .card-logo img {
+            width: 30px; height: 30px;
+            filter: brightness(0) invert(1);
+            display: block;
+        }
+        .card-logo-lg img { width: 34px; height: 34px; }
+
+        /* ── Card colors ───────────────────────────────────────── */
+        .card-sre   { border-top-color: #1565c0; }
         .card-sre h2 { color: #1565c0; }
 
         .card-pssit { border-top-color: #2e7d32; }
         .card-pssit h2 { color: #2e7d32; }
 
-        .card-ldap { border-top-color: #e65100; }
+        .card-ldap  { border-top-color: #e65100; }
         .card-ldap h2 { color: #e65100; }
 
-        .card-cad { border-top-color: #6a1b9a; }
+        .card-cad   { border-top-color: #6a1b9a; }
         .card-cad h2 { color: #6a1b9a; }
 
-        .card-kubi { border-top-color: #326ce5; }
+        .card-kubi  { border-top-color: #326ce5; }
         .card-kubi h2 { color: #326ce5; }
 
         .card-gitlab { border-top-color: #e24329; }
         .card-gitlab h2 { color: #e24329; }
 
-        .card-ordo { border-top-color: #1a237e; }
+        .card-ordo  { border-top-color: #1a237e; }
         .card-ordo h2 { color: #1a237e; }
 
-        .card-aap { border-top-color: #c62828; }
-        .card-aap h2 { color: #c62828; }
+        .card-aap   { border-top-color: #ee0000; }
+        .card-aap h2 { color: #ee0000; }
 
         .card-clpass { border-top-color: #6a1b9a; }
         .card-clpass h2 { color: #6a1b9a; }
@@ -85,46 +100,75 @@
         </div>
     </div>
     <div class="grid">
+
         <a class="card card-sre" href="/sre">
+            <div class="card-logo" style="background:#1565c0">
+                <img src="/img/prometheus.svg" alt="SRE">
+            </div>
             <h2>SRE</h2>
-            <div class="desc">Clusters SRE - Tableaux de bord et autoscores</div>
+            <div class="desc">Clusters SRE &mdash; Tableaux de bord et autoscores</div>
         </a>
+
         <a class="card card-pssit" href="/pssit">
+            <div class="card-logo" style="background:#2e7d32">⚙️</div>
             <h2>PSSIT APP</h2>
             <div class="desc">Gestion des op&eacute;rations applicatives</div>
         </a>
+
         <a class="card card-ldap" href="/ldap-checker">
+            <div class="card-logo" style="background:#e65100">👥</div>
             <h2>LDAP CHECKER</h2>
             <div class="desc">Recherches Active Directory</div>
         </a>
+
         <a class="card card-cad" href="/cad">
+            <div class="card-logo" style="background:#6a1b9a">📐</div>
             <h2>CAD</h2>
-            <div class="desc">Comit&eacute; d'Architecture et Design</div>
+            <div class="desc">Conseil Adoption Des Plateformes</div>
         </a>
+
         <a class="card card-kubi" href="/kubi">
+            <div class="card-logo card-logo-lg" style="background:#326ce5">
+                <img src="/img/kubernetes.svg" alt="Kubernetes">
+            </div>
             <h2>KUBI IHM</h2>
             <div class="desc">G&eacute;n&eacute;ration de tokens Kubernetes via Kubi</div>
         </a>
+
         <a class="card card-gitlab" href="/gitlab">
-            <h2>🦊 GITLAB IHM</h2>
+            <div class="card-logo card-logo-lg" style="background:#e24329">
+                <img src="/img/gitlab.svg" alt="GitLab">
+            </div>
+            <h2>GITLAB IHM</h2>
             <div class="desc">Supervision des tokens &mdash; expiration, projets, groupes</div>
         </a>
+
         <a class="card card-ordo" href="/ordo">
-            <h2>📅 Ordo Plans</h2>
+            <div class="card-logo" style="background:#1a237e">📅</div>
+            <h2>Ordo Plans</h2>
             <div class="desc">R&eacute;f&eacute;rentiel visuel d'ordonnancement &mdash; jobs AAP, Ctrl-M, batchs par &eacute;quipe</div>
         </a>
+
         <a class="card card-aap" href="/aap-checker">
-            <h2>🔍 AAP Checker</h2>
+            <div class="card-logo card-logo-lg" style="background:#ee0000">
+                <img src="/img/ansible.svg" alt="Ansible Automation Platform">
+            </div>
+            <h2>AAP Checker</h2>
             <div class="desc">Supervision multi-instances AAP/AWX &mdash; snapshots chiffr&eacute;s, jobs, tokens, inventories, diff</div>
         </a>
+
         <a class="card card-clpass" href="/clpass">
-            <h2>🔐 CLPASS</h2>
+            <div class="card-logo" style="background:#4a148c">🔐</div>
+            <h2>CLPASS</h2>
             <div class="desc">Gestionnaire de secrets chiffr&eacute;s AES-256-GCM &mdash; coffres par &eacute;quipe, passwords, tokens SSH, notes s&eacute;curis&eacute;es</div>
         </a>
+
         <a class="card card-api-docs" id="card-api-docs" href="/api/docs/" style="display:none" target="_blank" rel="noopener">
+            <div class="card-logo" style="background:#f57c00">📖</div>
             <h2>API Docs</h2>
             <div class="desc">Documentation interactive Swagger / OpenAPI</div>
         </a>
+
     </div>
 </div>
 
