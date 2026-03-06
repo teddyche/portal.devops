@@ -1,6 +1,15 @@
 import os
+import re
 from datetime import datetime
-from services.store import load_json, save_json, safe_id, ServiceError
+from services.store import load_json, save_json, ServiceError
+
+
+def _make_id(name: str, existing: list) -> str:
+    slug = re.sub(r'[^a-z0-9]+', '_', name.lower().strip())[:40].strip('_') or 'item'
+    cid, i = slug, 2
+    while cid in existing:
+        cid = f'{slug}_{i}'; i += 1
+    return cid
 
 def _links_path(d): return os.path.join(d, 'annuaire', 'links.json')
 def _cats_path(d):  return os.path.join(d, 'annuaire', 'categories.json')
@@ -27,7 +36,7 @@ def list_categories(datas_dir):
 
 def create_category(datas_dir, name, icon='🔗', color='#607d8b', order=99):
     cats = load_json(_cats_path(datas_dir)) or []
-    cid = safe_id(name, [c['id'] for c in cats])
+    cid = _make_id(name, [c['id'] for c in cats])
     cat = {'id': cid, 'name': name, 'icon': icon, 'color': color, 'order': int(order)}
     cats.append(cat)
     save_json(_cats_path(datas_dir), cats)
@@ -61,7 +70,7 @@ def list_links(datas_dir, user_id, team_ids, is_admin=False):
 def create_link(datas_dir, name, url, description='', category_id='', tags=None,
                 team_id='', is_public=True, created_by=''):
     links = load_json(_links_path(datas_dir)) or []
-    lid = safe_id(name, [l['id'] for l in links])
+    lid = _make_id(name, [l['id'] for l in links])
     link = {
         'id': lid, 'name': name, 'url': url,
         'description': description or '', 'category_id': category_id or '',
