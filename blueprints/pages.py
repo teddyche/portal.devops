@@ -193,6 +193,13 @@ def clpass_page():
     return _page('clpass.html')
 
 
+# === Annuaire ===
+
+@pages_bp.route('/annuaire')
+def annuaire_page():
+    return _page('annuaire.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

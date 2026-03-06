@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annuaire — AppOps</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f7f8; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* ── Top bar ─────────────────────────────────────────── */
+        .top-bar {
+            background: #006064; color: white; height: 52px; padding: 0 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 200;
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 10px; }
+        .top-bar-left h1 { font-size: 18px; letter-spacing: .5px; }
+        .top-bar a { color: rgba(255,255,255,.75); text-decoration: none; font-size: 13px; }
+        .top-bar a:hover { color: white; }
+        .top-bar-right { display: flex; align-items: center; gap: 14px; }
+
+        /* ── App layout ──────────────────────────────────────── */
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+
+        /* ── Sidebar ─────────────────────────────────────────── */
+        .sidebar {
+            width: 220px; flex-shrink: 0; background: white;
+            border-right: 2px solid #e0f2f1; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .sidebar-search { padding: 12px 12px 8px; border-bottom: 1px solid #e0f2f1; }
+        .sidebar-search input {
+            width: 100%; padding: 7px 10px; border: 1px solid #80cbc4; border-radius: 6px;
+            font-size: 12px; outline: none;
+        }
+        .sidebar-search input:focus { border-color: #00838f; box-shadow: 0 0 0 2px rgba(0,131,143,.12); }
+        .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 9px 14px; cursor: pointer; transition: background .1s;
+            border-left: 3px solid transparent; font-size: 13px; color: #333;
+        }
+        .nav-item:hover { background: #e0f7fa; }
+        .nav-item.active { background: #e0f2f1; border-left-color: #00838f; font-weight: bold; color: #006064; }
+        .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; width: 22px; text-align: center; }
+        .nav-item .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .nav-item .nav-count {
+            font-size: 11px; background: #e0f2f1; color: #00838f;
+            padding: 1px 7px; border-radius: 10px; font-weight: bold; flex-shrink: 0;
+        }
+        .nav-item.active .nav-count { background: #00838f; color: white; }
+
+        .nav-sep { margin: 8px 12px; border: none; border-top: 1px solid #e0f7fa; }
+
+        .sidebar-footer { padding: 10px 12px; border-top: 1px solid #e0f2f1; }
+
+        /* ── Main ────────────────────────────────────────────── */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 12px 20px; background: white; border-bottom: 1px solid #e0f2f1;
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;
+        }
+        .toolbar-search {
+            flex: 1; padding: 8px 14px; border: 1.5px solid #80cbc4; border-radius: 8px;
+            font-size: 13px; outline: none; min-width: 200px; max-width: 400px;
+        }
+        .toolbar-search:focus { border-color: #00838f; box-shadow: 0 0 0 2px rgba(0,131,143,.1); }
+        .toolbar-spacer { flex: 1; }
+        .view-btns { display: flex; border: 1.5px solid #b2dfdb; border-radius: 7px; overflow: hidden; }
+        .view-btn { padding: 6px 11px; border: none; background: white; cursor: pointer; font-size: 15px; transition: background .1s; }
+        .view-btn.active { background: #e0f2f1; }
+        .view-btn:hover:not(.active) { background: #f0fafa; }
+
+        /* Content area */
+        .content { flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* ── Card grid ───────────────────────────────────────── */
+        .cards-grid {
+            display: grid; gap: 14px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+        .link-card {
+            background: white; border-radius: 10px; padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08); cursor: pointer;
+            transition: transform .12s, box-shadow .12s; position: relative;
+            border-top: 3px solid #ccc; text-decoration: none; color: inherit;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .link-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.13); }
+        .link-card-header { display: flex; align-items: flex-start; gap: 10px; }
+        .link-favicon {
+            width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px; font-weight: bold; color: white; overflow: hidden;
+        }
+        .link-favicon img { width: 20px; height: 20px; object-fit: contain; }
+        .link-info { flex: 1; min-width: 0; }
+        .link-name { font-size: 14px; font-weight: bold; color: #004d40; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .link-domain { font-size: 11px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .link-desc { font-size: 12px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .link-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+        .link-tags { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+        .link-tag { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: #e0f7fa; color: #006064; }
+        .link-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+        .link-card:hover .link-actions { opacity: 1; }
+        .link-fav-btn {
+            background: none; border: none; cursor: pointer; font-size: 16px;
+            padding: 2px; line-height: 1; transition: transform .1s;
+        }
+        .link-fav-btn:hover { transform: scale(1.2); }
+        .link-act-btn {
+            background: #f5f5f5; border: none; border-radius: 5px; cursor: pointer;
+            padding: 4px 7px; font-size: 12px; transition: background .1s;
+        }
+        .link-act-btn:hover { background: #e0e0e0; }
+        .link-act-btn.del:hover { background: #ffcdd2; }
+
+        /* ── List view ───────────────────────────────────────── */
+        .links-table { width: 100%; border-collapse: collapse; }
+        .links-table th {
+            text-align: left; padding: 8px 12px; font-size: 11px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .5px; color: #00838f;
+            border-bottom: 2px solid #e0f2f1; background: white; position: sticky; top: 0; z-index: 5;
+        }
+        .links-table td { padding: 10px 12px; border-bottom: 1px solid #f5f5f5; font-size: 13px; vertical-align: middle; }
+        .links-table tr:hover td { background: #f0fafa; }
+        .list-favicon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: white; flex-shrink: 0; }
+        .list-name { font-weight: bold; color: #004d40; }
+        .list-url { color: #00838f; font-size: 12px; text-decoration: none; }
+        .list-url:hover { text-decoration: underline; }
+        .list-actions { display: flex; gap: 4px; }
+
+        /* ── Section header ──────────────────────────────────── */
+        .section-title {
+            font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px;
+            color: #00838f; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: #e0f2f1; }
+
+        /* ── Empty ───────────────────────────────────────────── */
+        .empty-state { text-align: center; padding: 60px 20px; color: #b2dfdb; }
+        .empty-state .em { font-size: 56px; margin-bottom: 14px; }
+        .empty-state .em-text { font-size: 15px; font-weight: bold; color: #80cbc4; }
+        .empty-state .em-sub { font-size: 13px; color: #b2dfdb; margin-top: 6px; }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        .btn {
+            padding: 7px 14px; border-radius: 7px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; transition: opacity .15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { opacity: .85; }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary   { background: #00838f; color: white; }
+        .btn-secondary { background: #e0f2f1; color: #006064; border: 1px solid #80cbc4; }
+        .btn-danger    { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-xs { padding: 3px 7px; font-size: 11px; }
+
+        /* ── Modals ──────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45);
+            display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+        }
+        .modal-overlay.hidden { display: none !important; }
+        .modal {
+            background: white; border-radius: 12px; width: 100%; max-width: 520px;
+            max-height: 90vh; display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
+        }
+        .modal-lg { max-width: 640px; }
+        .modal-header {
+            padding: 18px 22px 14px; border-bottom: 2px solid #e0f2f1;
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+        }
+        .modal-header h3 { font-size: 16px; color: #006064; }
+        .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 14px 22px; border-top: 1px solid #e0f2f1; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+        /* ── Forms ───────────────────────────────────────────── */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 8px 12px; border: 1.5px solid #80cbc4; border-radius: 7px;
+            font-size: 13px; outline: none; font-family: inherit;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: #00838f; box-shadow: 0 0 0 2px rgba(0,131,143,.1);
+        }
+        .form-group textarea { resize: vertical; min-height: 70px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group.full { grid-column: span 2; }
+        .form-hint { font-size: 11px; color: #999; margin-top: 4px; }
+
+        /* Color swatches */
+        .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .c-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all .1s; }
+        .c-swatch:hover { transform: scale(1.1); }
+        .c-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px #006064; }
+
+        /* Icon picker */
+        .icon-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .icon-opt {
+            width: 36px; height: 36px; border: 2px solid #e0f2f1; border-radius: 7px;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+            cursor: pointer; transition: all .1s;
+        }
+        .icon-opt:hover { border-color: #80cbc4; background: #e0f7fa; }
+        .icon-opt.active { border-color: #00838f; background: #e0f2f1; }
+
+        /* Tags */
+        .tags-wrap { display: flex; gap: 6px; }
+        .tags-wrap input { flex: 1; }
+        .tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .tag-rm { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; padding: 3px 8px; border-radius: 8px; background: #e0f7fa; color: #006064; cursor: pointer; }
+        .tag-rm .x { color: #c62828; font-size: 13px; font-weight: bold; }
+
+        /* URL test */
+        .url-row { display: flex; gap: 6px; }
+        .url-row input { flex: 1; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; background: #323232; color: white;
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 9999;
+            opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #2e7d32; }
+        .toast.error   { background: #c62828; }
+        .toast.warning { background: #f57f17; }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+    <div class="top-bar-left">
+        <span style="font-size:20px">🔗</span>
+        <h1>Annuaire</h1>
+    </div>
+    <div class="top-bar-right">
+        <span id="user-info" style="font-size:13px;opacity:.8"></span>
+        <a href="/">← Accueil</a>
+    </div>
+</div>
+
+<!-- App body -->
+<div class="app-body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search" placeholder="🔍 Filtrer les catégories…" oninput="filterSidebar()">
+        </div>
+        <div class="sidebar-nav" id="sidebar-nav"></div>
+        <div class="sidebar-footer" id="admin-footer" style="display:none">
+            <button class="btn btn-secondary btn-sm" style="width:100%" onclick="openManageCats()">⚙️ Gérer les catégories</button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input class="toolbar-search" type="text" id="main-search" placeholder="🔍 Rechercher un lien…" oninput="renderLinks()">
+            <div class="view-btns">
+                <button class="view-btn active" id="vb-cards" onclick="setView('cards')" title="Grille">⊞</button>
+                <button class="view-btn" id="vb-list" onclick="setView('list')" title="Liste">☰</button>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <button class="btn btn-primary" onclick="openAddLink()">+ Ajouter un lien</button>
+        </div>
+
+        <!-- Content -->
+        <div class="content" id="content-area">
+            <div class="empty-state">
+                <div class="em">🔗</div>
+                <div class="em-text">Chargement…</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL — Ajouter / Modifier lien ════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-link">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="link-modal-title">+ Nouveau lien</h3>
+            <button class="modal-close" onclick="closeModal('modal-link')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Nom *</label>
+                <input type="text" id="lk-name" placeholder="ex: GitLab CAGIP, Kibana Prod…">
+            </div>
+            <div class="form-group">
+                <label>URL *</label>
+                <div class="url-row">
+                    <input type="text" id="lk-url" placeholder="https://…">
+                    <button class="btn btn-secondary btn-sm" onclick="testUrl()" title="Ouvrir dans un nouvel onglet">🔗 Tester</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="lk-desc" rows="2" placeholder="Description courte (optionnel)…"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Catégorie</label>
+                    <select id="lk-cat"></select>
+                </div>
+                <div class="form-group">
+                    <label>Équipe (optionnel)</label>
+                    <select id="lk-team">
+                        <option value="">— Public (visible par tous) —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tags</label>
+                <div class="tags-wrap">
+                    <input type="text" id="lk-tag-input" placeholder="Ajouter un tag…" onkeydown="addTagKb(event)">
+                    <button class="btn btn-secondary btn-sm" onclick="addLinkTag()">+ Tag</button>
+                </div>
+                <div class="tags-row" id="lk-tags-display"></div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="lk-public" checked style="width:auto;margin-right:5px">
+                    Visible par tous (public)
+                </label>
+                <div class="form-hint">Décochez pour restreindre à l'équipe sélectionnée.</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-link')">Annuler</button>
+            <button class="btn btn-primary" id="link-submit-btn" onclick="submitLink()">Ajouter</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL — Gérer catégories ═══════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-cats">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3>⚙️ Gérer les catégories</h3>
+            <button class="modal-close" onclick="closeModal('modal-cats')">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="cat-list-mgr" style="margin-bottom:18px"></div>
+            <hr style="border:none;border-top:1px solid #e0f2f1;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:bold;color:#006064;margin-bottom:10px">➕ Nouvelle catégorie</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="nc-name" placeholder="ex: Ticketing…">
+                </div>
+                <div class="form-group">
+                    <label>Ordre</label>
+                    <input type="number" id="nc-order" value="99" min="1" max="999">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Icône</label>
+                <div class="icon-grid" id="icon-grid">
+                    <div class="icon-opt active" data-icon="🔗" onclick="selectIcon(this)">🔗</div>
+                    <div class="icon-opt" data-icon="🛠️" onclick="selectIcon(this)">🛠️</div>
+                    <div class="icon-opt" data-icon="📖" onclick="selectIcon(this)">📖</div>
+                    <div class="icon-opt" data-icon="📊" onclick="selectIcon(this)">📊</div>
+                    <div class="icon-opt" data-icon="☁️" onclick="selectIcon(this)">☁️</div>
+                    <div class="icon-opt" data-icon="🔐" onclick="selectIcon(this)">🔐</div>
+                    <div class="icon-opt" data-icon="🌐" onclick="selectIcon(this)">🌐</div>
+                    <div class="icon-opt" data-icon="🚀" onclick="selectIcon(this)">🚀</div>
+                    <div class="icon-opt" data-icon="📡" onclick="selectIcon(this)">📡</div>
+                    <div class="icon-opt" data-icon="🗄️" onclick="selectIcon(this)">🗄️</div>
+                    <div class="icon-opt" data-icon="🤝" onclick="selectIcon(this)">🤝</div>
+                    <div class="icon-opt" data-icon="⚙️" onclick="selectIcon(this)">⚙️</div>
+                    <div class="icon-opt" data-icon="🔍" onclick="selectIcon(this)">🔍</div>
+                    <div class="icon-opt" data-icon="📋" onclick="selectIcon(this)">📋</div>
+                    <div class="icon-opt" data-icon="🏗️" onclick="selectIcon(this)">🏗️</div>
+                    <div class="icon-opt" data-icon="💡" onclick="selectIcon(this)">💡</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Couleur</label>
+                <div class="color-swatches" id="nc-colors">
+                    <div class="c-swatch active" style="background:#00838f" data-c="#00838f" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#1565c0" data-c="#1565c0" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#2e7d32" data-c="#2e7d32" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#e65100" data-c="#e65100" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#6a1b9a" data-c="#6a1b9a" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#c62828" data-c="#c62828" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#795548" data-c="#795548" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#607d8b" data-c="#607d8b" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#f57c00" data-c="#f57c00" onclick="selectCatColor(this)"></div>
+                    <div class="c-swatch" style="background:#1a237e" data-c="#1a237e" onclick="selectCatColor(this)"></div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="createCategory()">Créer la catégorie</button>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-cats')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ── State ─────────────────────────────────────────────────── */
+let _csrf = '', _user = null, _teams = [], _isAdmin = false;
+let _cats = [], _links = [], _favs = [];
+let _selCat = '__all__';   // sidebar selection
+let _view = localStorage.getItem('annuaire-view') || 'cards';
+let _editLinkId = null;
+let _linkTags = [];
+
+/* ── Init ──────────────────────────────────────────────────── */
+(async function init() {
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) { location.href = '/login'; return; }
+        const u = await r.json();
+        _user = u; _csrf = u.csrf_token || '';
+        _teams = u.teams || [];
+        _isAdmin = u.is_admin || u.role === 'superadmin';
+        document.getElementById('user-info').textContent = u.display_name;
+        if (_isAdmin) document.getElementById('admin-footer').style.display = '';
+
+        const orig = window.fetch;
+        window.fetch = (url, opts = {}) => {
+            if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase()))
+                opts.headers = Object.assign({'X-CSRF-Token': _csrf}, opts.headers || {});
+            return orig.call(this, url, opts);
+        };
+
+        await Promise.all([loadCats(), loadLinks()]);
+        setView(_view, false);
+    } catch(e) { location.href = '/login'; }
+})();
+
+/* ── Fetch ─────────────────────────────────────────────────── */
+async function api(method, path, body) {
+    const opts = { method, headers: {'Content-Type': 'application/json'} };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(path, opts);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `Erreur ${r.status}`);
+    return d;
+}
+
+async function loadCats() {
+    const d = await api('GET', '/api/annuaire/categories');
+    _cats = d.categories || [];
+}
+
+async function loadLinks() {
+    const d = await api('GET', '/api/annuaire/links');
+    _links = d.links || [];
+    _favs = _links.filter(l => l.is_favorite).map(l => l.id);
+}
+
+/* ── Toast ─────────────────────────────────────────────────── */
+function toast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast' + (type ? ' ' + type : '');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ── Modals ────────────────────────────────────────────────── */
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+});
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+function filterSidebar() {
+    const q = document.getElementById('sidebar-search').value.toLowerCase();
+    document.querySelectorAll('.nav-item[data-cat]').forEach(el => {
+        el.style.display = (el.dataset.label || '').toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function renderSidebar() {
+    const counts = {};
+    _links.forEach(l => {
+        counts['__all__'] = (counts['__all__'] || 0) + 1;
+        const c = l.category_id || 'autre';
+        counts[c] = (counts[c] || 0) + 1;
+    });
+    const favCount = _favs.length;
+
+    let html = `
+        <div class="nav-item ${_selCat === '__favs__' ? 'active' : ''}" data-cat="__favs__" data-label="favoris" onclick="selectCat('__favs__')">
+            <span class="nav-icon">⭐</span>
+            <span class="nav-label">Favoris</span>
+            ${favCount ? `<span class="nav-count">${favCount}</span>` : ''}
+        </div>
+        <div class="nav-item ${_selCat === '__all__' ? 'active' : ''}" data-cat="__all__" data-label="tous" onclick="selectCat('__all__')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Tous les liens</span>
+            ${counts['__all__'] ? `<span class="nav-count">${counts['__all__']}</span>` : ''}
+        </div>
+        <hr class="nav-sep">`;
+
+    for (const cat of _cats) {
+        const active = _selCat === cat.id ? ' active' : '';
+        const cnt = counts[cat.id] || 0;
+        html += `<div class="nav-item${active}" data-cat="${esc(cat.id)}" data-label="${esc(cat.name)}" onclick="selectCat('${esc(cat.id)}')">
+            <span class="nav-icon">${cat.icon}</span>
+            <span class="nav-label">${esc(cat.name)}</span>
+            ${cnt ? `<span class="nav-count">${cnt}</span>` : ''}
+        </div>`;
+    }
+    document.getElementById('sidebar-nav').innerHTML = html;
+}
+
+function selectCat(cid) {
+    _selCat = cid;
+    renderSidebar();
+    renderLinks();
+}
+
+/* ── Main ──────────────────────────────────────────────────── */
+function setView(v, save = true) {
+    _view = v;
+    if (save) localStorage.setItem('annuaire-view', v);
+    document.getElementById('vb-cards').classList.toggle('active', v === 'cards');
+    document.getElementById('vb-list').classList.toggle('active', v === 'list');
+    renderLinks();
+}
+
+function getFilteredLinks() {
+    const q = document.getElementById('main-search').value.toLowerCase();
+    return _links.filter(l => {
+        const matchCat =
+            _selCat === '__all__' ? true :
+            _selCat === '__favs__' ? l.is_favorite :
+            (l.category_id || 'autre') === _selCat;
+        const matchQ = !q ||
+            (l.name || '').toLowerCase().includes(q) ||
+            (l.url || '').toLowerCase().includes(q) ||
+            (l.description || '').toLowerCase().includes(q) ||
+            (l.tags || []).join(' ').toLowerCase().includes(q);
+        return matchCat && matchQ;
+    });
+}
+
+function renderLinks() {
+    renderSidebar();
+    const links = getFilteredLinks();
+    const area = document.getElementById('content-area');
+
+    if (!links.length) {
+        area.innerHTML = `<div class="empty-state">
+            <div class="em">🔍</div>
+            <div class="em-text">Aucun lien trouvé</div>
+            <div class="em-sub">Modifiez votre recherche ou ajoutez un nouveau lien</div>
+        </div>`;
+        return;
+    }
+
+    if (_view === 'cards') renderCards(links, area);
+    else renderList(links, area);
+}
+
+/* ── Card view ─────────────────────────────────────────────── */
+function renderCards(links, area) {
+    // Group by category when viewing "all"
+    let html = '';
+    if (_selCat === '__all__' || _selCat === '__favs__') {
+        const bycat = {};
+        for (const l of links) {
+            const cid = l.category_id || 'autre';
+            if (!bycat[cid]) bycat[cid] = [];
+            bycat[cid].push(l);
+        }
+        for (const [cid, items] of Object.entries(bycat)) {
+            const cat = _cats.find(c => c.id === cid) || {name: 'Autre', icon: '🔗'};
+            html += `<div class="section-title">${cat.icon} ${esc(cat.name)}</div>`;
+            html += `<div class="cards-grid" style="margin-bottom:24px">`;
+            for (const l of items) html += cardHtml(l);
+            html += `</div>`;
+        }
+    } else {
+        html += `<div class="cards-grid">`;
+        for (const l of links) html += cardHtml(l);
+        html += `</div>`;
+    }
+    area.innerHTML = html;
+}
+
+function cardHtml(l) {
+    const cat = _cats.find(c => c.id === l.category_id) || {color: '#607d8b'};
+    const fav = l.is_favorite ? '⭐' : '☆';
+    const domain = getDomain(l.url);
+    const faviconHtml = faviconEl(l.url, cat.color, l.name);
+    const tags = (l.tags || []).map(t => `<span class="link-tag">${esc(t)}</span>`).join('');
+    const canEdit = _isAdmin || l.created_by === (_user?.id);
+    const editDel = canEdit ? `
+        <button class="link-act-btn" onclick="editLink('${l.id}');event.stopPropagation()" title="Modifier">✏️</button>
+        <button class="link-act-btn del" onclick="deleteLink('${l.id}');event.stopPropagation()" title="Supprimer">🗑</button>` : '';
+    return `<div class="link-card" style="border-top-color:${cat.color}" onclick="openUrl('${esc(l.url)}')">
+        <div class="link-card-header">
+            ${faviconHtml}
+            <div class="link-info">
+                <div class="link-name">${esc(l.name)}</div>
+                <div class="link-domain">${esc(domain)}</div>
+            </div>
+            <button class="link-fav-btn" onclick="toggleFav('${l.id}');event.stopPropagation()" title="${l.is_favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}">${fav}</button>
+        </div>
+        ${l.description ? `<div class="link-desc">${esc(l.description)}</div>` : ''}
+        <div class="link-footer">
+            <div class="link-tags">${tags}</div>
+            <div class="link-actions">${editDel}</div>
+        </div>
+    </div>`;
+}
+
+/* ── List view ─────────────────────────────────────────────── */
+function renderList(links, area) {
+    let rows = '';
+    for (const l of links) {
+        const cat = _cats.find(c => c.id === l.category_id) || {color: '#607d8b', icon: '🔗'};
+        const fav = l.is_favorite ? '⭐' : '☆';
+        const domain = getDomain(l.url);
+        const tags = (l.tags || []).map(t => `<span class="link-tag">${esc(t)}</span>`).join('');
+        const canEdit = _isAdmin || l.created_by === (_user?.id);
+        rows += `<tr>
+            <td style="width:36px">
+                <div class="list-favicon" style="background:${cat.color}">${cat.icon}</div>
+            </td>
+            <td><span class="list-name">${esc(l.name)}</span></td>
+            <td><a class="list-url" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(domain)}</a></td>
+            <td style="max-width:220px;color:#666;font-size:12px">${esc(l.description || '')}</td>
+            <td><div style="display:flex;flex-wrap:wrap;gap:3px">${tags}</div></td>
+            <td style="width:120px">
+                <div class="list-actions">
+                    <button class="btn btn-xs" onclick="toggleFav('${l.id}')" style="background:none;border:none;font-size:15px;cursor:pointer">${fav}</button>
+                    ${canEdit ? `
+                    <button class="btn btn-secondary btn-xs" onclick="editLink('${l.id}')">✏️</button>
+                    <button class="btn btn-danger btn-xs" onclick="deleteLink('${l.id}')">🗑</button>` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }
+    area.innerHTML = `<table class="links-table">
+        <thead><tr>
+            <th></th><th>Nom</th><th>URL</th><th>Description</th><th>Tags</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ── Favicon helpers ───────────────────────────────────────── */
+function getDomain(url) {
+    try { return new URL(url).hostname; } catch(e) { return url || ''; }
+}
+
+function faviconEl(url, color, name) {
+    const domain = getDomain(url);
+    const letter = (name || domain || '?')[0].toUpperCase();
+    if (!domain) return `<div class="link-favicon" style="background:${color}">${letter}</div>`;
+    const src = `/api/annuaire/favicon?domain=${encodeURIComponent(domain)}`;
+    return `<div class="link-favicon" style="background:${color}">
+        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32"
+             onerror="this.parentNode.innerHTML='${letter}'"
+             onload="this.parentNode.style.background='#f5f5f5'"
+             alt="" style="width:20px;height:20px;object-fit:contain">
+    </div>`;
+}
+
+function openUrl(url) {
+    window.open(url, '_blank', 'noopener');
+}
+
+/* ── Favorites ─────────────────────────────────────────────── */
+async function toggleFav(lid) {
+    try {
+        const r = await api('POST', `/api/annuaire/links/${lid}/favorite`, {});
+        const l = _links.find(x => x.id === lid);
+        if (l) l.is_favorite = r.added;
+        if (r.added) { if (!_favs.includes(lid)) _favs.push(lid); }
+        else _favs = _favs.filter(f => f !== lid);
+        renderLinks();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Add / Edit link ───────────────────────────────────────── */
+function openAddLink() {
+    _editLinkId = null; _linkTags = [];
+    document.getElementById('link-modal-title').textContent = '+ Nouveau lien';
+    document.getElementById('link-submit-btn').textContent = 'Ajouter';
+    document.querySelectorAll('#modal-link input[type=text], #modal-link textarea')
+        .forEach(el => el.value = '');
+    document.getElementById('lk-public').checked = true;
+    document.getElementById('lk-tags-display').innerHTML = '';
+    fillLinkSelects();
+    openModal('modal-link');
+    setTimeout(() => document.getElementById('lk-name').focus(), 80);
+}
+
+function editLink(lid) {
+    const l = _links.find(x => x.id === lid);
+    if (!l) return;
+    _editLinkId = lid; _linkTags = [...(l.tags || [])];
+    document.getElementById('link-modal-title').textContent = '✏️ Modifier le lien';
+    document.getElementById('link-submit-btn').textContent = 'Enregistrer';
+    fillLinkSelects(l);
+    document.getElementById('lk-name').value = l.name || '';
+    document.getElementById('lk-url').value  = l.url  || '';
+    document.getElementById('lk-desc').value = l.description || '';
+    document.getElementById('lk-public').checked = !!l.is_public;
+    renderLinkTagsDisplay();
+    openModal('modal-link');
+}
+
+function fillLinkSelects(l) {
+    const catSel = document.getElementById('lk-cat');
+    catSel.innerHTML = '<option value="">— Sans catégorie —</option>' +
+        _cats.map(c => `<option value="${esc(c.id)}"${l && l.category_id === c.id ? ' selected' : ''}>${c.icon} ${esc(c.name)}</option>`).join('');
+
+    const teamSel = document.getElementById('lk-team');
+    teamSel.innerHTML = '<option value="">— Public (visible par tous) —</option>' +
+        _teams.map(t => `<option value="${esc(t.id)}"${l && l.team_id === t.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+}
+
+async function submitLink() {
+    const name = document.getElementById('lk-name').value.trim();
+    const url  = document.getElementById('lk-url').value.trim();
+    if (!name) { toast('Nom requis', 'warning'); return; }
+    if (!url)  { toast('URL requise', 'warning'); return; }
+    const body = {
+        name, url,
+        description: document.getElementById('lk-desc').value,
+        category_id: document.getElementById('lk-cat').value,
+        team_id: document.getElementById('lk-team').value,
+        is_public: document.getElementById('lk-public').checked,
+        tags: _linkTags,
+    };
+    try {
+        if (_editLinkId) {
+            const upd = await api('PUT', `/api/annuaire/links/${_editLinkId}`, body);
+            const idx = _links.findIndex(l => l.id === _editLinkId);
+            if (idx !== -1) _links[idx] = { ..._links[idx], ...upd };
+            toast('Lien modifié ✓', 'success');
+        } else {
+            const created = await api('POST', '/api/annuaire/links', body);
+            created.is_favorite = false;
+            _links.push(created);
+            toast('Lien ajouté ✓', 'success');
+        }
+        closeModal('modal-link');
+        renderLinks();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+async function deleteLink(lid) {
+    if (!confirm('Supprimer ce lien ?')) return;
+    try {
+        await api('DELETE', `/api/annuaire/links/${lid}`, {});
+        _links = _links.filter(l => l.id !== lid);
+        _favs  = _favs.filter(f => f !== lid);
+        toast('Lien supprimé', 'success');
+        renderLinks();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+function testUrl() {
+    const url = document.getElementById('lk-url').value.trim();
+    if (url) window.open(url, '_blank', 'noopener');
+}
+
+/* ── Tags ──────────────────────────────────────────────────── */
+function addTagKb(e) { if (e.key === 'Enter') { e.preventDefault(); addLinkTag(); } }
+function addLinkTag() {
+    const inp = document.getElementById('lk-tag-input');
+    const val = inp.value.trim().toLowerCase();
+    if (val && !_linkTags.includes(val)) { _linkTags.push(val); renderLinkTagsDisplay(); }
+    inp.value = '';
+}
+function removeLinkTag(t) { _linkTags = _linkTags.filter(x => x !== t); renderLinkTagsDisplay(); }
+function renderLinkTagsDisplay() {
+    document.getElementById('lk-tags-display').innerHTML =
+        _linkTags.map(t => `<span class="tag-rm">${esc(t)} <span class="x" onclick="removeLinkTag('${esc(t)}')">×</span></span>`).join('');
+}
+
+/* ── Category management ───────────────────────────────────── */
+function openManageCats() {
+    renderCatManager();
+    openModal('modal-cats');
+}
+
+function renderCatManager() {
+    document.getElementById('cat-list-mgr').innerHTML = _cats.map(c => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0fafa">
+            <span style="font-size:20px;width:28px;text-align:center">${c.icon}</span>
+            <div style="flex:1">
+                <span style="font-weight:bold;font-size:13px">${esc(c.name)}</span>
+                <span style="font-size:11px;color:#999;margin-left:8px">ordre: ${c.order}</span>
+            </div>
+            <div style="width:16px;height:16px;border-radius:50%;background:${c.color}"></div>
+            <button class="btn btn-danger btn-xs" onclick="deleteCategory('${c.id}')">🗑</button>
+        </div>`).join('') || '<div style="color:#bbb;font-size:13px;padding:8px">Aucune catégorie</div>';
+}
+
+function selectIcon(el) {
+    document.querySelectorAll('.icon-opt').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+}
+function selectCatColor(el) {
+    document.querySelectorAll('#nc-colors .c-swatch').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+}
+
+async function createCategory() {
+    const name = document.getElementById('nc-name').value.trim();
+    if (!name) { toast('Nom requis', 'warning'); return; }
+    const icon  = document.querySelector('.icon-opt.active')?.dataset.icon || '🔗';
+    const color = document.querySelector('#nc-colors .c-swatch.active')?.dataset.c || '#607d8b';
+    const order = parseInt(document.getElementById('nc-order').value) || 99;
+    try {
+        const cat = await api('POST', '/api/annuaire/categories', {name, icon, color, order});
+        _cats.push(cat);
+        _cats.sort((a, b) => (a.order||99) - (b.order||99));
+        document.getElementById('nc-name').value = '';
+        renderCatManager();
+        renderLinks();
+        toast('Catégorie créée ✓', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+async function deleteCategory(cid) {
+    if (!confirm('Supprimer cette catégorie ? Les liens associés seront déplacés dans "Autre".')) return;
+    try {
+        await api('DELETE', `/api/annuaire/categories/${cid}`, {});
+        _cats = _cats.filter(c => c.id !== cid);
+        _links.forEach(l => { if (l.category_id === cid) l.category_id = 'autre'; });
+        renderCatManager();
+        renderLinks();
+        toast('Catégorie supprimée', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Helpers ───────────────────────────────────────────────── */
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
