@@ -20,7 +20,7 @@
         .top-bar a:hover { color: white; }
 
         /* ── Container ───────────────────────────────────────── */
-        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .container { max-width: 1500px; margin: 0 auto; padding: 24px; }
 
         /* ── Buttons ─────────────────────────────────────────── */
         .btn {
@@ -51,13 +51,10 @@
             padding-bottom: 6px; border-bottom: 2px solid #e8eaf6;
         }
         .cards-row { display: flex; flex-wrap: wrap; gap: 14px; }
-
         .inst-card {
-            background: white; border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+            background: white; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08);
             padding: 18px 20px; min-width: 240px; max-width: 300px;
-            cursor: pointer; transition: all .15s;
-            border-left: 4px solid #c62828;
+            cursor: pointer; transition: all .15s; border-left: 4px solid #c62828;
             display: flex; flex-direction: column; gap: 8px;
         }
         .inst-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.14); }
@@ -65,11 +62,7 @@
         .inst-card-desc { font-size: 12px; color: #777; }
         .inst-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
         .inst-card-snaps { font-size: 12px; color: #888; }
-        .env-badge {
-            font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 20px;
-            background: #e8eaf6; color: #3949ab;
-        }
-
+        .env-badge { font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 20px; background: #e8eaf6; color: #3949ab; }
         .empty-state { text-align: center; padding: 48px 20px; color: #aaa; font-size: 14px; }
         .empty-state span { font-size: 48px; display: block; margin-bottom: 12px; }
 
@@ -83,7 +76,6 @@
         .detail-header-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .inst-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
         .inst-title { font-size: 16px; font-weight: bold; color: #1a237e; }
-
         .snap-select {
             padding: 6px 10px; border: 1px solid #c5cae9; border-radius: 6px;
             font-size: 12px; background: white; color: #333; cursor: pointer;
@@ -109,10 +101,21 @@
         .stats-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
         .stat-card {
             background: white; border-radius: 8px; padding: 14px 20px;
-            box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 120px; text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 110px; text-align: center;
+            border-top: 3px solid #e0e0e0;
         }
         .stat-val { font-size: 26px; font-weight: bold; }
         .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+
+        /* ── Table controls ──────────────────────────────────── */
+        .table-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .table-search {
+            padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; flex: 1; min-width: 200px; max-width: 360px;
+        }
+        .table-search:focus { outline: none; border-color: #c62828; box-shadow: 0 0 0 2px rgba(198,40,40,.1); }
+        .table-filter-select { padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; }
+        .filter-count { font-size: 12px; color: #888; }
 
         /* ── Data table ──────────────────────────────────────── */
         .table-wrap { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
@@ -120,125 +123,119 @@
         .data-table th {
             background: #1a237e; color: white; padding: 10px 14px;
             font-size: 11px; text-align: left; white-space: nowrap; font-weight: bold;
+            cursor: pointer; user-select: none;
         }
+        .data-table th:hover { background: #283593; }
+        .data-table th .sa { margin-left: 4px; opacity: .5; font-size: 9px; }
+        .data-table th.sa-asc .sa::after  { content: '▲'; opacity: 1; }
+        .data-table th.sa-desc .sa::after { content: '▼'; opacity: 1; }
+        .data-table th:not(.sa-asc):not(.sa-desc) .sa::after { content: '⇅'; }
         .data-table td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
         .data-table tr:last-child td { border-bottom: none; }
         .data-table tr:hover td { background: #fafeff; }
 
+        /* ── Naming convention highlight ─────────────────────── */
+        .nc-warn  { background: #fff3e0 !important; }
+        .nc-error { background: #ffebee !important; }
+        .nc-bw { display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#ff8c00;color:white;margin-left:4px;vertical-align:middle; }
+        .nc-be { display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#c62828;color:white;margin-left:4px;vertical-align:middle; }
+
         /* ── Badges ──────────────────────────────────────────── */
-        .badge-status {
-            display: inline-block; padding: 2px 8px; border-radius: 20px;
-            font-size: 11px; font-weight: bold;
-        }
-        .badge-ok    { background: #e8f5e9; color: #2e7d32; }
-        .badge-fail  { background: #ffebee; color: #c62828; }
-        .badge-warn  { background: #fff8e1; color: #e65100; }
-        .badge-info  { background: #e3f2fd; color: #1565c0; }
-        .badge-grey  { background: #f5f5f5; color: #757575; }
+        .badge-status { display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold; }
+        .badge-ok    { background:#e8f5e9;color:#2e7d32; }
+        .badge-fail  { background:#ffebee;color:#c62828; }
+        .badge-warn  { background:#fff8e1;color:#e65100; }
+        .badge-info  { background:#e3f2fd;color:#1565c0; }
+        .badge-grey  { background:#f5f5f5;color:#757575; }
 
         /* ── Rate bar ────────────────────────────────────────── */
-        .rate-wrap { display: flex; align-items: center; gap: 6px; }
-        .rate-bar  { width: 60px; height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
-        .rate-fill { height: 100%; border-radius: 3px; }
-        .rate-txt  { font-size: 11px; font-weight: bold; }
+        .rate-wrap { display:flex;align-items:center;gap:6px; }
+        .rate-bar  { width:60px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden; }
+        .rate-fill { height:100%;border-radius:3px; }
+        .rate-txt  { font-size:11px;font-weight:bold; }
 
-        /* ── Token expiry alert ───────────────────────────────── */
+        /* ── Token expiry ─────────────────────────────────────── */
         .token-expired  { background: #ffebee !important; }
         .token-expiring { background: #fff8e1 !important; }
-        .days-badge { font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 12px; }
+        .days-badge { font-size:11px;font-weight:bold;padding:2px 7px;border-radius:12px; }
 
         /* ── No snap / no data ───────────────────────────────── */
         .no-snap {
-            text-align: center; padding: 60px 20px; color: #bbb;
-            background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            text-align:center;padding:60px 20px;color:#bbb;
+            background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);
         }
-        .no-snap span { font-size: 48px; display: block; margin-bottom: 12px; }
-        .no-data { text-align: center; padding: 30px; color: #bbb; font-size: 13px; }
+        .no-snap span { font-size:48px;display:block;margin-bottom:12px; }
+        .no-data { text-align:center;padding:30px;color:#bbb;font-size:13px; }
+
+        /* ── Cockpit ─────────────────────────────────────────── */
+        .cockpit-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:4px; }
+        @media(max-width:900px){.cockpit-grid{grid-template-columns:1fr;}}
+        .cockpit-card { background:white;border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.08); }
+        .cockpit-card h3 { font-size:14px;font-weight:bold;color:#1a237e;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #e8eaf6; }
+        .hbar-item { margin-bottom:10px; }
+        .hbar-label { font-size:12px;color:#333;margin-bottom:3px;display:flex;justify-content:space-between; }
+        .hbar-track { height:10px;background:#f0f0f0;border-radius:5px;overflow:hidden; }
+        .hbar-fill  { height:100%;border-radius:5px;transition:width .3s; }
+        .nc-summary-row { display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
+        .nc-summary-row:last-child{border-bottom:none;}
+        .tok-gauge-row { display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap; }
+        .tok-gauge { flex:1;min-width:80px;text-align:center;padding:12px 8px;border-radius:8px; }
+        .tok-gauge-val { font-size:24px;font-weight:bold; }
+        .tok-gauge-lbl { font-size:11px;margin-top:2px; }
 
         /* ── Modals ──────────────────────────────────────────── */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
-        }
+        .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center; }
         .modal-box {
-            background: white; border-radius: 12px; padding: 28px 30px;
-            min-width: 400px; max-width: 560px; width: 92%;
-            box-shadow: 0 8px 32px rgba(0,0,0,.25); max-height: 90vh; overflow-y: auto;
+            background:white;border-radius:12px;padding:28px 30px;
+            min-width:400px;max-width:560px;width:92%;
+            box-shadow:0 8px 32px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;
         }
-        .modal-lg { max-width: 860px; }
-        .modal-title { font-size: 17px; font-weight: bold; color: #1a237e; margin-bottom: 20px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label {
-            display: block; font-size: 12px; font-weight: bold; color: #555;
-            text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
-        }
-        .form-group input, .form-group select, .form-group textarea {
-            width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
-            font-size: 14px; transition: border-color .15s;
-        }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            border-color: #c62828; outline: none; box-shadow: 0 0 0 3px rgba(198,40,40,.1);
-        }
-        .form-group textarea { resize: vertical; min-height: 60px; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .modal-feedback { margin-top: 10px; padding: 9px 12px; border-radius: 6px; font-size: 13px; display: none; }
-        .modal-feedback.ok  { background: #e8f5e9; color: #2e7d32; display: block; }
-        .modal-feedback.err { background: #ffebee; color: #c62828; display: block; }
+        .modal-lg  { max-width:860px; }
+        .modal-xl  { max-width:1050px; }
+        .modal-title { font-size:17px;font-weight:bold;color:#1a237e;margin-bottom:20px; }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block;font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px; }
+        .form-group input,.form-group select,.form-group textarea { width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;transition:border-color .15s; }
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus { border-color:#c62828;outline:none;box-shadow:0 0 0 3px rgba(198,40,40,.1); }
+        .form-group textarea { resize:vertical;min-height:60px; }
+        .modal-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:20px; }
+        .modal-feedback { margin-top:10px;padding:9px 12px;border-radius:6px;font-size:13px;display:none; }
+        .modal-feedback.ok  { background:#e8f5e9;color:#2e7d32;display:block; }
+        .modal-feedback.err { background:#ffebee;color:#c62828;display:block; }
+        .color-swatches { display:flex;gap:8px;flex-wrap:wrap;margin-top:6px; }
+        .color-swatch { width:28px;height:28px;border-radius:6px;cursor:pointer;border:3px solid transparent;transition:transform .1s; }
+        .color-swatch:hover { transform:scale(1.15); }
+        .color-swatch.active { border-color:#1a237e;transform:scale(1.1); }
+        .enc-key-box { font-family:monospace;font-size:12px;background:#f5f5f5;padding:12px;border-radius:6px;word-break:break-all;border:1px solid #e0e0e0;user-select:all; }
+        .copy-hint { font-size:11px;color:#888;margin-top:6px; }
 
-        /* Color swatches */
-        .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-        .color-swatch {
-            width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
-            border: 3px solid transparent; transition: transform .1s;
-        }
-        .color-swatch:hover  { transform: scale(1.15); }
-        .color-swatch.active { border-color: #1a237e; transform: scale(1.1); }
+        /* Diff */
+        .diff-section { margin-bottom:16px; }
+        .diff-section-title { font-size:13px;font-weight:bold;color:#1a237e;padding:6px 10px;background:#e8eaf6;border-radius:4px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between; }
+        .diff-item { padding:3px 10px;border-radius:4px;margin-bottom:2px;font-size:12px; }
+        .diff-item.add { background:#e8f5e9;color:#2e7d32; }
+        .diff-item.rem { background:#ffebee;color:#c62828; }
+        .diff-counts { font-size:11px;color:#888; }
 
-        /* Config modal — enc_key */
-        .enc-key-box {
-            font-family: monospace; font-size: 12px; background: #f5f5f5;
-            padding: 12px; border-radius: 6px; word-break: break-all;
-            border: 1px solid #e0e0e0; user-select: all;
-        }
-        .copy-hint { font-size: 11px; color: #888; margin-top: 6px; }
+        /* Naming config */
+        .nc-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+        @media(max-width:700px){.nc-grid{grid-template-columns:1fr;}}
+        .nc-section-title { font-size:12px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.3px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #eee; }
+        .nc-hint { font-size:11px;color:#999;margin-top:3px; }
 
-        /* Diff modal */
-        .diff-section { margin-bottom: 16px; }
-        .diff-section-title {
-            font-size: 13px; font-weight: bold; color: #1a237e;
-            padding: 6px 10px; background: #e8eaf6; border-radius: 4px;
-            margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
-        }
-        .diff-added   { color: #2e7d32; font-size: 12px; }
-        .diff-removed { color: #c62828; font-size: 12px; }
-        .diff-item {
-            padding: 3px 10px; border-radius: 4px; margin-bottom: 2px; font-size: 12px;
-        }
-        .diff-item.add { background: #e8f5e9; color: #2e7d32; }
-        .diff-item.rem { background: #ffebee; color: #c62828; }
-        .diff-counts { font-size: 11px; color: #888; }
-
-        /* Upload area */
-        #snapFileInput { display: none; }
-
-        /* Snap meta bar */
-        .snap-meta {
-            background: #e8eaf6; border-radius: 6px; padding: 8px 14px;
-            font-size: 12px; color: #3949ab; margin-bottom: 16px;
-            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
-        }
-        .snap-meta b { color: #1a237e; }
+        #snapFileInput { display:none; }
+        .snap-meta { background:#e8eaf6;border-radius:6px;padding:8px 14px;font-size:12px;color:#3949ab;margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center; }
+        .snap-meta b { color:#1a237e; }
     </style>
 </head>
 <body>
 
-<!-- ── Top bar ──────────────────────────────────────────────────────────────── -->
 <div class="top-bar">
     <h1>🔍 AAP Checker</h1>
     <a href="/">← Accueil</a>
 </div>
 
-<!-- ── List view ────────────────────────────────────────────────────────────── -->
+<!-- List view -->
 <div id="listView">
     <div class="container">
         <div class="list-header">
@@ -252,7 +249,7 @@
     </div>
 </div>
 
-<!-- ── Detail view ──────────────────────────────────────────────────────────── -->
+<!-- Detail view -->
 <div id="detailView" style="display:none;">
     <div class="detail-header">
         <div class="detail-header-left">
@@ -262,21 +259,23 @@
             <span class="env-badge" id="detailEnv"></span>
         </div>
         <div class="detail-header-right">
-            <select class="snap-select" id="snapSelect" onchange="onSnapSelect(this.value)" title="Sélectionner un snapshot">
+            <select class="snap-select" id="snapSelect" onchange="onSnapSelect(this.value)">
                 <option value="">— Sélectionner un snapshot —</option>
             </select>
-            <button class="btn btn-success btn-sm" onclick="importSnapshot()" title="Importer un snapshot .enc">📥 Importer</button>
-            <button class="btn btn-secondary btn-sm" id="btnDiff" onclick="openDiffModal()" title="Comparer deux snapshots" disabled>🔄 Comparer</button>
-            <button class="btn btn-secondary btn-sm" id="btnDelSnap" onclick="deleteCurrentSnapshot()" title="Supprimer ce snapshot" disabled>🗑 Snap</button>
+            <button class="btn btn-success btn-sm" onclick="importSnapshot()">📥 Importer</button>
+            <button class="btn btn-secondary btn-sm" id="btnDiff" onclick="openDiffModal()" disabled>🔄 Comparer</button>
+            <button class="btn btn-secondary btn-sm" id="btnDelSnap" onclick="deleteCurrentSnapshot()" disabled>🗑 Snap</button>
             <button class="btn btn-secondary btn-sm" onclick="openInstModal(currentInst)">✏️</button>
             <button class="btn btn-secondary btn-sm" onclick="showConfig()" title="Clé de chiffrement">⚙</button>
+            <button class="btn btn-secondary btn-sm" onclick="openNamingModal()" title="Normes de nommage">📏 Normes</button>
         </div>
     </div>
 
-    <!-- Tabs -->
     <div class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab('jobs')">⚙ Jobs</button>
+        <button class="tab-btn active" onclick="switchTab('cockpit')">🎯 Cockpit</button>
+        <button class="tab-btn" onclick="switchTab('jobs')">⚙ Jobs</button>
         <button class="tab-btn" onclick="switchTab('workflows')">🔀 Workflows</button>
+        <button class="tab-btn" onclick="switchTab('projects')">📁 Projets</button>
         <button class="tab-btn" onclick="switchTab('planning')">📅 Planning</button>
         <button class="tab-btn" onclick="switchTab('tokens')">🔑 Tokens</button>
         <button class="tab-btn" onclick="switchTab('credentials')">🔒 Credentials</button>
@@ -293,40 +292,29 @@
             <button class="btn btn-primary" onclick="importSnapshot()">📥 Importer un snapshot</button>
         </div>
         <div id="snapContent" style="display:none;">
-            <div id="tabJobs"></div>
-            <div id="tabWorkflows" style="display:none;"></div>
-            <div id="tabPlanning" style="display:none;"></div>
-            <div id="tabTokens" style="display:none;"></div>
+            <div id="tabCockpit"></div>
+            <div id="tabJobs"        style="display:none;"></div>
+            <div id="tabWorkflows"   style="display:none;"></div>
+            <div id="tabProjects"    style="display:none;"></div>
+            <div id="tabPlanning"    style="display:none;"></div>
+            <div id="tabTokens"      style="display:none;"></div>
             <div id="tabCredentials" style="display:none;"></div>
             <div id="tabInventories" style="display:none;"></div>
-            <div id="tabHosts" style="display:none;"></div>
+            <div id="tabHosts"       style="display:none;"></div>
         </div>
     </div>
 </div>
 
-<!-- ── Hidden file input ─────────────────────────────────────────────────────── -->
 <input type="file" id="snapFileInput" accept=".enc" onchange="onSnapFileChange(event)">
 
-<!-- ── Modal Instance ────────────────────────────────────────────────────────── -->
+<!-- Modal Instance -->
 <div id="instModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeInstModal()">
     <div class="modal-box">
         <div class="modal-title" id="instModalTitle">Nouvelle instance</div>
-        <div class="form-group">
-            <label>Nom *</label>
-            <input type="text" id="imName" placeholder="ex: Production AAP">
-        </div>
-        <div class="form-group">
-            <label>Type d'environnement</label>
-            <input type="text" id="imEnvType" placeholder="ex: Production, Hors-Production, Dev…">
-        </div>
-        <div class="form-group">
-            <label>Description</label>
-            <textarea id="imDesc" placeholder="Description optionnelle…"></textarea>
-        </div>
-        <div class="form-group">
-            <label>Couleur</label>
-            <div class="color-swatches" id="instColorSwatches"></div>
-        </div>
+        <div class="form-group"><label>Nom *</label><input type="text" id="imName" placeholder="ex: Production AAP"></div>
+        <div class="form-group"><label>Type d'environnement</label><input type="text" id="imEnvType" placeholder="ex: Production, Hors-Production…"></div>
+        <div class="form-group"><label>Description</label><textarea id="imDesc"></textarea></div>
+        <div class="form-group"><label>Couleur</label><div class="color-swatches" id="instColorSwatches"></div></div>
         <div class="modal-feedback" id="instModalFeedback"></div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeInstModal()">Annuler</button>
@@ -336,42 +324,30 @@
     </div>
 </div>
 
-<!-- ── Modal Config (enc_key) ────────────────────────────────────────────────── -->
+<!-- Modal Config -->
 <div id="configModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeConfigModal()">
     <div class="modal-box">
         <div class="modal-title">⚙ Configuration playbook</div>
         <p style="font-size:13px;color:#555;margin-bottom:14px;">
-            Copiez cette clé dans le fichier <code>group_vars/all.yml</code> du projet Ansible
-            (champ <code>portal_enc_key</code>).
+            Copiez cette clé dans <code>inventories/&lt;ENV&gt;/group_vars/all.yml</code> → champ <code>portal_enc_key</code>.
         </p>
-        <div class="form-group">
-            <label>Instance</label>
-            <input type="text" id="cfgInstName" readonly style="background:#f5f5f5;">
-        </div>
+        <div class="form-group"><label>Instance</label><input type="text" id="cfgInstName" readonly style="background:#f5f5f5;"></div>
         <div class="form-group">
             <label>Clé de chiffrement (AES-256)</label>
             <div class="enc-key-box" id="cfgEncKey" onclick="selectEncKey()"></div>
-            <div class="copy-hint">💡 Cliquez pour sélectionner — puis Ctrl+C pour copier</div>
+            <div class="copy-hint">💡 Cliquez pour sélectionner — puis Ctrl+C</div>
         </div>
-        <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeConfigModal()">Fermer</button>
-        </div>
+        <div class="modal-actions"><button class="btn btn-secondary" onclick="closeConfigModal()">Fermer</button></div>
     </div>
 </div>
 
-<!-- ── Modal Diff ────────────────────────────────────────────────────────────── -->
+<!-- Modal Diff -->
 <div id="diffModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeDiffModal()">
     <div class="modal-box modal-lg">
         <div class="modal-title">🔄 Comparer deux snapshots</div>
         <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-            <div class="form-group" style="flex:1;margin:0">
-                <label>Snapshot A (référence)</label>
-                <select id="diffSnapA" class="snap-select" style="width:100%"></select>
-            </div>
-            <div class="form-group" style="flex:1;margin:0">
-                <label>Snapshot B (comparaison)</label>
-                <select id="diffSnapB" class="snap-select" style="width:100%"></select>
-            </div>
+            <div class="form-group" style="flex:1;margin:0"><label>Snapshot A (référence)</label><select id="diffSnapA" class="snap-select" style="width:100%"></select></div>
+            <div class="form-group" style="flex:1;margin:0"><label>Snapshot B</label><select id="diffSnapB" class="snap-select" style="width:100%"></select></div>
         </div>
         <div class="modal-actions" style="margin-top:0;margin-bottom:16px;">
             <button class="btn btn-secondary" onclick="closeDiffModal()">Annuler</button>
@@ -381,41 +357,132 @@
     </div>
 </div>
 
+<!-- Modal Naming Convention -->
+<div id="namingModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeNamingModal()">
+    <div class="modal-box modal-xl">
+        <div class="modal-title">📏 Normes de nommage</div>
+        <p style="font-size:12px;color:#666;margin-bottom:6px;">
+            Les objets ne respectant pas les regex seront surlignés en <b style="color:#ff8c00">orange ⚠</b>.
+            Hosts : domaine non autorisé → orange ; pattern interdit → <b style="color:#c62828">rouge ⛔</b>.
+        </p>
+        <div class="nc-section-title">Regex par type d'objet</div>
+        <div class="nc-grid">
+            <div class="form-group">
+                <label>Workflow Template</label>
+                <input type="text" id="nc-wf" placeholder="ex: ^WT-(DEV|QUA|REC\d*|HOM|INT\d*|PRE|PRD)-">
+                <div class="nc-hint">CAGIP : WT-ENV-CODE_APP-NOM_APP-ACTION</div>
+            </div>
+            <div class="form-group">
+                <label>Job Template</label>
+                <input type="text" id="nc-jt" placeholder="ex: ^JT-(DEV|QUA|REC\d*|HOM|INT\d*|PRE|PRD)-">
+                <div class="nc-hint">CAGIP : JT-ENV-CODE_APP-NOM_APP-ACTION</div>
+            </div>
+            <div class="form-group">
+                <label>Projet</label>
+                <input type="text" id="nc-proj" placeholder="ex: ^PJ-(DEV|QUA|REC\d*|HOM|INT\d*|PRE|PRD)-">
+                <div class="nc-hint">CAGIP : PJ-ENV-CODE_APP</div>
+            </div>
+            <div class="form-group">
+                <label>Inventory</label>
+                <input type="text" id="nc-inv" placeholder="ex: ^IV-(DEV|QUA|REC\d*|HOM|INT\d*|PRE|PRD)-">
+                <div class="nc-hint">CAGIP : IV-ENV-CODE_APP-NOM_APP</div>
+            </div>
+            <div class="form-group">
+                <label>Source Inventory</label>
+                <input type="text" id="nc-src" placeholder="ex: ^SC-(DEV|QUA|REC\d*|HOM|INT\d*|PRE|PRD)-">
+                <div class="nc-hint">CAGIP : SC-ENV-CODE_APP-NOM_APP</div>
+            </div>
+            <div class="form-group">
+                <label>Credential</label>
+                <input type="text" id="nc-cred" placeholder="ex: ^CD-">
+                <div class="nc-hint">CAGIP : CD-CODE_APP-GITLAB / CD-ENV-MDW-CODE_APP</div>
+            </div>
+        </div>
+        <div class="nc-section-title">Hosts — Domaines FQDN autorisés</div>
+        <div class="form-group">
+            <label>Domaines autorisés (un par ligne)</label>
+            <textarea id="nc-domains" rows="3" placeholder="ex:&#10;ca-cedicam.fr&#10;ca-gip.fr&#10;internal.local"></textarea>
+            <div class="nc-hint">Hosts ne contenant aucun de ces domaines → orange. Vide = pas de vérification.</div>
+        </div>
+        <div class="nc-section-title">Hosts — Patterns interdits</div>
+        <div class="nc-grid">
+            <div class="form-group">
+                <label>Interdits en Hors-Prod (un par ligne)</label>
+                <textarea id="nc-forbidden-hp" rows="3" placeholder="ex:&#10;prd&#10;prod&#10;sec-prod"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Interdits en Prod (un par ligne)</label>
+                <textarea id="nc-forbidden-prod" rows="3" placeholder="ex:&#10;hors-prod&#10;hp&#10;dev&#10;qua&#10;rec"></textarea>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeNamingModal()">Annuler</button>
+            <button class="btn btn-danger btn-sm" onclick="resetNamingConfig()" style="margin-right:auto;">Réinitialiser</button>
+            <button class="btn btn-success" onclick="applyNcDefaults()">✓ Défauts CAGIP</button>
+            <button class="btn btn-primary" onclick="saveNamingConfig()">💾 Sauvegarder</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
-let instances    = [];
-let currentInst  = null;
-let snapshots    = [];
-let currentSnapId = null;
-let snapData     = null;
-let currentTab   = 'jobs';
-let _editInstId  = null;
-let _selectedColor = '#c62828';
+let instances = [], currentInst = null, snapshots = [], currentSnapId = null, snapData = null;
+let currentTab = 'cockpit', _editInstId = null, _selectedColor = '#c62828';
+const sortState = {}, filterState = {};
 
 const INST_COLORS = ['#c62828','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4527a0','#37474f'];
+const TABS = ['cockpit','jobs','workflows','projects','planning','tokens','credentials','inventories','hosts'];
+const TAB_IDS = { cockpit:'tabCockpit', jobs:'tabJobs', workflows:'tabWorkflows', projects:'tabProjects', planning:'tabPlanning', tokens:'tabTokens', credentials:'tabCredentials', inventories:'tabInventories', hosts:'tabHosts' };
 
-const TAB_IDS = {
-    jobs: 'tabJobs', workflows: 'tabWorkflows', planning: 'tabPlanning',
-    tokens: 'tabTokens', credentials: 'tabCredentials', inventories: 'tabInventories', hosts: 'tabHosts',
+// ── Naming Convention ──────────────────────────────────────────────────────────
+const NC_DEFS = {
+    wf:'', jt:'', proj:'', inv:'', src:'', cred:'',
+    domains:[], forbiddenHp:[], forbiddenProd:[],
 };
-const SECTION_LABELS = {
-    job_templates: 'Job Templates', workflow_job_templates: 'Workflow Job Templates',
-    schedules: 'Schedules', tokens: 'Tokens', credentials: 'Credentials',
-    inventories: 'Inventories', hosts: 'Hosts',
+const NC_CAGIP = {
+    wf:   '^WT-(DEV|QUA|REC\\d*|HOM|INT\\d*|PRE|PRD)-',
+    jt:   '^JT-(DEV|QUA|REC\\d*|HOM|INT\\d*|PRE|PRD)-',
+    proj: '^PJ-(DEV|QUA|REC\\d*|HOM|INT\\d*|PRE|PRD)-',
+    inv:  '^IV-(DEV|QUA|REC\\d*|HOM|INT\\d*|PRE|PRD)-',
+    src:  '^SC-(DEV|QUA|REC\\d*|HOM|INT\\d*|PRE|PRD)-',
+    cred: '^CD-',
+    domains: [], forbiddenHp: [], forbiddenProd: [],
 };
+
+function ncKey() { return currentInst ? 'nc_' + currentInst.id : null; }
+function getNc() { const k = ncKey(); if (!k) return null; try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
+function saveNc(cfg) { const k = ncKey(); if (k) localStorage.setItem(k, JSON.stringify(cfg)); }
+
+function ncCheck(name, type) {
+    const nc = getNc(); if (!nc) return 'ok';
+    const rx = nc[type]; if (!rx) return 'ok';
+    try { return new RegExp(rx, 'i').test(name || '') ? 'ok' : 'warn'; } catch { return 'ok'; }
+}
+
+function ncCheckHost(name) {
+    const nc = getNc(); if (!nc) return 'ok';
+    const lname = (name || '').toLowerCase();
+    const envType = (currentInst?.env_type || '').toLowerCase();
+    const isHp = envType.includes('hors') || envType.includes('hp') || envType.includes('dev') || envType.includes('qua') || envType.includes('rec');
+    const forbidden = isHp ? (nc.forbiddenHp || []) : (nc.forbiddenProd || []);
+    for (const p of forbidden) { if (p && lname.includes(p.toLowerCase())) return 'error'; }
+    const domains = nc.domains || [];
+    if (domains.length > 0 && !domains.some(d => d && lname.includes(d.toLowerCase()))) return 'warn';
+    return 'ok';
+}
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
     try {
         const me = await fetch('/api/auth/me');
         if (me.ok) { const u = await me.json(); window._csrf = u.csrf_token || ''; patchFetch(); }
-    } catch(e) {}
+    } catch {}
     await loadInstances();
 }
 
 function patchFetch() {
     const _o = window.fetch;
-    window.fetch = function(url, opts) {
+    window.fetch = (url, opts) => {
         opts = opts || {};
         if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase()))
             opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
@@ -423,7 +490,7 @@ function patchFetch() {
     };
 }
 
-// ── Instance list ──────────────────────────────────────────────────────────────
+// ── Instances ──────────────────────────────────────────────────────────────────
 async function loadInstances() {
     const r = await fetch('/api/aap-checker/instances');
     if (r.ok) { const d = await r.json(); instances = d.instances || []; }
@@ -432,36 +499,20 @@ async function loadInstances() {
 
 function renderInstanceList() {
     const c = document.getElementById('instancesContainer');
-    if (!instances.length) {
-        c.innerHTML = '<div class="empty-state"><span>🔍</span>Aucune instance — cliquez sur « + Nouvelle instance » pour commencer.</div>';
-        return;
-    }
+    if (!instances.length) { c.innerHTML = '<div class="empty-state"><span>🔍</span>Aucune instance — cliquez sur « + Nouvelle instance ».</div>'; return; }
     const groups = {};
-    instances.forEach(i => {
-        const g = i.env_type || 'Non classé';
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(i);
-    });
+    instances.forEach(i => { const g = i.env_type || 'Non classé'; (groups[g] = groups[g] || []).push(i); });
     c.innerHTML = Object.entries(groups).map(([env, list]) =>
-        '<div class="env-section">' +
-        '<div class="env-label">🏷 ' + esc(env) + '</div>' +
-        '<div class="cards-row">' + list.map(instCard).join('') + '</div></div>'
+        '<div class="env-section"><div class="env-label">🏷 ' + esc(env) + '</div><div class="cards-row">' +
+        list.map(i => '<div class="inst-card" style="border-left-color:' + esc(i.color) + '" onclick="openInstance(\'' + i.id + '\')">' +
+            '<div class="inst-card-name">' + esc(i.name) + '</div>' +
+            (i.description ? '<div class="inst-card-desc">' + esc(i.description) + '</div>' : '') +
+            '<div class="inst-card-meta"><span class="inst-card-snaps">Cliquer pour ouvrir</span>' +
+            (i.env_type ? '<span class="env-badge">' + esc(i.env_type) + '</span>' : '') + '</div></div>').join('') +
+        '</div></div>'
     ).join('');
 }
 
-function instCard(inst) {
-    const snapCount = ''; // will be loaded on open
-    return '<div class="inst-card" style="border-left-color:' + esc(inst.color) + '" onclick="openInstance(\'' + inst.id + '\')">' +
-        '<div class="inst-card-name">' + esc(inst.name) + '</div>' +
-        (inst.description ? '<div class="inst-card-desc">' + esc(inst.description) + '</div>' : '') +
-        '<div class="inst-card-meta">' +
-            '<span class="inst-card-snaps">Cliquer pour ouvrir</span>' +
-            (inst.env_type ? '<span class="env-badge">' + esc(inst.env_type) + '</span>' : '') +
-        '</div>' +
-    '</div>';
-}
-
-// ── Open / Back ─────────────────────────────────────────────────────────────────
 async function openInstance(id) {
     currentInst = instances.find(i => i.id === id) || null;
     if (!currentInst) return;
@@ -471,12 +522,11 @@ async function openInstance(id) {
     document.getElementById('detailEnv').textContent    = currentInst.env_type || '';
     document.getElementById('detailEnv').style.display  = currentInst.env_type ? '' : 'none';
     document.getElementById('detailDot').style.background = currentInst.color;
-    currentSnapId = null;
-    snapData      = null;
+    currentSnapId = null; snapData = null;
     document.getElementById('snapEmpty').style.display   = 'block';
     document.getElementById('snapContent').style.display = 'none';
     document.getElementById('snapMetaBar').style.display = 'none';
-    switchTab('jobs', false);
+    switchTab('cockpit', false);
     await loadSnapshots();
 }
 
@@ -492,10 +542,7 @@ async function loadSnapshots(selectId) {
     if (r.ok) { const d = await r.json(); snapshots = d.snapshots || []; }
     const sel = document.getElementById('snapSelect');
     sel.innerHTML = '<option value="">— Sélectionner un snapshot —</option>' +
-        snapshots.map(s =>
-            '<option value="' + s.id + '">' + fmtDate(s.collected_at) +
-            (s.aap_version ? ' · v' + esc(s.aap_version) : '') + '</option>'
-        ).join('');
+        snapshots.map(s => '<option value="' + s.id + '">' + fmtDate(s.collected_at) + (s.aap_version ? ' · v' + esc(s.aap_version) : '') + '</option>').join('');
     document.getElementById('btnDiff').disabled    = snapshots.length < 2;
     document.getElementById('btnDelSnap').disabled = true;
     if (selectId || snapshots.length) {
@@ -520,47 +567,34 @@ async function onSnapSelect(sid) {
 async function loadSnapshot(sid) {
     const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots/' + sid);
     if (!r.ok) { alert('Erreur chargement snapshot'); return; }
-    snapData      = await r.json();
-    currentSnapId = sid;
+    snapData = await r.json(); currentSnapId = sid;
     document.getElementById('snapSelect').value = sid;
     document.getElementById('btnDelSnap').disabled = false;
-
     const m = snapData.manifest || {};
     const bar = document.getElementById('snapMetaBar');
     bar.style.display = 'flex';
-    bar.innerHTML =
-        '<b>Instance :</b> ' + esc(m.instance_name || '—') +
+    bar.innerHTML = '<b>Instance :</b> ' + esc(m.instance_name || '—') +
         ' &nbsp;|&nbsp; <b>URL :</b> ' + esc(m.aap_url || '—') +
         ' &nbsp;|&nbsp; <b>Version :</b> ' + esc(m.aap_version || '—') +
         ' &nbsp;|&nbsp; <b>Collecté :</b> ' + fmtDate(m.collected_at);
-
     document.getElementById('snapEmpty').style.display   = 'none';
     document.getElementById('snapContent').style.display = 'block';
     renderCurrentTab();
 }
 
-// ── Import ─────────────────────────────────────────────────────────────────────
-function importSnapshot() {
-    document.getElementById('snapFileInput').value = '';
-    document.getElementById('snapFileInput').click();
-}
+function importSnapshot() { document.getElementById('snapFileInput').value = ''; document.getElementById('snapFileInput').click(); }
 
 async function onSnapFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots', {
-        method: 'POST', body: fd,
-    });
+    const file = e.target.files[0]; if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots', { method: 'POST', body: fd });
     const d = await r.json();
     if (!r.ok) { alert('Erreur import : ' + (d.error || 'inconnue')); return; }
     await loadSnapshots(d.snapshot_id);
 }
 
 async function deleteCurrentSnapshot() {
-    if (!currentSnapId) return;
-    if (!confirm('Supprimer ce snapshot ?')) return;
+    if (!currentSnapId || !confirm('Supprimer ce snapshot ?')) return;
     await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots/' + currentSnapId, { method: 'DELETE' });
     await loadSnapshots();
 }
@@ -568,261 +602,469 @@ async function deleteCurrentSnapshot() {
 // ── Tabs ───────────────────────────────────────────────────────────────────────
 function switchTab(tab, render = true) {
     currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        const tabs = ['jobs','workflows','planning','tokens','credentials','inventories','hosts'];
-        b.classList.toggle('active', tabs[i] === tab);
-    });
-    Object.entries(TAB_IDS).forEach(([k, v]) => {
-        document.getElementById(v).style.display = k === tab ? 'block' : 'none';
-    });
+    document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', TABS[i] === tab));
+    Object.entries(TAB_IDS).forEach(([k, v]) => document.getElementById(v).style.display = k === tab ? 'block' : 'none');
     if (render && snapData) renderCurrentTab();
 }
 
 function renderCurrentTab() {
-    const fn = { jobs: renderJobs, workflows: renderWorkflows, planning: renderPlanning,
-                 tokens: renderTokens, credentials: renderCredentials,
-                 inventories: renderInventories, hosts: renderHosts };
+    const fn = { cockpit: renderCockpit, jobs: renderJobs, workflows: renderWorkflows, projects: renderProjects, planning: renderPlanning, tokens: renderTokens, credentials: renderCredentials, inventories: renderInventories, hosts: renderHosts };
     if (fn[currentTab]) fn[currentTab]();
 }
 
-// ── Tab: Jobs ──────────────────────────────────────────────────────────────────
+// ── Sort / Filter ──────────────────────────────────────────────────────────────
+function getSort(t)   { return sortState[t]   || { col: null, dir: 1 }; }
+function getFilter(t) { return filterState[t] || { search: '', status: '' }; }
+
+function onSort(tab, col) {
+    const s = getSort(tab);
+    sortState[tab] = { col, dir: s.col === col ? -s.dir : 1 };
+    renderCurrentTab();
+}
+
+function onFilterChange(tab) {
+    filterState[tab] = {
+        search: (document.getElementById('fs-' + tab)?.value || '').toLowerCase(),
+        status: document.getElementById('fst-' + tab)?.value || '',
+    };
+    renderCurrentTab();
+}
+
+function applyFilter(rows, tab, cols) {
+    const { search, status } = getFilter(tab);
+    return rows.filter(r => {
+        if (status && r._status !== status) return false;
+        if (!search) return true;
+        return cols.some(c => (r[c] ?? '').toString().toLowerCase().includes(search));
+    });
+}
+
+function applySort(rows, tab, defCol) {
+    const { col, dir } = getSort(tab);
+    const c = col || defCol; if (!c) return rows;
+    return [...rows].sort((a, b) => {
+        const va = a[c] ?? '', vb = b[c] ?? '';
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+        return va.toString().localeCompare(vb.toString()) * dir;
+    });
+}
+
+function th(tab, col, label) {
+    const s = getSort(tab);
+    const cls = s.col === col ? (s.dir === 1 ? 'sa-asc' : 'sa-desc') : '';
+    return '<th class="' + cls + '" onclick="onSort(\'' + tab + '\',\'' + col + '\')">' + label + '<span class="sa"></span></th>';
+}
+
+function filterBar(tab, statusOpts) {
+    const f = getFilter(tab);
+    return '<div class="table-controls">' +
+        '<input type="text" class="table-search" id="fs-' + tab + '" placeholder="🔍 Rechercher…" value="' + esc(f.search) + '" oninput="onFilterChange(\'' + tab + '\')">' +
+        (statusOpts?.length ? '<select class="table-filter-select" id="fst-' + tab + '" onchange="onFilterChange(\'' + tab + '\')">' +
+            '<option value="">Tous statuts</option>' +
+            statusOpts.map(o => '<option value="' + o.v + '"' + (f.status === o.v ? ' selected' : '') + '>' + o.l + '</option>').join('') +
+            '</select>' : '') +
+        '<span class="filter-count" id="fc-' + tab + '"></span></div>';
+}
+
+function setFc(tab, shown, total) { const el = document.getElementById('fc-' + tab); if (el) el.textContent = shown < total ? shown + ' / ' + total : total + ' éléments'; }
+
+// ── Cockpit ────────────────────────────────────────────────────────────────────
+function renderCockpit() {
+    const el = document.getElementById('tabCockpit');
+    const templates = snapData.job_templates || [];
+    const wfs       = snapData.workflow_job_templates || [];
+    const jobs      = snapData.jobs || [];
+    const tokens    = snapData.tokens || [];
+    const hosts     = snapData.hosts || [];
+    const projects  = snapData.projects || [];
+    const creds     = snapData.credentials || [];
+    const invs      = snapData.inventories || [];
+    const now = Date.now(), ms30 = 30 * 86400000;
+
+    const runMap = {};
+    jobs.forEach(j => { if (j.unified_job_template != null) (runMap[j.unified_job_template] = runMap[j.unified_job_template] || []).push(j); });
+    let totSucc = 0, totFail = 0;
+    const tplStats = templates.map(t => {
+        const runs = runMap[t.id] || [];
+        const s = runs.filter(r => r.status === 'successful').length;
+        const f = runs.filter(r => r.status === 'failed').length;
+        totSucc += s; totFail += f;
+        return { name: t.name, success: s, failed: f };
+    });
+    const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
+
+    let tokExp = 0, tokWarn = 0, tokOk = 0;
+    tokens.forEach(t => {
+        if (!t.expires) { tokOk++; return; }
+        const d = new Date(t.expires) - now;
+        if (d < 0) tokExp++; else if (d < ms30) tokWarn++; else tokOk++;
+    });
+
+    const hostsFailed = hosts.filter(h => h.has_active_failures).length;
+    const totalHosts  = invs.reduce((s, i) => s + (i.total_hosts || 0), 0);
+    const failedHosts = invs.reduce((s, i) => s + (i.hosts_with_active_failures || 0), 0);
+
+    const nc = getNc();
+    let ncStats = null;
+    if (nc) {
+        ncStats = { jt: 0, wf: 0, proj: 0, inv: 0, cred: 0, hosts: 0 };
+        templates.forEach(t => { if (ncCheck(t.name, 'jt') !== 'ok') ncStats.jt++; });
+        wfs.forEach(t => { if (ncCheck(t.name, 'wf') !== 'ok') ncStats.wf++; });
+        projects.forEach(p => { if (ncCheck(p.name, 'proj') !== 'ok') ncStats.proj++; });
+        invs.forEach(i => { if (ncCheck(i.name, 'inv') !== 'ok') ncStats.inv++; });
+        creds.forEach(c => { if (ncCheck(c.name, 'cred') !== 'ok') ncStats.cred++; });
+        hosts.forEach(h => { if (ncCheckHost(h.name) !== 'ok') ncStats.hosts++; });
+    }
+
+    const topFail = [...tplStats].filter(t => t.failed > 0).sort((a, b) => b.failed - a.failed).slice(0, 10);
+    const maxFail = Math.max(1, ...topFail.map(t => t.failed));
+    const topInvFail = [...invs].filter(i => i.hosts_with_active_failures > 0).sort((a, b) => b.hosts_with_active_failures - a.hosts_with_active_failures).slice(0, 8);
+    const maxHF = Math.max(1, ...topInvFail.map(i => i.hosts_with_active_failures));
+
+    let html = '<div class="stats-row">' +
+        sc(templates.length, 'Job Templates',  '#1a237e') + sc(wfs.length, 'WF Templates', '#3949ab') +
+        sc(projects.length,  'Projets',         '#607d8b') + sc(jobs.length, 'Jobs analysés', '#546e7a') +
+        sc(gRate !== null ? gRate + '%' : 'N/A', 'Taux succès', rateColor(gRate)) +
+        sc(tokExp,  'Tokens expirés',  tokExp  > 0 ? '#c62828' : '#2e7d32') +
+        sc(tokWarn, 'Tokens < 30j',    tokWarn > 0 ? '#e65100' : '#2e7d32') +
+        sc(hostsFailed, 'Hosts en échec', hostsFailed > 0 ? '#c62828' : '#2e7d32') +
+    '</div><div class="cockpit-grid">';
+
+    // Top JT par échecs
+    html += '<div class="cockpit-card"><h3>⚙ Top Job Templates — Échecs</h3>';
+    if (!topFail.length) html += '<div style="color:#2e7d32;font-size:13px;padding:8px 0">✅ Aucun échec détecté</div>';
+    else topFail.forEach(t => {
+        const pct = Math.round(t.failed / maxFail * 100);
+        const nm  = t.name.length > 48 ? t.name.slice(0, 48) + '…' : t.name;
+        html += '<div class="hbar-item"><div class="hbar-label"><span>' + esc(nm) + '</span><span style="color:#c62828;font-weight:bold">' + t.failed + ' échec' + (t.failed > 1 ? 's' : '') + '</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;background:#c62828"></div></div></div>';
+    });
+    html += '</div>';
+
+    // Tokens
+    html += '<div class="cockpit-card"><h3>🔑 Tokens</h3><div class="tok-gauge-row">' +
+        '<div class="tok-gauge" style="background:#e8f5e9"><div class="tok-gauge-val" style="color:#2e7d32">' + tokOk + '</div><div class="tok-gauge-lbl" style="color:#2e7d32">OK</div></div>' +
+        '<div class="tok-gauge" style="background:#fff8e1"><div class="tok-gauge-val" style="color:#e65100">' + tokWarn + '</div><div class="tok-gauge-lbl" style="color:#e65100">⚠ &lt; 30j</div></div>' +
+        '<div class="tok-gauge" style="background:#ffebee"><div class="tok-gauge-val" style="color:#c62828">' + tokExp + '</div><div class="tok-gauge-lbl" style="color:#c62828">✗ Expirés</div></div>' +
+        '</div>';
+    if (tokens.length > 0) {
+        const op = Math.round(tokOk / tokens.length * 100);
+        const wp = Math.round(tokWarn / tokens.length * 100);
+        html += '<div class="hbar-track" style="height:12px;border-radius:6px;overflow:hidden;display:flex;margin-top:4px">' +
+            '<div style="width:' + op + '%;background:#2e7d32;height:100%"></div>' +
+            '<div style="width:' + wp + '%;background:#e65100;height:100%"></div>' +
+            '<div style="width:' + (100 - op - wp) + '%;background:#c62828;height:100%"></div></div>' +
+            '<div style="font-size:11px;color:#888;margin-top:6px">' + tokens.length + ' token' + (tokens.length > 1 ? 's' : '') + ' au total</div>';
+    }
+    html += '</div>';
+
+    // Inventories & hosts
+    html += '<div class="cockpit-card"><h3>📦 Inventories & Hosts</h3>' +
+        '<div class="tok-gauge-row">' +
+        '<div class="tok-gauge" style="background:#e8eaf6"><div class="tok-gauge-val" style="color:#1a237e">' + invs.length + '</div><div class="tok-gauge-lbl" style="color:#1a237e">Inventories</div></div>' +
+        '<div class="tok-gauge" style="background:#e3f2fd"><div class="tok-gauge-val" style="color:#1565c0">' + totalHosts + '</div><div class="tok-gauge-lbl" style="color:#1565c0">Total hosts</div></div>' +
+        '<div class="tok-gauge" style="background:' + (failedHosts ? '#ffebee' : '#e8f5e9') + '"><div class="tok-gauge-val" style="color:' + (failedHosts ? '#c62828' : '#2e7d32') + '">' + failedHosts + '</div><div class="tok-gauge-lbl" style="color:' + (failedHosts ? '#c62828' : '#2e7d32') + '">En échec</div></div>' +
+        '</div>';
+    if (topInvFail.length) {
+        topInvFail.forEach(i => {
+            const pct = Math.round(i.hosts_with_active_failures / maxHF * 100);
+            html += '<div class="hbar-item"><div class="hbar-label"><span>' + esc(i.name.length > 40 ? i.name.slice(0, 40) + '…' : i.name) + '</span><span style="color:#c62828">' + i.hosts_with_active_failures + '</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;background:#e65100"></div></div></div>';
+        });
+    } else html += '<div style="font-size:12px;color:#2e7d32;padding:8px 0">✅ Aucun host en échec</div>';
+    html += '</div>';
+
+    // Naming violations
+    html += '<div class="cockpit-card"><h3>📏 Normes de nommage</h3>';
+    if (!nc) {
+        html += '<div style="font-size:13px;color:#888;padding:8px 0">Cliquez sur <b>📏 Normes</b> pour configurer les regex.</div>';
+    } else {
+        [
+            ['Job Templates', ncStats.jt, templates.length], ['Workflow Templates', ncStats.wf, wfs.length],
+            ['Projets', ncStats.proj, projects.length], ['Inventories', ncStats.inv, invs.length],
+            ['Credentials', ncStats.cred, creds.length], ['Hosts', ncStats.hosts, hosts.length],
+        ].forEach(([lbl, cnt, tot]) => {
+            html += '<div class="nc-summary-row"><span>' + lbl + '</span>' +
+                (cnt > 0 ? '<span style="color:#ff8c00;font-weight:bold">' + cnt + ' violation' + (cnt > 1 ? 's' : '') + '</span> / ' + tot
+                         : '<span style="color:#2e7d32">✅ OK (' + tot + ')</span>') + '</div>';
+        });
+    }
+    html += '</div></div>'; // cockpit-card + cockpit-grid
+    el.innerHTML = html;
+}
+
+// ── Jobs ───────────────────────────────────────────────────────────────────────
 function renderJobs() {
     const el = document.getElementById('tabJobs');
     const templates = snapData.job_templates || [];
     const jobs      = snapData.jobs || [];
-
     const runMap = {};
-    jobs.forEach(j => {
-        const tid = j.unified_job_template;
-        if (tid == null) return;
-        if (!runMap[tid]) runMap[tid] = [];
-        runMap[tid].push(j);
+    jobs.forEach(j => { if (j.unified_job_template != null) (runMap[j.unified_job_template] = runMap[j.unified_job_template] || []).push(j); });
+    let totSucc = 0, totFail = 0;
+    let rows = templates.map(t => {
+        const runs = runMap[t.id] || [];
+        const s = runs.filter(r => r.status === 'successful').length;
+        const f = runs.filter(r => r.status === 'failed').length;
+        const total = s + f + runs.filter(r => r.status === 'canceled').length;
+        const rate = (s + f) > 0 ? Math.round(s / (s + f) * 100) : null;
+        totSucc += s; totFail += f;
+        return { ...t, _success: s, _failed: f, _total: total, _rate: rate ?? -1,
+                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
     });
-
-    let totalSuccess = 0, totalFailed = 0;
-    const rows = templates.map(t => {
-        const runs    = runMap[t.id] || [];
-        const success = runs.filter(r => r.status === 'successful').length;
-        const failed  = runs.filter(r => r.status === 'failed').length;
-        const total   = success + failed + runs.filter(r => r.status === 'canceled').length;
-        const rate    = (success + failed) > 0 ? Math.round(success / (success + failed) * 100) : null;
-        totalSuccess += success; totalFailed += failed;
-        return { ...t, _success: success, _failed: failed, _total: total, _rate: rate };
-    });
-    const globalRate = (totalSuccess + totalFailed) > 0
-        ? Math.round(totalSuccess / (totalSuccess + totalFailed) * 100) : null;
-
+    const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
     let html = statsCards([
-        { label: 'Templates', value: templates.length, color: '#1a237e' },
-        { label: 'Exécutions analysées', value: jobs.length, color: '#607d8b' },
-        { label: 'Succès', value: totalSuccess, color: '#2e7d32' },
-        { label: 'Échecs', value: totalFailed, color: '#c62828' },
-        { label: 'Taux succès', value: globalRate !== null ? globalRate + '%' : 'N/A', color: rateColor(globalRate) },
+        {label:'Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:jobs.length,color:'#607d8b'},
+        {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
+        {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
     ]);
-
+    const sos = [{v:'successful',l:'✓ Succès'},{v:'failed',l:'✗ Échec'},{v:'running',l:'▶ En cours'}];
+    html += filterBar('jobs', sos);
     if (!templates.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'jobs', ['name','description','_status','_org']);
+    const sorted   = applySort(filtered, 'jobs', '_failed');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Template</th><th>Dernier run</th><th>Runs</th><th>✓ Succès</th><th>✗ Échecs</th><th>Taux</th><th>Statut</th>' +
+        th('jobs','name','Template') + th('jobs','_org','Organisation') +
+        th('jobs','last_job_run','Dernier run') + th('jobs','_total','Runs') +
+        th('jobs','_success','✓') + th('jobs','_failed','✗') + th('jobs','_rate','Taux') + th('jobs','status','Statut') +
         '</tr></thead><tbody>';
-    rows.sort((a, b) => (b._failed - a._failed)).forEach(r => {
-        html += '<tr><td><b>' + esc(r.name) + '</b>' + (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
-            '<td>' + fmtDate(r.last_job_run) + '</td>' +
-            '<td>' + r._total + '</td>' +
-            '<td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
+    sorted.forEach(r => {
+        const nc = ncCheck(r.name, 'jt');
+        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(r.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
+            (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
+            '<td>' + esc(r._org || '—') + '</td><td>' + fmtDate(r.last_job_run) + '</td>' +
+            '<td>' + r._total + '</td><td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
             '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
-            '<td>' + rateBar(r._rate) + '</td>' +
-            '<td>' + statusBadge(r.status) + '</td></tr>';
+            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r.status) + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('jobs', sorted.length, rows.length);
 }
 
-// ── Tab: Workflows ─────────────────────────────────────────────────────────────
+// ── Workflows ──────────────────────────────────────────────────────────────────
 function renderWorkflows() {
     const el = document.getElementById('tabWorkflows');
     const templates = snapData.workflow_job_templates || [];
-    const jobs      = snapData.workflow_jobs || [];
-
+    const wfjobs    = snapData.workflow_jobs || [];
     const runMap = {};
-    jobs.forEach(j => {
-        const tid = j.unified_job_template;
-        if (tid == null) return;
-        if (!runMap[tid]) runMap[tid] = [];
-        runMap[tid].push(j);
+    wfjobs.forEach(j => { if (j.unified_job_template != null) (runMap[j.unified_job_template] = runMap[j.unified_job_template] || []).push(j); });
+    let totSucc = 0, totFail = 0;
+    let rows = templates.map(t => {
+        const runs = runMap[t.id] || [];
+        const s = runs.filter(r => r.status === 'successful').length;
+        const f = runs.filter(r => r.status === 'failed').length;
+        const rate = (s + f) > 0 ? Math.round(s / (s + f) * 100) : null;
+        totSucc += s; totFail += f;
+        return { ...t, _success: s, _failed: f, _total: runs.length, _rate: rate ?? -1,
+                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
     });
-
-    let totalSuccess = 0, totalFailed = 0;
-    const rows = templates.map(t => {
-        const runs    = runMap[t.id] || [];
-        const success = runs.filter(r => r.status === 'successful').length;
-        const failed  = runs.filter(r => r.status === 'failed').length;
-        const rate    = (success + failed) > 0 ? Math.round(success / (success + failed) * 100) : null;
-        totalSuccess += success; totalFailed += failed;
-        return { ...t, _success: success, _failed: failed, _total: runs.length, _rate: rate };
-    });
-    const globalRate = (totalSuccess + totalFailed) > 0
-        ? Math.round(totalSuccess / (totalSuccess + totalFailed) * 100) : null;
-
+    const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
     let html = statsCards([
-        { label: 'WF Templates', value: templates.length, color: '#1a237e' },
-        { label: 'Exécutions', value: jobs.length, color: '#607d8b' },
-        { label: 'Succès', value: totalSuccess, color: '#2e7d32' },
-        { label: 'Échecs', value: totalFailed, color: '#c62828' },
-        { label: 'Taux succès', value: globalRate !== null ? globalRate + '%' : 'N/A', color: rateColor(globalRate) },
+        {label:'WF Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:wfjobs.length,color:'#607d8b'},
+        {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
+        {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
     ]);
-
+    html += filterBar('workflows', [{v:'successful',l:'✓ Succès'},{v:'failed',l:'✗ Échec'}]);
     if (!templates.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'workflows', ['name','description','_org','_status']);
+    const sorted   = applySort(filtered, 'workflows', '_failed');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Workflow Template</th><th>Dernier run</th><th>Runs</th><th>✓ Succès</th><th>✗ Échecs</th><th>Taux</th><th>Statut</th>' +
+        th('workflows','name','Workflow Template') + th('workflows','_org','Organisation') +
+        th('workflows','last_job_run','Dernier run') + th('workflows','_total','Runs') +
+        th('workflows','_success','✓') + th('workflows','_failed','✗') + th('workflows','_rate','Taux') + th('workflows','status','Statut') +
         '</tr></thead><tbody>';
-    rows.sort((a, b) => b._failed - a._failed).forEach(r => {
-        html += '<tr><td><b>' + esc(r.name) + '</b>' + (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
-            '<td>' + fmtDate(r.last_job_run) + '</td>' +
-            '<td>' + r._total + '</td>' +
-            '<td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
+    sorted.forEach(r => {
+        const nc = ncCheck(r.name, 'wf');
+        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(r.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
+            (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
+            '<td>' + esc(r._org || '—') + '</td><td>' + fmtDate(r.last_job_run) + '</td>' +
+            '<td>' + r._total + '</td><td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
             '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
-            '<td>' + rateBar(r._rate) + '</td>' +
-            '<td>' + statusBadge(r.status) + '</td></tr>';
+            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r.status) + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('workflows', sorted.length, rows.length);
 }
 
-// ── Tab: Planning (Schedules) ──────────────────────────────────────────────────
+// ── Projects ───────────────────────────────────────────────────────────────────
+function renderProjects() {
+    const el = document.getElementById('tabProjects');
+    const projects = snapData.projects || [];
+    const ok  = projects.filter(p => p.status === 'successful').length;
+    const fail = projects.filter(p => p.status === 'failed').length;
+    let rows = projects.map(p => ({
+        ...p, _org: p.summary_fields?.organization?.name || '',
+        _status: p.status || ''
+    }));
+    let html = statsCards([
+        {label:'Projets',value:projects.length,color:'#1a237e'},
+        {label:'OK',value:ok,color:'#2e7d32'},{label:'Échec',value:fail,color:fail>0?'#c62828':'#2e7d32'},
+    ]);
+    html += filterBar('projects', [{v:'successful',l:'✓ OK'},{v:'failed',l:'✗ Échec'},{v:'running',l:'▶ Running'}]);
+    if (!projects.length) { el.innerHTML = html + noData(); return; }
+    const filtered = applyFilter(rows, 'projects', ['name','description','_org','scm_url','scm_branch','_status']);
+    const sorted   = applySort(filtered, 'projects', 'name');
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('projects','name','Projet') + th('projects','_org','Organisation') +
+        th('projects','scm_type','SCM') + th('projects','scm_url','URL SCM') +
+        th('projects','scm_branch','Branch') + th('projects','last_job_run','Dernier sync') + th('projects','_status','Statut') +
+        '</tr></thead><tbody>';
+    sorted.forEach(p => {
+        const nc = ncCheck(p.name, 'proj');
+        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(p.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
+            (p.description ? '<br><small style="color:#888">' + esc(p.description) + '</small>' : '') + '</td>' +
+            '<td>' + esc(p._org || '—') + '</td>' +
+            '<td><span class="badge-status badge-grey">' + esc(p.scm_type || 'manual') + '</span></td>' +
+            '<td style="font-size:11px;max-width:180px;word-break:break-all">' + esc(p.scm_url || '—') + '</td>' +
+            '<td><code style="font-size:11px">' + esc(p.scm_branch || '—') + '</code></td>' +
+            '<td>' + fmtDate(p.last_job_run) + '</td><td>' + statusBadge(p.status) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+    setFc('projects', sorted.length, rows.length);
+}
+
+// ── Planning ───────────────────────────────────────────────────────────────────
 function renderPlanning() {
     const el = document.getElementById('tabPlanning');
     const schedules = snapData.schedules || [];
-    const active   = schedules.filter(s => s.enabled).length;
-    const inactive = schedules.length - active;
-
+    const active = schedules.filter(s => s.enabled).length;
+    let rows = schedules.map(s => ({
+        ...s, _resource: s.summary_fields?.unified_job_template?.name || '—',
+        _status: s.enabled ? 'active' : 'inactive'
+    }));
     let html = statsCards([
-        { label: 'Total schedules', value: schedules.length, color: '#1a237e' },
-        { label: 'Actifs', value: active,   color: '#2e7d32' },
-        { label: 'Inactifs', value: inactive, color: '#757575' },
+        {label:'Total',value:schedules.length,color:'#1a237e'},
+        {label:'Actifs',value:active,color:'#2e7d32'},{label:'Inactifs',value:schedules.length-active,color:'#757575'},
     ]);
-
+    html += filterBar('planning', [{v:'active',l:'✓ Actif'},{v:'inactive',l:'Inactif'}]);
     if (!schedules.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'planning', ['name','_resource','_status']);
+    const sorted   = applySort(filtered, 'planning', 'name');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Nom</th><th>Ressource</th><th>Fréquence</th><th>Prochain run</th><th>Statut</th>' +
+        th('planning','name','Nom') + th('planning','_resource','Ressource') +
+        th('planning','rrule','Fréquence') + th('planning','next_run','Prochain run') + th('planning','_status','Statut') +
         '</tr></thead><tbody>';
-    schedules.forEach(s => {
-        const res = s.summary_fields?.unified_job_template?.name || s.unified_job_template?.name || '—';
-        html += '<tr><td><b>' + esc(s.name) + '</b></td>' +
-            '<td>' + esc(res) + '</td>' +
-            '<td>' + esc(parseRrule(s.rrule)) + '</td>' +
-            '<td>' + fmtDate(s.next_run) + '</td>' +
-            '<td>' + (s.enabled
-                ? '<span class="badge-status badge-ok">Actif</span>'
-                : '<span class="badge-status badge-grey">Inactif</span>') + '</td></tr>';
+    sorted.forEach(s => {
+        html += '<tr><td><b>' + esc(s.name) + '</b></td><td>' + esc(s._resource) + '</td>' +
+            '<td>' + esc(parseRrule(s.rrule)) + '</td><td>' + fmtDate(s.next_run) + '</td>' +
+            '<td>' + (s.enabled ? '<span class="badge-status badge-ok">Actif</span>' : '<span class="badge-status badge-grey">Inactif</span>') + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('planning', sorted.length, rows.length);
 }
 
-// ── Tab: Tokens ────────────────────────────────────────────────────────────────
+// ── Tokens ─────────────────────────────────────────────────────────────────────
 function renderTokens() {
     const el = document.getElementById('tabTokens');
     const tokens = snapData.tokens || [];
-    const now    = Date.now();
-    const ms30   = 30 * 86400000;
-
-    let expired = 0, expiring = 0;
-    tokens.forEach(t => {
-        if (!t.expires) return;
-        const d = new Date(t.expires) - now;
-        if (d < 0) expired++;
-        else if (d < ms30) expiring++;
+    const now = Date.now(), ms30 = 30 * 86400000;
+    let exp = 0, warn = 0;
+    let rows = tokens.map(t => {
+        const user = typeof t.user === 'object' ? (t.user?.username || '?') : (t.user || '?');
+        const days = t.expires ? Math.ceil((new Date(t.expires) - now) / 86400000) : null;
+        let _status = 'ok';
+        if (days !== null && days < 0) { exp++; _status = 'expired'; }
+        else if (days !== null && days < 30) { warn++; _status = 'expiring'; }
+        return { ...t, _user: user, _days: days ?? 99999, _status };
     });
-
     let html = statsCards([
-        { label: 'Total tokens', value: tokens.length, color: '#1a237e' },
-        { label: 'OK', value: tokens.length - expired - expiring, color: '#2e7d32' },
-        { label: '⚠ Expirent < 30j', value: expiring, color: '#e65100' },
-        { label: '✗ Expirés', value: expired, color: '#c62828' },
+        {label:'Total',value:tokens.length,color:'#1a237e'},
+        {label:'OK',value:tokens.length-exp-warn,color:'#2e7d32'},
+        {label:'⚠ < 30j',value:warn,color:'#e65100'},{label:'✗ Expirés',value:exp,color:'#c62828'},
     ]);
-
+    html += filterBar('tokens', [{v:'expired',l:'✗ Expirés'},{v:'expiring',l:'⚠ < 30j'},{v:'ok',l:'✓ OK'}]);
     if (!tokens.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'tokens', ['description','_user','scope','_status']);
+    const sorted   = applySort(filtered, 'tokens', '_days');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Description</th><th>Utilisateur</th><th>Scope</th><th>Expiration</th><th>Statut</th>' +
+        th('tokens','description','Description') + th('tokens','_user','Utilisateur') +
+        th('tokens','scope','Scope') + th('tokens','expires','Expiration') + th('tokens','_days','Statut') +
         '</tr></thead><tbody>';
-
-    tokens.forEach(t => {
-        const user    = typeof t.user === 'object' ? (t.user?.username || '?') : (t.user || '?');
-        const days    = t.expires ? Math.ceil((new Date(t.expires) - now) / 86400000) : null;
-        const rowCls  = days !== null && days < 0 ? ' class="token-expired"' : (days !== null && days < 30 ? ' class="token-expiring"' : '');
-        let daysBadge = '';
-        if (days === null)       daysBadge = '<span class="days-badge" style="background:#f5f5f5;color:#888">Jamais</span>';
-        else if (days < 0)       daysBadge = '<span class="days-badge" style="background:#ffebee;color:#c62828">Expiré il y a ' + Math.abs(days) + 'j</span>';
-        else if (days < 30)      daysBadge = '<span class="days-badge" style="background:#fff8e1;color:#e65100">⚠ ' + days + 'j restants</span>';
-        else                     daysBadge = '<span class="days-badge" style="background:#e8f5e9;color:#2e7d32">✓ ' + days + 'j</span>';
-
-        html += '<tr' + rowCls + '>' +
-            '<td><b>' + esc(t.description || '(sans nom)') + '</b></td>' +
-            '<td>' + esc(user) + '</td>' +
-            '<td><code>' + esc(t.scope || '—') + '</code></td>' +
-            '<td>' + fmtDate(t.expires) + '</td>' +
-            '<td>' + daysBadge + '</td></tr>';
+    sorted.forEach(t => {
+        const days = t._days === 99999 ? null : t._days;
+        const rowCls = t._status === 'expired' ? ' class="token-expired"' : (t._status === 'expiring' ? ' class="token-expiring"' : '');
+        let db = '';
+        if (days === null) db = '<span class="days-badge" style="background:#f5f5f5;color:#888">Jamais</span>';
+        else if (days < 0) db = '<span class="days-badge" style="background:#ffebee;color:#c62828">Expiré il y a ' + Math.abs(days) + 'j</span>';
+        else if (days < 30) db = '<span class="days-badge" style="background:#fff8e1;color:#e65100">⚠ ' + days + 'j</span>';
+        else db = '<span class="days-badge" style="background:#e8f5e9;color:#2e7d32">✓ ' + days + 'j</span>';
+        html += '<tr' + rowCls + '><td><b>' + esc(t.description || '(sans nom)') + '</b></td>' +
+            '<td>' + esc(t._user) + '</td><td><code>' + esc(t.scope || '—') + '</code></td>' +
+            '<td>' + fmtDate(t.expires) + '</td><td>' + db + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('tokens', sorted.length, rows.length);
 }
 
-// ── Tab: Credentials ───────────────────────────────────────────────────────────
+// ── Credentials ────────────────────────────────────────────────────────────────
 function renderCredentials() {
     const el = document.getElementById('tabCredentials');
     const creds = snapData.credentials || [];
-
     const byType = {};
-    creds.forEach(c => {
-        const t = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || 'Autre';
-        byType[t] = (byType[t] || 0) + 1;
+    let rows = creds.map(c => {
+        const type = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || 'Autre';
+        byType[type] = (byType[type] || 0) + 1;
+        return { ...c, _type: type, _org: c.summary_fields?.organization?.name || '',
+                 _team: c.summary_fields?.team?.name || '', _status: type };
     });
-
-    let html = statsCards([
-        { label: 'Total', value: creds.length, color: '#1a237e' },
-        ...Object.entries(byType).slice(0, 4).map(([t, n]) => ({ label: t, value: n, color: '#607d8b' })),
-    ]);
-
+    let html = statsCards([{label:'Total',value:creds.length,color:'#1a237e'}, ...Object.entries(byType).slice(0,4).map(([t,n])=>({label:t,value:n,color:'#607d8b'}))]);
+    html += filterBar('credentials', Object.keys(byType).map(t => ({v:t,l:t})));
     if (!creds.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'credentials', ['name','description','_type','_org','_team']);
+    const sorted   = applySort(filtered, 'credentials', 'name');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Nom</th><th>Type</th><th>Description</th><th>Créé le</th>' +
+        th('credentials','name','Nom') + th('credentials','_type','Type') +
+        th('credentials','_org','Organisation') + th('credentials','_team','Équipe') +
+        th('credentials','description','Description') + th('credentials','created','Créé le') +
         '</tr></thead><tbody>';
-    creds.forEach(c => {
-        const type = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || '—';
-        html += '<tr><td><b>' + esc(c.name) + '</b></td>' +
-            '<td><span class="badge-status badge-info">' + esc(type) + '</span></td>' +
-            '<td style="color:#888">' + esc(c.description || '—') + '</td>' +
-            '<td>' + fmtDateShort(c.created) + '</td></tr>';
+    sorted.forEach(c => {
+        const nc = ncCheck(c.name, 'cred');
+        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(c.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') + '</td>' +
+            '<td><span class="badge-status badge-info">' + esc(c._type) + '</span></td>' +
+            '<td>' + esc(c._org || '—') + '</td><td>' + esc(c._team || '—') + '</td>' +
+            '<td style="color:#888">' + esc(c.description || '—') + '</td><td>' + fmtDateShort(c.created) + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('credentials', sorted.length, rows.length);
 }
 
-// ── Tab: Inventories ───────────────────────────────────────────────────────────
+// ── Inventories ────────────────────────────────────────────────────────────────
 function renderInventories() {
     const el = document.getElementById('tabInventories');
     const invs = snapData.inventories || [];
-    const totalHosts  = invs.reduce((s, i) => s + (i.total_hosts || 0), 0);
-    const failedHosts = invs.reduce((s, i) => s + (i.hosts_with_active_failures || 0), 0);
-
+    const totalH = invs.reduce((s,i) => s + (i.total_hosts || 0), 0);
+    const failH  = invs.reduce((s,i) => s + (i.hosts_with_active_failures || 0), 0);
+    let rows = invs.map(i => ({
+        ...i, _org: i.summary_fields?.organization?.name || '',
+        _status: i.hosts_with_active_failures > 0 ? 'fail' : 'ok'
+    }));
     let html = statsCards([
-        { label: 'Inventories', value: invs.length, color: '#1a237e' },
-        { label: 'Total hosts', value: totalHosts,  color: '#607d8b' },
-        { label: 'Hosts en échec', value: failedHosts, color: failedHosts > 0 ? '#c62828' : '#2e7d32' },
+        {label:'Inventories',value:invs.length,color:'#1a237e'},
+        {label:'Total hosts',value:totalH,color:'#607d8b'},
+        {label:'Hosts en échec',value:failH,color:failH>0?'#c62828':'#2e7d32'},
     ]);
-
+    html += filterBar('inventories', [{v:'fail',l:'✗ Hosts en échec'},{v:'ok',l:'✓ OK'}]);
     if (!invs.length) { el.innerHTML = html + noData(); return; }
-
+    const filtered = applyFilter(rows, 'inventories', ['name','description','_org','_status']);
+    const sorted   = applySort(filtered, 'inventories', 'name');
     html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Inventory</th><th>Type</th><th>Hosts</th><th>Hosts en échec</th><th>Groupes</th>' +
+        th('inventories','name','Inventory') + th('inventories','_org','Organisation') +
+        th('inventories','kind','Type') + th('inventories','total_hosts','Hosts') +
+        th('inventories','hosts_with_active_failures','En échec') + th('inventories','total_groups','Groupes') +
         '</tr></thead><tbody>';
-    invs.forEach(i => {
-        html += '<tr><td><b>' + esc(i.name) + '</b>' + (i.description ? '<br><small style="color:#888">' + esc(i.description) + '</small>' : '') + '</td>' +
+    sorted.forEach(i => {
+        const nc = ncCheck(i.name, 'inv');
+        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(i.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
+            (i.description ? '<br><small style="color:#888">' + esc(i.description) + '</small>' : '') + '</td>' +
+            '<td>' + esc(i._org || '—') + '</td>' +
             '<td>' + (i.kind === 'smart' ? '<span class="badge-status badge-info">Smart</span>' : '<span class="badge-status badge-grey">Normal</span>') + '</td>' +
             '<td>' + (i.total_hosts || 0) + '</td>' +
             '<td' + (i.hosts_with_active_failures > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + (i.hosts_with_active_failures || 0) + '</td>' +
@@ -830,275 +1072,233 @@ function renderInventories() {
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('inventories', sorted.length, rows.length);
 }
 
-// ── Tab: Hosts ─────────────────────────────────────────────────────────────────
+// ── Hosts ──────────────────────────────────────────────────────────────────────
 function renderHosts() {
     const el = document.getElementById('tabHosts');
     const hosts = snapData.hosts || [];
     const invMap = {};
     (snapData.inventories || []).forEach(i => { invMap[i.id] = i.name; });
-
     const enabled  = hosts.filter(h => h.enabled).length;
     const disabled = hosts.length - enabled;
     const failed   = hosts.filter(h => h.has_active_failures).length;
-
-    let html = statsCards([
-        { label: 'Total hosts', value: hosts.length, color: '#1a237e' },
-        { label: 'Actifs', value: enabled,  color: '#2e7d32' },
-        { label: 'Désactivés', value: disabled, color: '#757575' },
-        { label: 'En échec', value: failed,   color: failed > 0 ? '#c62828' : '#2e7d32' },
-    ]);
-
-    if (!hosts.length) { el.innerHTML = html + noData(); return; }
-
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        '<th>Host</th><th>Inventory</th><th>Statut</th><th>Dernier job</th><th>Résultat</th>' +
-        '</tr></thead><tbody>';
-    hosts.sort((a, b) => (b.has_active_failures ? 1 : 0) - (a.has_active_failures ? 1 : 0)).forEach(h => {
+    let rows = hosts.map(h => {
         const invName = invMap[h.inventory] || ('Inv #' + h.inventory);
-        const lj      = h.last_job || h.summary_fields?.last_job;
-        html += '<tr><td><b>' + esc(h.name) + '</b></td>' +
-            '<td>' + esc(invName) + '</td>' +
-            '<td>' + (h.enabled
-                ? '<span class="badge-status badge-ok">Actif</span>'
-                : '<span class="badge-status badge-grey">Désactivé</span>') + '</td>' +
-            '<td>' + (lj ? esc(lj.name || '') + '<br><small>' + fmtDate(lj.finished) + '</small>' : '<span style="color:#bbb">—</span>') + '</td>' +
-            '<td>' + (lj ? statusBadge(lj.status) : '<span style="color:#bbb">—</span>') + '</td></tr>';
+        const lj = h.last_job || h.summary_fields?.last_job;
+        const ncSt = ncCheckHost(h.name);
+        return { ...h, _inv: invName, _lj: lj, _ncst: ncSt,
+                 _status: h.has_active_failures ? 'fail' : (h.enabled ? 'ok' : 'disabled') };
+    });
+    let html = statsCards([
+        {label:'Total hosts',value:hosts.length,color:'#1a237e'},{label:'Actifs',value:enabled,color:'#2e7d32'},
+        {label:'Désactivés',value:disabled,color:'#757575'},{label:'En échec',value:failed,color:failed>0?'#c62828':'#2e7d32'},
+    ]);
+    html += filterBar('hosts', [{v:'fail',l:'✗ En échec'},{v:'ok',l:'✓ Actif'},{v:'disabled',l:'Désactivé'}]);
+    if (!hosts.length) { el.innerHTML = html + noData(); return; }
+    const filtered = applyFilter(rows, 'hosts', ['name','_inv','_status']);
+    const sorted   = applySort(filtered, 'hosts', 'name');
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('hosts','name','Host') + th('hosts','_inv','Inventory') +
+        th('hosts','_status','Statut') + '<th>Dernier job</th><th>Résultat</th>' +
+        '</tr></thead><tbody>';
+    sorted.forEach(h => {
+        const nc = h._ncst;
+        const trCls = nc === 'error' ? ' class="nc-error"' : (nc === 'warn' ? ' class="nc-warn"' : '');
+        const ncBadge = nc === 'error' ? '<span class="nc-be">⛔ interdit</span>' : (nc === 'warn' ? '<span class="nc-bw">⚠ domaine</span>' : '');
+        html += '<tr' + trCls + '><td><b>' + esc(h.name) + '</b>' + ncBadge + '</td>' +
+            '<td>' + esc(h._inv) + '</td>' +
+            '<td>' + (h.enabled ? '<span class="badge-status badge-ok">Actif</span>' : '<span class="badge-status badge-grey">Désactivé</span>') + '</td>' +
+            '<td>' + (h._lj ? esc(h._lj.name || '') + '<br><small>' + fmtDate(h._lj.finished) + '</small>' : '<span style="color:#bbb">—</span>') + '</td>' +
+            '<td>' + (h._lj ? statusBadge(h._lj.status) : '<span style="color:#bbb">—</span>') + '</td></tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+    setFc('hosts', sorted.length, rows.length);
 }
 
 // ── Diff ───────────────────────────────────────────────────────────────────────
 function openDiffModal() {
-    const selA = document.getElementById('diffSnapA');
-    const selB = document.getElementById('diffSnapB');
-    const opts = snapshots.map(s =>
-        '<option value="' + s.id + '">' + fmtDate(s.collected_at) + (s.aap_version ? ' · v' + esc(s.aap_version) : '') + '</option>'
-    ).join('');
-    selA.innerHTML = opts;
-    selB.innerHTML = opts;
-    if (snapshots.length >= 2) selB.value = snapshots[1].id;
-    if (currentSnapId) selA.value = currentSnapId;
+    const opts = snapshots.map(s => '<option value="' + s.id + '">' + fmtDate(s.collected_at) + '</option>').join('');
+    document.getElementById('diffSnapA').innerHTML = opts;
+    document.getElementById('diffSnapB').innerHTML = opts;
+    if (snapshots.length > 1) document.getElementById('diffSnapB').value = snapshots[1].id;
     document.getElementById('diffResult').innerHTML = '';
     document.getElementById('diffModal').style.display = 'flex';
 }
-
-function closeDiffModal() {
-    document.getElementById('diffModal').style.display = 'none';
-}
+function closeDiffModal() { document.getElementById('diffModal').style.display = 'none'; }
 
 async function runDiff() {
-    const a = document.getElementById('diffSnapA').value;
-    const b = document.getElementById('diffSnapB').value;
-    if (!a || !b || a === b) { document.getElementById('diffResult').innerHTML = '<p style="color:#c62828;font-size:13px">Sélectionnez deux snapshots différents.</p>'; return; }
+    const a = document.getElementById('diffSnapA').value, b = document.getElementById('diffSnapB').value;
+    if (!a || !b || a === b) { alert('Sélectionnez deux snapshots différents'); return; }
     const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/diff?a=' + a + '&b=' + b);
-    const d = await r.json();
-    if (!r.ok) { document.getElementById('diffResult').innerHTML = '<p style="color:#c62828">Erreur : ' + esc(d.error) + '</p>'; return; }
-    renderDiff(d);
-}
-
-function renderDiff(data) {
-    const ma = data.manifest_a || {}, mb = data.manifest_b || {};
-    let html = '<div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;flex-wrap:wrap">' +
-        '<div><b>Snapshot A :</b> ' + esc(fmtDate(ma.collected_at)) + (ma.aap_version ? ' · v' + esc(ma.aap_version) : '') + '</div>' +
-        '<div><b>Snapshot B :</b> ' + esc(fmtDate(mb.collected_at)) + (mb.aap_version ? ' · v' + esc(mb.aap_version) : '') + '</div>' +
-        '</div>';
-
-    const diff = data.diff || {};
-    Object.entries(diff).forEach(([sec, d]) => {
-        const label = SECTION_LABELS[sec] || sec;
-        const hasChanges = d.added.length || d.removed.length;
-        html += '<div class="diff-section"><div class="diff-section-title">' +
-            esc(label) +
-            '<span class="diff-counts">A: ' + d.count_a + ' → B: ' + d.count_b + '</span>' +
-        '</div>';
-        if (!hasChanges) {
-            html += '<div style="font-size:12px;color:#888;padding:4px 10px;">Aucun changement</div>';
-        } else {
-            d.added.forEach(i =>
-                html += '<div class="diff-item add">+ ' + esc(i.name) + '</div>'
-            );
-            d.removed.forEach(i =>
-                html += '<div class="diff-item rem">− ' + esc(i.name) + '</div>'
-            );
-        }
+    const data = await r.json();
+    if (!r.ok) { document.getElementById('diffResult').innerHTML = '<div style="color:#c62828">' + esc(data.error || '') + '</div>'; return; }
+    const labels = { job_templates:'Job Templates', workflow_job_templates:'Workflow Templates', projects:'Projets', schedules:'Schedules', tokens:'Tokens', credentials:'Credentials', inventories:'Inventories', hosts:'Hosts' };
+    let html = '<div style="font-size:12px;color:#555;margin-bottom:10px"><b>A :</b> ' + fmtDate((data.manifest_a||{}).collected_at) + ' → <b>B :</b> ' + fmtDate((data.manifest_b||{}).collected_at) + '</div>';
+    for (const [sec, info] of Object.entries(data.diff || {})) {
+        html += '<div class="diff-section"><div class="diff-section-title">' + (labels[sec] || sec) +
+            '<span class="diff-counts">A:' + info.count_a + ' → B:' + info.count_b + '</span></div>';
+        if (!info.added.length && !info.removed.length) html += '<div style="font-size:12px;color:#888;padding:4px 10px">Aucun changement</div>';
+        info.added.forEach(x => html += '<div class="diff-item add">+ ' + esc(x.name || x.id) + '</div>');
+        info.removed.forEach(x => html += '<div class="diff-item rem">− ' + esc(x.name || x.id) + '</div>');
         html += '</div>';
-    });
+    }
     document.getElementById('diffResult').innerHTML = html;
 }
 
 // ── Instance modal ─────────────────────────────────────────────────────────────
 function renderColorSwatches() {
-    const el = document.getElementById('instColorSwatches');
-    el.innerHTML = INST_COLORS.map(c =>
-        '<div class="color-swatch' + (c === _selectedColor ? ' active' : '') + '" style="background:' + c + '" onclick="selectInstColor(\'' + c + '\')"></div>'
-    ).join('');
+    document.getElementById('instColorSwatches').innerHTML = INST_COLORS.map(c =>
+        '<div class="color-swatch' + (c === _selectedColor ? ' active' : '') + '" style="background:' + c + '" onclick="selectInstColor(\'' + c + '\')"></div>').join('');
 }
-
-function selectInstColor(color) {
-    _selectedColor = color;
-    renderColorSwatches();
-}
+function selectInstColor(c) { _selectedColor = c; renderColorSwatches(); }
 
 function openInstModal(inst) {
-    _editInstId    = inst ? inst.id : null;
+    _editInstId = inst ? inst.id : null;
     _selectedColor = inst ? inst.color : '#c62828';
-    document.getElementById('instModalTitle').textContent = inst ? 'Modifier l\'instance' : 'Nouvelle instance';
+    document.getElementById('instModalTitle').textContent = inst ? 'Modifier instance' : 'Nouvelle instance';
     document.getElementById('imName').value    = inst ? inst.name : '';
     document.getElementById('imEnvType').value = inst ? (inst.env_type || '') : '';
     document.getElementById('imDesc').value    = inst ? (inst.description || '') : '';
-    document.getElementById('btnSaveInst').textContent   = inst ? 'Enregistrer' : 'Créer';
-    document.getElementById('btnDeleteInst').style.display = inst ? 'inline-flex' : 'none';
+    document.getElementById('btnSaveInst').textContent = inst ? 'Sauvegarder' : 'Créer';
+    document.getElementById('btnDeleteInst').style.display = inst ? '' : 'none';
     document.getElementById('instModalFeedback').className = 'modal-feedback';
     renderColorSwatches();
     document.getElementById('instModal').style.display = 'flex';
-    setTimeout(() => document.getElementById('imName').focus(), 50);
 }
-
-function closeInstModal() {
-    document.getElementById('instModal').style.display = 'none';
-}
+function closeInstModal() { document.getElementById('instModal').style.display = 'none'; }
 
 async function saveInst() {
     const name = document.getElementById('imName').value.trim();
-    const fb   = document.getElementById('instModalFeedback');
-    if (!name) { fb.textContent = 'Nom requis.'; fb.className = 'modal-feedback err'; return; }
-    const btn = document.getElementById('btnSaveInst');
-    btn.disabled = true;
-    try {
-        const method = _editInstId ? 'PUT' : 'POST';
-        const url    = _editInstId ? '/api/aap-checker/instances/' + _editInstId : '/api/aap-checker/instances';
-        const r = await fetch(url, {
-            method, headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                name, env_type: document.getElementById('imEnvType').value.trim(),
-                description: document.getElementById('imDesc').value.trim(),
-                color: _selectedColor,
-            }),
-        });
-        const d = await r.json();
-        if (!r.ok) { fb.textContent = d.error || 'Erreur'; fb.className = 'modal-feedback err'; return; }
-        closeInstModal();
-        await loadInstances();
-        if (_editInstId && currentInst?.id === _editInstId) {
-            currentInst = instances.find(i => i.id === _editInstId) || null;
-            if (currentInst) {
-                document.getElementById('detailTitle').textContent = currentInst.name;
-                document.getElementById('detailEnv').textContent   = currentInst.env_type || '';
-                document.getElementById('detailDot').style.background = currentInst.color;
-            }
-        }
-    } catch(e) { fb.textContent = 'Erreur réseau.'; fb.className = 'modal-feedback err'; }
-    finally { btn.disabled = false; }
+    if (!name) { showFb('instModalFeedback', 'Nom requis', false); return; }
+    const body = { name, env_type: document.getElementById('imEnvType').value.trim(), description: document.getElementById('imDesc').value.trim(), color: _selectedColor };
+    const url  = _editInstId ? '/api/aap-checker/instances/' + _editInstId : '/api/aap-checker/instances';
+    const r    = await fetch(url, { method: _editInstId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d    = await r.json();
+    if (!r.ok) { showFb('instModalFeedback', d.error || 'Erreur', false); return; }
+    closeInstModal(); await loadInstances();
+    if (_editInstId && currentInst?.id === _editInstId) {
+        currentInst = { ...currentInst, ...body };
+        document.getElementById('detailTitle').textContent = currentInst.name;
+        document.getElementById('detailDot').style.background = currentInst.color;
+    }
 }
 
 async function deleteCurrentInst() {
-    if (!currentInst) return;
-    if (!confirm('Supprimer l\'instance « ' + currentInst.name + ' » et tous ses snapshots ?')) return;
-    closeInstModal();
-    await fetch('/api/aap-checker/instances/' + currentInst.id, { method: 'DELETE' });
-    await loadInstances();
-    backToList();
+    if (!_editInstId || !confirm('Supprimer cette instance et tous ses snapshots ?')) return;
+    await fetch('/api/aap-checker/instances/' + _editInstId, { method: 'DELETE' });
+    closeInstModal(); await loadInstances();
+    if (currentInst?.id === _editInstId) backToList();
 }
 
 // ── Config modal ───────────────────────────────────────────────────────────────
 async function showConfig() {
-    if (!currentInst) return;
     const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/config');
     if (!r.ok) return;
     const d = await r.json();
-    document.getElementById('cfgInstName').value    = d.name;
+    document.getElementById('cfgInstName').value = d.name;
     document.getElementById('cfgEncKey').textContent = d.enc_key;
     document.getElementById('configModal').style.display = 'flex';
 }
-
-function closeConfigModal() {
-    document.getElementById('configModal').style.display = 'none';
-}
-
+function closeConfigModal() { document.getElementById('configModal').style.display = 'none'; }
 function selectEncKey() {
     const el = document.getElementById('cfgEncKey');
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
+    const rng = document.createRange();
+    rng.selectNodeContents(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(rng);
+}
+
+// ── Naming modal ───────────────────────────────────────────────────────────────
+function openNamingModal() {
+    const nc = getNc() || {};
+    document.getElementById('nc-wf').value    = nc.wf   || '';
+    document.getElementById('nc-jt').value    = nc.jt   || '';
+    document.getElementById('nc-proj').value  = nc.proj || '';
+    document.getElementById('nc-inv').value   = nc.inv  || '';
+    document.getElementById('nc-src').value   = nc.src  || '';
+    document.getElementById('nc-cred').value  = nc.cred || '';
+    document.getElementById('nc-domains').value        = (nc.domains || []).join('\n');
+    document.getElementById('nc-forbidden-hp').value   = (nc.forbiddenHp || []).join('\n');
+    document.getElementById('nc-forbidden-prod').value = (nc.forbiddenProd || []).join('\n');
+    document.getElementById('namingModal').style.display = 'flex';
+}
+function closeNamingModal() { document.getElementById('namingModal').style.display = 'none'; }
+
+function applyNcDefaults() {
+    Object.entries(NC_CAGIP).forEach(([k, v]) => {
+        const el = document.getElementById('nc-' + k);
+        if (el) el.value = Array.isArray(v) ? v.join('\n') : (v || '');
+    });
+}
+
+function saveNamingConfig() {
+    const lines = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+    saveNc({
+        wf: document.getElementById('nc-wf').value.trim(),
+        jt: document.getElementById('nc-jt').value.trim(),
+        proj: document.getElementById('nc-proj').value.trim(),
+        inv: document.getElementById('nc-inv').value.trim(),
+        src: document.getElementById('nc-src').value.trim(),
+        cred: document.getElementById('nc-cred').value.trim(),
+        domains: lines('nc-domains'),
+        forbiddenHp: lines('nc-forbidden-hp'),
+        forbiddenProd: lines('nc-forbidden-prod'),
+    });
+    closeNamingModal();
+    if (snapData) renderCurrentTab();
+}
+
+function resetNamingConfig() {
+    if (!confirm('Supprimer la configuration de normes ?')) return;
+    const k = ncKey(); if (k) localStorage.removeItem(k);
+    closeNamingModal();
+    if (snapData) renderCurrentTab();
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function esc(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function showFb(id, msg, ok) { const el = document.getElementById(id); el.textContent = msg; el.className = 'modal-feedback ' + (ok ? 'ok' : 'err'); }
+
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function fmtDate(d) {
     if (!d) return '<span style="color:#bbb">—</span>';
-    try {
-        return new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    } catch { return String(d); }
+    try { return new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+    catch { return esc(d); }
 }
+function fmtDateShort(d) { if (!d) return '<span style="color:#bbb">—</span>'; try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return esc(d); } }
 
-function fmtDateShort(d) {
-    if (!d) return '—';
-    try {
-        return new Date(d).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'});
-    } catch { return String(d); }
-}
-
-function rateColor(rate) {
-    if (rate === null || rate === undefined) return '#9e9e9e';
-    if (rate >= 90) return '#2e7d32';
-    if (rate >= 70) return '#e65100';
-    return '#c62828';
-}
+function rateColor(rate) { if (rate === null) return '#607d8b'; if (rate >= 90) return '#2e7d32'; if (rate >= 70) return '#e65100'; return '#c62828'; }
 
 function rateBar(rate) {
-    if (rate === null || rate === undefined) return '<span style="color:#bbb;font-size:11px">N/A</span>';
-    const col = rateColor(rate);
-    return '<div class="rate-wrap">' +
-        '<div class="rate-bar"><div class="rate-fill" style="width:' + rate + '%;background:' + col + '"></div></div>' +
-        '<span class="rate-txt" style="color:' + col + '">' + rate + '%</span>' +
-        '</div>';
+    if (rate === null) return '<span style="color:#bbb">N/A</span>';
+    const c = rateColor(rate);
+    return '<div class="rate-wrap"><div class="rate-bar"><div class="rate-fill" style="width:' + rate + '%;background:' + c + '"></div></div><span class="rate-txt" style="color:' + c + '">' + rate + '%</span></div>';
 }
 
 function statusBadge(status) {
-    const map = {
-        'successful':    ['badge-ok',   'Succès'],
-        'failed':        ['badge-fail', 'Échec'],
-        'canceled':      ['badge-grey', 'Annulé'],
-        'running':       ['badge-info', 'En cours'],
-        'pending':       ['badge-warn', 'En attente'],
-        'waiting':       ['badge-warn', 'En attente'],
-        'never updated': ['badge-grey', 'Jamais'],
-        'ok':            ['badge-ok',   'OK'],
-        'changed':       ['badge-info', 'Modifié'],
-        'unreachable':   ['badge-fail', 'Injoignable'],
-    };
-    const [cls, lbl] = map[status] || ['badge-grey', status || '—'];
-    return '<span class="badge-status ' + cls + '">' + esc(lbl) + '</span>';
+    const m = { successful:['badge-ok','✓ Succès'], failed:['badge-fail','✗ Échec'], running:['badge-warn','▶ Running'], pending:['badge-info','⏳ Attente'], canceled:['badge-grey','⊘ Annulé'], never:['badge-grey','Jamais'] };
+    const [cls, lbl] = m[status] || ['badge-grey', esc(status || '—')];
+    return '<span class="badge-status ' + cls + '">' + lbl + '</span>';
 }
 
-function statsCards(stats) {
-    return '<div class="stats-row">' +
-        stats.map(s => '<div class="stat-card"><div class="stat-val" style="color:' + s.color + '">' + s.value + '</div><div class="stat-lbl">' + esc(s.label) + '</div></div>').join('') +
-        '</div>';
+function sc(value, label, color) {
+    return '<div class="stat-card" style="border-top-color:' + color + '"><div class="stat-val" style="color:' + color + '">' + esc(String(value)) + '</div><div class="stat-lbl">' + label + '</div></div>';
 }
+
+function statsCards(stats) { return '<div class="stats-row">' + stats.map(s => sc(s.value, s.label, s.color)).join('') + '</div>'; }
 
 function parseRrule(rrule) {
     if (!rrule) return '—';
-    const freq = rrule.match(/FREQ=(\w+)/i);
-    const iv   = rrule.match(/INTERVAL=(\d+)/i);
-    if (!freq) return rrule.substring(0, 30);
-    const labels = { DAILY:'Quotidien', WEEKLY:'Hebdomadaire', MONTHLY:'Mensuel', YEARLY:'Annuel', HOURLY:'Horaire' };
-    const f = labels[freq[1].toUpperCase()] || freq[1];
-    const n = iv ? parseInt(iv[1]) : 1;
-    return n > 1 ? 'Tous les ' + n + ' ' + f.toLowerCase() + 's' : f;
+    const m = rrule.match(/FREQ=([^;]+)/); if (!m) return esc(rrule);
+    const intv = (rrule.match(/INTERVAL=(\d+)/) || [,1])[1];
+    const map = { MINUTELY:'min', HOURLY:'h', DAILY:'j', WEEKLY:'sem', MONTHLY:'mois' };
+    return 'Tous les ' + intv + ' ' + (map[m[1]] || m[1]);
 }
 
-function noData() {
-    return '<div class="no-data">Aucune donnée dans ce snapshot.</div>';
-}
+function noData() { return '<div class="no-data">Aucune donnée disponible dans ce snapshot.</div>'; }
 
 init();
 </script>
