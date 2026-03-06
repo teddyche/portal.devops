@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAP Checker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f4f8; min-height: 100vh; }
+
+        /* ── Top bar ─────────────────────────────────────────── */
+        .top-bar {
+            background: #1a237e; color: white; padding: 14px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
+        }
+        .top-bar h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+        .top-bar a  { color: rgba(255,255,255,.8); text-decoration: none; font-size: 13px; }
+        .top-bar a:hover { color: white; }
+
+        /* ── Container ───────────────────────────────────────── */
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        .btn {
+            padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; transition: opacity .15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { opacity: .85; }
+        .btn-primary   { background: #c62828; color: white; }
+        .btn-secondary { background: #e8eaf6; color: #1a237e; border: 1px solid #c5cae9; }
+        .btn-success   { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .btn-danger    { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* ── List header ─────────────────────────────────────── */
+        .list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+        }
+        .list-header h2 { font-size: 18px; color: #1a237e; }
+
+        /* ── Instance cards ──────────────────────────────────── */
+        .env-section { margin-bottom: 28px; }
+        .env-label {
+            font-size: 11px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: .6px; color: #888; margin-bottom: 12px;
+            padding-bottom: 6px; border-bottom: 2px solid #e8eaf6;
+        }
+        .cards-row { display: flex; flex-wrap: wrap; gap: 14px; }
+
+        .inst-card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+            padding: 18px 20px; min-width: 240px; max-width: 300px;
+            cursor: pointer; transition: all .15s;
+            border-left: 4px solid #c62828;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .inst-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.14); }
+        .inst-card-name { font-size: 15px; font-weight: bold; color: #1a237e; }
+        .inst-card-desc { font-size: 12px; color: #777; }
+        .inst-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+        .inst-card-snaps { font-size: 12px; color: #888; }
+        .env-badge {
+            font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 20px;
+            background: #e8eaf6; color: #3949ab;
+        }
+
+        .empty-state { text-align: center; padding: 48px 20px; color: #aaa; font-size: 14px; }
+        .empty-state span { font-size: 48px; display: block; margin-bottom: 12px; }
+
+        /* ── Detail header ───────────────────────────────────── */
+        .detail-header {
+            background: white; border-bottom: 2px solid #e8eaf6;
+            padding: 12px 24px; display: flex; align-items: center;
+            justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .detail-header-left  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .detail-header-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .inst-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .inst-title { font-size: 16px; font-weight: bold; color: #1a237e; }
+
+        .snap-select {
+            padding: 6px 10px; border: 1px solid #c5cae9; border-radius: 6px;
+            font-size: 12px; background: white; color: #333; cursor: pointer;
+            min-width: 200px; max-width: 280px;
+        }
+
+        /* ── Tabs ────────────────────────────────────────────── */
+        .tab-nav {
+            display: flex; gap: 2px; padding: 16px 24px 0;
+            border-bottom: 2px solid #e8eaf6; background: white;
+            overflow-x: auto; flex-wrap: nowrap;
+        }
+        .tab-btn {
+            padding: 8px 16px; border: none; background: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; color: #888;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            white-space: nowrap; transition: all .15s;
+        }
+        .tab-btn:hover { color: #1a237e; }
+        .tab-btn.active { color: #c62828; border-bottom-color: #c62828; }
+
+        /* ── Stats cards ─────────────────────────────────────── */
+        .stats-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+        .stat-card {
+            background: white; border-radius: 8px; padding: 14px 20px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 120px; text-align: center;
+        }
+        .stat-val { font-size: 26px; font-weight: bold; }
+        .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+
+        /* ── Data table ──────────────────────────────────────── */
+        .table-wrap { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
+        .data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        .data-table th {
+            background: #1a237e; color: white; padding: 10px 14px;
+            font-size: 11px; text-align: left; white-space: nowrap; font-weight: bold;
+        }
+        .data-table td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:hover td { background: #fafeff; }
+
+        /* ── Badges ──────────────────────────────────────────── */
+        .badge-status {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: bold;
+        }
+        .badge-ok    { background: #e8f5e9; color: #2e7d32; }
+        .badge-fail  { background: #ffebee; color: #c62828; }
+        .badge-warn  { background: #fff8e1; color: #e65100; }
+        .badge-info  { background: #e3f2fd; color: #1565c0; }
+        .badge-grey  { background: #f5f5f5; color: #757575; }
+
+        /* ── Rate bar ────────────────────────────────────────── */
+        .rate-wrap { display: flex; align-items: center; gap: 6px; }
+        .rate-bar  { width: 60px; height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+        .rate-fill { height: 100%; border-radius: 3px; }
+        .rate-txt  { font-size: 11px; font-weight: bold; }
+
+        /* ── Token expiry alert ───────────────────────────────── */
+        .token-expired  { background: #ffebee !important; }
+        .token-expiring { background: #fff8e1 !important; }
+        .days-badge { font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 12px; }
+
+        /* ── No snap / no data ───────────────────────────────── */
+        .no-snap {
+            text-align: center; padding: 60px 20px; color: #bbb;
+            background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+        }
+        .no-snap span { font-size: 48px; display: block; margin-bottom: 12px; }
+        .no-data { text-align: center; padding: 30px; color: #bbb; font-size: 13px; }
+
+        /* ── Modals ──────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: white; border-radius: 12px; padding: 28px 30px;
+            min-width: 400px; max-width: 560px; width: 92%;
+            box-shadow: 0 8px 32px rgba(0,0,0,.25); max-height: 90vh; overflow-y: auto;
+        }
+        .modal-lg { max-width: 860px; }
+        .modal-title { font-size: 17px; font-weight: bold; color: #1a237e; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block; font-size: 12px; font-weight: bold; color: #555;
+            text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 14px; transition: border-color .15s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #c62828; outline: none; box-shadow: 0 0 0 3px rgba(198,40,40,.1);
+        }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .modal-feedback { margin-top: 10px; padding: 9px 12px; border-radius: 6px; font-size: 13px; display: none; }
+        .modal-feedback.ok  { background: #e8f5e9; color: #2e7d32; display: block; }
+        .modal-feedback.err { background: #ffebee; color: #c62828; display: block; }
+
+        /* Color swatches */
+        .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .color-swatch {
+            width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+            border: 3px solid transparent; transition: transform .1s;
+        }
+        .color-swatch:hover  { transform: scale(1.15); }
+        .color-swatch.active { border-color: #1a237e; transform: scale(1.1); }
+
+        /* Config modal — enc_key */
+        .enc-key-box {
+            font-family: monospace; font-size: 12px; background: #f5f5f5;
+            padding: 12px; border-radius: 6px; word-break: break-all;
+            border: 1px solid #e0e0e0; user-select: all;
+        }
+        .copy-hint { font-size: 11px; color: #888; margin-top: 6px; }
+
+        /* Diff modal */
+        .diff-section { margin-bottom: 16px; }
+        .diff-section-title {
+            font-size: 13px; font-weight: bold; color: #1a237e;
+            padding: 6px 10px; background: #e8eaf6; border-radius: 4px;
+            margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .diff-added   { color: #2e7d32; font-size: 12px; }
+        .diff-removed { color: #c62828; font-size: 12px; }
+        .diff-item {
+            padding: 3px 10px; border-radius: 4px; margin-bottom: 2px; font-size: 12px;
+        }
+        .diff-item.add { background: #e8f5e9; color: #2e7d32; }
+        .diff-item.rem { background: #ffebee; color: #c62828; }
+        .diff-counts { font-size: 11px; color: #888; }
+
+        /* Upload area */
+        #snapFileInput { display: none; }
+
+        /* Snap meta bar */
+        .snap-meta {
+            background: #e8eaf6; border-radius: 6px; padding: 8px 14px;
+            font-size: 12px; color: #3949ab; margin-bottom: 16px;
+            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .snap-meta b { color: #1a237e; }
+    </style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────────── -->
+<div class="top-bar">
+    <h1>🔍 AAP Checker</h1>
+    <a href="/">← Accueil</a>
+</div>
+
+<!-- ── List view ────────────────────────────────────────────────────────────── -->
+<div id="listView">
+    <div class="container">
+        <div class="list-header">
+            <h2>Instances AAP / AWX</h2>
+            <div style="display:flex;gap:8px">
+                <a class="btn btn-secondary" href="/api/aap-checker/project.zip" download>📦 Télécharger projet Ansible</a>
+                <button class="btn btn-primary" onclick="openInstModal()">+ Nouvelle instance</button>
+            </div>
+        </div>
+        <div id="instancesContainer"></div>
+    </div>
+</div>
+
+<!-- ── Detail view ──────────────────────────────────────────────────────────── -->
+<div id="detailView" style="display:none;">
+    <div class="detail-header">
+        <div class="detail-header-left">
+            <button class="btn btn-secondary btn-sm" onclick="backToList()">← Retour</button>
+            <div class="inst-color-dot" id="detailDot"></div>
+            <span class="inst-title" id="detailTitle"></span>
+            <span class="env-badge" id="detailEnv"></span>
+        </div>
+        <div class="detail-header-right">
+            <select class="snap-select" id="snapSelect" onchange="onSnapSelect(this.value)" title="Sélectionner un snapshot">
+                <option value="">— Sélectionner un snapshot —</option>
+            </select>
+            <button class="btn btn-success btn-sm" onclick="importSnapshot()" title="Importer un snapshot .enc">📥 Importer</button>
+            <button class="btn btn-secondary btn-sm" id="btnDiff" onclick="openDiffModal()" title="Comparer deux snapshots" disabled>🔄 Comparer</button>
+            <button class="btn btn-secondary btn-sm" id="btnDelSnap" onclick="deleteCurrentSnapshot()" title="Supprimer ce snapshot" disabled>🗑 Snap</button>
+            <button class="btn btn-secondary btn-sm" onclick="openInstModal(currentInst)">✏️</button>
+            <button class="btn btn-secondary btn-sm" onclick="showConfig()" title="Clé de chiffrement">⚙</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('jobs')">⚙ Jobs</button>
+        <button class="tab-btn" onclick="switchTab('workflows')">🔀 Workflows</button>
+        <button class="tab-btn" onclick="switchTab('planning')">📅 Planning</button>
+        <button class="tab-btn" onclick="switchTab('tokens')">🔑 Tokens</button>
+        <button class="tab-btn" onclick="switchTab('credentials')">🔒 Credentials</button>
+        <button class="tab-btn" onclick="switchTab('inventories')">📦 Inventories</button>
+        <button class="tab-btn" onclick="switchTab('hosts')">🖥 Hosts</button>
+    </div>
+
+    <div class="container" style="padding-top:20px;">
+        <div id="snapMetaBar" style="display:none;" class="snap-meta"></div>
+        <div id="snapEmpty" class="no-snap">
+            <span>📥</span>
+            Importez ou sélectionnez un snapshot pour afficher les données.
+            <br><br>
+            <button class="btn btn-primary" onclick="importSnapshot()">📥 Importer un snapshot</button>
+        </div>
+        <div id="snapContent" style="display:none;">
+            <div id="tabJobs"></div>
+            <div id="tabWorkflows" style="display:none;"></div>
+            <div id="tabPlanning" style="display:none;"></div>
+            <div id="tabTokens" style="display:none;"></div>
+            <div id="tabCredentials" style="display:none;"></div>
+            <div id="tabInventories" style="display:none;"></div>
+            <div id="tabHosts" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Hidden file input ─────────────────────────────────────────────────────── -->
+<input type="file" id="snapFileInput" accept=".enc" onchange="onSnapFileChange(event)">
+
+<!-- ── Modal Instance ────────────────────────────────────────────────────────── -->
+<div id="instModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeInstModal()">
+    <div class="modal-box">
+        <div class="modal-title" id="instModalTitle">Nouvelle instance</div>
+        <div class="form-group">
+            <label>Nom *</label>
+            <input type="text" id="imName" placeholder="ex: Production AAP">
+        </div>
+        <div class="form-group">
+            <label>Type d'environnement</label>
+            <input type="text" id="imEnvType" placeholder="ex: Production, Hors-Production, Dev…">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="imDesc" placeholder="Description optionnelle…"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Couleur</label>
+            <div class="color-swatches" id="instColorSwatches"></div>
+        </div>
+        <div class="modal-feedback" id="instModalFeedback"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeInstModal()">Annuler</button>
+            <button class="btn btn-danger" id="btnDeleteInst" style="display:none;" onclick="deleteCurrentInst()">🗑 Supprimer</button>
+            <button class="btn btn-primary" id="btnSaveInst" onclick="saveInst()">Créer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal Config (enc_key) ────────────────────────────────────────────────── -->
+<div id="configModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeConfigModal()">
+    <div class="modal-box">
+        <div class="modal-title">⚙ Configuration playbook</div>
+        <p style="font-size:13px;color:#555;margin-bottom:14px;">
+            Copiez cette clé dans le fichier <code>group_vars/all.yml</code> du projet Ansible
+            (champ <code>portal_enc_key</code>).
+        </p>
+        <div class="form-group">
+            <label>Instance</label>
+            <input type="text" id="cfgInstName" readonly style="background:#f5f5f5;">
+        </div>
+        <div class="form-group">
+            <label>Clé de chiffrement (AES-256)</label>
+            <div class="enc-key-box" id="cfgEncKey" onclick="selectEncKey()"></div>
+            <div class="copy-hint">💡 Cliquez pour sélectionner — puis Ctrl+C pour copier</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeConfigModal()">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal Diff ────────────────────────────────────────────────────────────── -->
+<div id="diffModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeDiffModal()">
+    <div class="modal-box modal-lg">
+        <div class="modal-title">🔄 Comparer deux snapshots</div>
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;margin:0">
+                <label>Snapshot A (référence)</label>
+                <select id="diffSnapA" class="snap-select" style="width:100%"></select>
+            </div>
+            <div class="form-group" style="flex:1;margin:0">
+                <label>Snapshot B (comparaison)</label>
+                <select id="diffSnapB" class="snap-select" style="width:100%"></select>
+            </div>
+        </div>
+        <div class="modal-actions" style="margin-top:0;margin-bottom:16px;">
+            <button class="btn btn-secondary" onclick="closeDiffModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="runDiff()">🔄 Comparer</button>
+        </div>
+        <div id="diffResult"></div>
+    </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let instances    = [];
+let currentInst  = null;
+let snapshots    = [];
+let currentSnapId = null;
+let snapData     = null;
+let currentTab   = 'jobs';
+let _editInstId  = null;
+let _selectedColor = '#c62828';
+
+const INST_COLORS = ['#c62828','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4527a0','#37474f'];
+
+const TAB_IDS = {
+    jobs: 'tabJobs', workflows: 'tabWorkflows', planning: 'tabPlanning',
+    tokens: 'tabTokens', credentials: 'tabCredentials', inventories: 'tabInventories', hosts: 'tabHosts',
+};
+const SECTION_LABELS = {
+    job_templates: 'Job Templates', workflow_job_templates: 'Workflow Job Templates',
+    schedules: 'Schedules', tokens: 'Tokens', credentials: 'Credentials',
+    inventories: 'Inventories', hosts: 'Hosts',
+};
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (me.ok) { const u = await me.json(); window._csrf = u.csrf_token || ''; patchFetch(); }
+    } catch(e) {}
+    await loadInstances();
+}
+
+function patchFetch() {
+    const _o = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase()))
+            opts.headers = Object.assign({'X-CSRF-Token': window._csrf}, opts.headers || {});
+        return _o.call(this, url, opts);
+    };
+}
+
+// ── Instance list ──────────────────────────────────────────────────────────────
+async function loadInstances() {
+    const r = await fetch('/api/aap-checker/instances');
+    if (r.ok) { const d = await r.json(); instances = d.instances || []; }
+    renderInstanceList();
+}
+
+function renderInstanceList() {
+    const c = document.getElementById('instancesContainer');
+    if (!instances.length) {
+        c.innerHTML = '<div class="empty-state"><span>🔍</span>Aucune instance — cliquez sur « + Nouvelle instance » pour commencer.</div>';
+        return;
+    }
+    const groups = {};
+    instances.forEach(i => {
+        const g = i.env_type || 'Non classé';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(i);
+    });
+    c.innerHTML = Object.entries(groups).map(([env, list]) =>
+        '<div class="env-section">' +
+        '<div class="env-label">🏷 ' + esc(env) + '</div>' +
+        '<div class="cards-row">' + list.map(instCard).join('') + '</div></div>'
+    ).join('');
+}
+
+function instCard(inst) {
+    const snapCount = ''; // will be loaded on open
+    return '<div class="inst-card" style="border-left-color:' + esc(inst.color) + '" onclick="openInstance(\'' + inst.id + '\')">' +
+        '<div class="inst-card-name">' + esc(inst.name) + '</div>' +
+        (inst.description ? '<div class="inst-card-desc">' + esc(inst.description) + '</div>' : '') +
+        '<div class="inst-card-meta">' +
+            '<span class="inst-card-snaps">Cliquer pour ouvrir</span>' +
+            (inst.env_type ? '<span class="env-badge">' + esc(inst.env_type) + '</span>' : '') +
+        '</div>' +
+    '</div>';
+}
+
+// ── Open / Back ─────────────────────────────────────────────────────────────────
+async function openInstance(id) {
+    currentInst = instances.find(i => i.id === id) || null;
+    if (!currentInst) return;
+    document.getElementById('listView').style.display   = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    document.getElementById('detailTitle').textContent  = currentInst.name;
+    document.getElementById('detailEnv').textContent    = currentInst.env_type || '';
+    document.getElementById('detailEnv').style.display  = currentInst.env_type ? '' : 'none';
+    document.getElementById('detailDot').style.background = currentInst.color;
+    currentSnapId = null;
+    snapData      = null;
+    document.getElementById('snapEmpty').style.display   = 'block';
+    document.getElementById('snapContent').style.display = 'none';
+    document.getElementById('snapMetaBar').style.display = 'none';
+    switchTab('jobs', false);
+    await loadSnapshots();
+}
+
+function backToList() {
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('listView').style.display   = 'block';
+    currentInst = null; snapshots = []; currentSnapId = null; snapData = null;
+}
+
+// ── Snapshots ──────────────────────────────────────────────────────────────────
+async function loadSnapshots(selectId) {
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots');
+    if (r.ok) { const d = await r.json(); snapshots = d.snapshots || []; }
+    const sel = document.getElementById('snapSelect');
+    sel.innerHTML = '<option value="">— Sélectionner un snapshot —</option>' +
+        snapshots.map(s =>
+            '<option value="' + s.id + '">' + fmtDate(s.collected_at) +
+            (s.aap_version ? ' · v' + esc(s.aap_version) : '') + '</option>'
+        ).join('');
+    document.getElementById('btnDiff').disabled    = snapshots.length < 2;
+    document.getElementById('btnDelSnap').disabled = true;
+    if (selectId || snapshots.length) {
+        const sid = selectId || snapshots[0].id;
+        sel.value = sid;
+        await loadSnapshot(sid);
+    }
+}
+
+async function onSnapSelect(sid) {
+    if (!sid) {
+        currentSnapId = null; snapData = null;
+        document.getElementById('snapEmpty').style.display   = 'block';
+        document.getElementById('snapContent').style.display = 'none';
+        document.getElementById('snapMetaBar').style.display = 'none';
+        document.getElementById('btnDelSnap').disabled = true;
+        return;
+    }
+    await loadSnapshot(sid);
+}
+
+async function loadSnapshot(sid) {
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots/' + sid);
+    if (!r.ok) { alert('Erreur chargement snapshot'); return; }
+    snapData      = await r.json();
+    currentSnapId = sid;
+    document.getElementById('snapSelect').value = sid;
+    document.getElementById('btnDelSnap').disabled = false;
+
+    const m = snapData.manifest || {};
+    const bar = document.getElementById('snapMetaBar');
+    bar.style.display = 'flex';
+    bar.innerHTML =
+        '<b>Instance :</b> ' + esc(m.instance_name || '—') +
+        ' &nbsp;|&nbsp; <b>URL :</b> ' + esc(m.aap_url || '—') +
+        ' &nbsp;|&nbsp; <b>Version :</b> ' + esc(m.aap_version || '—') +
+        ' &nbsp;|&nbsp; <b>Collecté :</b> ' + fmtDate(m.collected_at);
+
+    document.getElementById('snapEmpty').style.display   = 'none';
+    document.getElementById('snapContent').style.display = 'block';
+    renderCurrentTab();
+}
+
+// ── Import ─────────────────────────────────────────────────────────────────────
+function importSnapshot() {
+    document.getElementById('snapFileInput').value = '';
+    document.getElementById('snapFileInput').click();
+}
+
+async function onSnapFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots', {
+        method: 'POST', body: fd,
+    });
+    const d = await r.json();
+    if (!r.ok) { alert('Erreur import : ' + (d.error || 'inconnue')); return; }
+    await loadSnapshots(d.snapshot_id);
+}
+
+async function deleteCurrentSnapshot() {
+    if (!currentSnapId) return;
+    if (!confirm('Supprimer ce snapshot ?')) return;
+    await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots/' + currentSnapId, { method: 'DELETE' });
+    await loadSnapshots();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────────
+function switchTab(tab, render = true) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        const tabs = ['jobs','workflows','planning','tokens','credentials','inventories','hosts'];
+        b.classList.toggle('active', tabs[i] === tab);
+    });
+    Object.entries(TAB_IDS).forEach(([k, v]) => {
+        document.getElementById(v).style.display = k === tab ? 'block' : 'none';
+    });
+    if (render && snapData) renderCurrentTab();
+}
+
+function renderCurrentTab() {
+    const fn = { jobs: renderJobs, workflows: renderWorkflows, planning: renderPlanning,
+                 tokens: renderTokens, credentials: renderCredentials,
+                 inventories: renderInventories, hosts: renderHosts };
+    if (fn[currentTab]) fn[currentTab]();
+}
+
+// ── Tab: Jobs ──────────────────────────────────────────────────────────────────
+function renderJobs() {
+    const el = document.getElementById('tabJobs');
+    const templates = snapData.job_templates || [];
+    const jobs      = snapData.jobs || [];
+
+    const runMap = {};
+    jobs.forEach(j => {
+        const tid = j.unified_job_template;
+        if (tid == null) return;
+        if (!runMap[tid]) runMap[tid] = [];
+        runMap[tid].push(j);
+    });
+
+    let totalSuccess = 0, totalFailed = 0;
+    const rows = templates.map(t => {
+        const runs    = runMap[t.id] || [];
+        const success = runs.filter(r => r.status === 'successful').length;
+        const failed  = runs.filter(r => r.status === 'failed').length;
+        const total   = success + failed + runs.filter(r => r.status === 'canceled').length;
+        const rate    = (success + failed) > 0 ? Math.round(success / (success + failed) * 100) : null;
+        totalSuccess += success; totalFailed += failed;
+        return { ...t, _success: success, _failed: failed, _total: total, _rate: rate };
+    });
+    const globalRate = (totalSuccess + totalFailed) > 0
+        ? Math.round(totalSuccess / (totalSuccess + totalFailed) * 100) : null;
+
+    let html = statsCards([
+        { label: 'Templates', value: templates.length, color: '#1a237e' },
+        { label: 'Exécutions analysées', value: jobs.length, color: '#607d8b' },
+        { label: 'Succès', value: totalSuccess, color: '#2e7d32' },
+        { label: 'Échecs', value: totalFailed, color: '#c62828' },
+        { label: 'Taux succès', value: globalRate !== null ? globalRate + '%' : 'N/A', color: rateColor(globalRate) },
+    ]);
+
+    if (!templates.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Template</th><th>Dernier run</th><th>Runs</th><th>✓ Succès</th><th>✗ Échecs</th><th>Taux</th><th>Statut</th>' +
+        '</tr></thead><tbody>';
+    rows.sort((a, b) => (b._failed - a._failed)).forEach(r => {
+        html += '<tr><td><b>' + esc(r.name) + '</b>' + (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
+            '<td>' + fmtDate(r.last_job_run) + '</td>' +
+            '<td>' + r._total + '</td>' +
+            '<td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
+            '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
+            '<td>' + rateBar(r._rate) + '</td>' +
+            '<td>' + statusBadge(r.status) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Workflows ─────────────────────────────────────────────────────────────
+function renderWorkflows() {
+    const el = document.getElementById('tabWorkflows');
+    const templates = snapData.workflow_job_templates || [];
+    const jobs      = snapData.workflow_jobs || [];
+
+    const runMap = {};
+    jobs.forEach(j => {
+        const tid = j.unified_job_template;
+        if (tid == null) return;
+        if (!runMap[tid]) runMap[tid] = [];
+        runMap[tid].push(j);
+    });
+
+    let totalSuccess = 0, totalFailed = 0;
+    const rows = templates.map(t => {
+        const runs    = runMap[t.id] || [];
+        const success = runs.filter(r => r.status === 'successful').length;
+        const failed  = runs.filter(r => r.status === 'failed').length;
+        const rate    = (success + failed) > 0 ? Math.round(success / (success + failed) * 100) : null;
+        totalSuccess += success; totalFailed += failed;
+        return { ...t, _success: success, _failed: failed, _total: runs.length, _rate: rate };
+    });
+    const globalRate = (totalSuccess + totalFailed) > 0
+        ? Math.round(totalSuccess / (totalSuccess + totalFailed) * 100) : null;
+
+    let html = statsCards([
+        { label: 'WF Templates', value: templates.length, color: '#1a237e' },
+        { label: 'Exécutions', value: jobs.length, color: '#607d8b' },
+        { label: 'Succès', value: totalSuccess, color: '#2e7d32' },
+        { label: 'Échecs', value: totalFailed, color: '#c62828' },
+        { label: 'Taux succès', value: globalRate !== null ? globalRate + '%' : 'N/A', color: rateColor(globalRate) },
+    ]);
+
+    if (!templates.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Workflow Template</th><th>Dernier run</th><th>Runs</th><th>✓ Succès</th><th>✗ Échecs</th><th>Taux</th><th>Statut</th>' +
+        '</tr></thead><tbody>';
+    rows.sort((a, b) => b._failed - a._failed).forEach(r => {
+        html += '<tr><td><b>' + esc(r.name) + '</b>' + (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
+            '<td>' + fmtDate(r.last_job_run) + '</td>' +
+            '<td>' + r._total + '</td>' +
+            '<td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
+            '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
+            '<td>' + rateBar(r._rate) + '</td>' +
+            '<td>' + statusBadge(r.status) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Planning (Schedules) ──────────────────────────────────────────────────
+function renderPlanning() {
+    const el = document.getElementById('tabPlanning');
+    const schedules = snapData.schedules || [];
+    const active   = schedules.filter(s => s.enabled).length;
+    const inactive = schedules.length - active;
+
+    let html = statsCards([
+        { label: 'Total schedules', value: schedules.length, color: '#1a237e' },
+        { label: 'Actifs', value: active,   color: '#2e7d32' },
+        { label: 'Inactifs', value: inactive, color: '#757575' },
+    ]);
+
+    if (!schedules.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Nom</th><th>Ressource</th><th>Fréquence</th><th>Prochain run</th><th>Statut</th>' +
+        '</tr></thead><tbody>';
+    schedules.forEach(s => {
+        const res = s.summary_fields?.unified_job_template?.name || s.unified_job_template?.name || '—';
+        html += '<tr><td><b>' + esc(s.name) + '</b></td>' +
+            '<td>' + esc(res) + '</td>' +
+            '<td>' + esc(parseRrule(s.rrule)) + '</td>' +
+            '<td>' + fmtDate(s.next_run) + '</td>' +
+            '<td>' + (s.enabled
+                ? '<span class="badge-status badge-ok">Actif</span>'
+                : '<span class="badge-status badge-grey">Inactif</span>') + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Tokens ────────────────────────────────────────────────────────────────
+function renderTokens() {
+    const el = document.getElementById('tabTokens');
+    const tokens = snapData.tokens || [];
+    const now    = Date.now();
+    const ms30   = 30 * 86400000;
+
+    let expired = 0, expiring = 0;
+    tokens.forEach(t => {
+        if (!t.expires) return;
+        const d = new Date(t.expires) - now;
+        if (d < 0) expired++;
+        else if (d < ms30) expiring++;
+    });
+
+    let html = statsCards([
+        { label: 'Total tokens', value: tokens.length, color: '#1a237e' },
+        { label: 'OK', value: tokens.length - expired - expiring, color: '#2e7d32' },
+        { label: '⚠ Expirent < 30j', value: expiring, color: '#e65100' },
+        { label: '✗ Expirés', value: expired, color: '#c62828' },
+    ]);
+
+    if (!tokens.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Description</th><th>Utilisateur</th><th>Scope</th><th>Expiration</th><th>Statut</th>' +
+        '</tr></thead><tbody>';
+
+    tokens.forEach(t => {
+        const user    = typeof t.user === 'object' ? (t.user?.username || '?') : (t.user || '?');
+        const days    = t.expires ? Math.ceil((new Date(t.expires) - now) / 86400000) : null;
+        const rowCls  = days !== null && days < 0 ? ' class="token-expired"' : (days !== null && days < 30 ? ' class="token-expiring"' : '');
+        let daysBadge = '';
+        if (days === null)       daysBadge = '<span class="days-badge" style="background:#f5f5f5;color:#888">Jamais</span>';
+        else if (days < 0)       daysBadge = '<span class="days-badge" style="background:#ffebee;color:#c62828">Expiré il y a ' + Math.abs(days) + 'j</span>';
+        else if (days < 30)      daysBadge = '<span class="days-badge" style="background:#fff8e1;color:#e65100">⚠ ' + days + 'j restants</span>';
+        else                     daysBadge = '<span class="days-badge" style="background:#e8f5e9;color:#2e7d32">✓ ' + days + 'j</span>';
+
+        html += '<tr' + rowCls + '>' +
+            '<td><b>' + esc(t.description || '(sans nom)') + '</b></td>' +
+            '<td>' + esc(user) + '</td>' +
+            '<td><code>' + esc(t.scope || '—') + '</code></td>' +
+            '<td>' + fmtDate(t.expires) + '</td>' +
+            '<td>' + daysBadge + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Credentials ───────────────────────────────────────────────────────────
+function renderCredentials() {
+    const el = document.getElementById('tabCredentials');
+    const creds = snapData.credentials || [];
+
+    const byType = {};
+    creds.forEach(c => {
+        const t = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || 'Autre';
+        byType[t] = (byType[t] || 0) + 1;
+    });
+
+    let html = statsCards([
+        { label: 'Total', value: creds.length, color: '#1a237e' },
+        ...Object.entries(byType).slice(0, 4).map(([t, n]) => ({ label: t, value: n, color: '#607d8b' })),
+    ]);
+
+    if (!creds.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Nom</th><th>Type</th><th>Description</th><th>Créé le</th>' +
+        '</tr></thead><tbody>';
+    creds.forEach(c => {
+        const type = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || '—';
+        html += '<tr><td><b>' + esc(c.name) + '</b></td>' +
+            '<td><span class="badge-status badge-info">' + esc(type) + '</span></td>' +
+            '<td style="color:#888">' + esc(c.description || '—') + '</td>' +
+            '<td>' + fmtDateShort(c.created) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Inventories ───────────────────────────────────────────────────────────
+function renderInventories() {
+    const el = document.getElementById('tabInventories');
+    const invs = snapData.inventories || [];
+    const totalHosts  = invs.reduce((s, i) => s + (i.total_hosts || 0), 0);
+    const failedHosts = invs.reduce((s, i) => s + (i.hosts_with_active_failures || 0), 0);
+
+    let html = statsCards([
+        { label: 'Inventories', value: invs.length, color: '#1a237e' },
+        { label: 'Total hosts', value: totalHosts,  color: '#607d8b' },
+        { label: 'Hosts en échec', value: failedHosts, color: failedHosts > 0 ? '#c62828' : '#2e7d32' },
+    ]);
+
+    if (!invs.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Inventory</th><th>Type</th><th>Hosts</th><th>Hosts en échec</th><th>Groupes</th>' +
+        '</tr></thead><tbody>';
+    invs.forEach(i => {
+        html += '<tr><td><b>' + esc(i.name) + '</b>' + (i.description ? '<br><small style="color:#888">' + esc(i.description) + '</small>' : '') + '</td>' +
+            '<td>' + (i.kind === 'smart' ? '<span class="badge-status badge-info">Smart</span>' : '<span class="badge-status badge-grey">Normal</span>') + '</td>' +
+            '<td>' + (i.total_hosts || 0) + '</td>' +
+            '<td' + (i.hosts_with_active_failures > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + (i.hosts_with_active_failures || 0) + '</td>' +
+            '<td>' + (i.total_groups || 0) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Tab: Hosts ─────────────────────────────────────────────────────────────────
+function renderHosts() {
+    const el = document.getElementById('tabHosts');
+    const hosts = snapData.hosts || [];
+    const invMap = {};
+    (snapData.inventories || []).forEach(i => { invMap[i.id] = i.name; });
+
+    const enabled  = hosts.filter(h => h.enabled).length;
+    const disabled = hosts.length - enabled;
+    const failed   = hosts.filter(h => h.has_active_failures).length;
+
+    let html = statsCards([
+        { label: 'Total hosts', value: hosts.length, color: '#1a237e' },
+        { label: 'Actifs', value: enabled,  color: '#2e7d32' },
+        { label: 'Désactivés', value: disabled, color: '#757575' },
+        { label: 'En échec', value: failed,   color: failed > 0 ? '#c62828' : '#2e7d32' },
+    ]);
+
+    if (!hosts.length) { el.innerHTML = html + noData(); return; }
+
+    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        '<th>Host</th><th>Inventory</th><th>Statut</th><th>Dernier job</th><th>Résultat</th>' +
+        '</tr></thead><tbody>';
+    hosts.sort((a, b) => (b.has_active_failures ? 1 : 0) - (a.has_active_failures ? 1 : 0)).forEach(h => {
+        const invName = invMap[h.inventory] || ('Inv #' + h.inventory);
+        const lj      = h.last_job || h.summary_fields?.last_job;
+        html += '<tr><td><b>' + esc(h.name) + '</b></td>' +
+            '<td>' + esc(invName) + '</td>' +
+            '<td>' + (h.enabled
+                ? '<span class="badge-status badge-ok">Actif</span>'
+                : '<span class="badge-status badge-grey">Désactivé</span>') + '</td>' +
+            '<td>' + (lj ? esc(lj.name || '') + '<br><small>' + fmtDate(lj.finished) + '</small>' : '<span style="color:#bbb">—</span>') + '</td>' +
+            '<td>' + (lj ? statusBadge(lj.status) : '<span style="color:#bbb">—</span>') + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ── Diff ───────────────────────────────────────────────────────────────────────
+function openDiffModal() {
+    const selA = document.getElementById('diffSnapA');
+    const selB = document.getElementById('diffSnapB');
+    const opts = snapshots.map(s =>
+        '<option value="' + s.id + '">' + fmtDate(s.collected_at) + (s.aap_version ? ' · v' + esc(s.aap_version) : '') + '</option>'
+    ).join('');
+    selA.innerHTML = opts;
+    selB.innerHTML = opts;
+    if (snapshots.length >= 2) selB.value = snapshots[1].id;
+    if (currentSnapId) selA.value = currentSnapId;
+    document.getElementById('diffResult').innerHTML = '';
+    document.getElementById('diffModal').style.display = 'flex';
+}
+
+function closeDiffModal() {
+    document.getElementById('diffModal').style.display = 'none';
+}
+
+async function runDiff() {
+    const a = document.getElementById('diffSnapA').value;
+    const b = document.getElementById('diffSnapB').value;
+    if (!a || !b || a === b) { document.getElementById('diffResult').innerHTML = '<p style="color:#c62828;font-size:13px">Sélectionnez deux snapshots différents.</p>'; return; }
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/diff?a=' + a + '&b=' + b);
+    const d = await r.json();
+    if (!r.ok) { document.getElementById('diffResult').innerHTML = '<p style="color:#c62828">Erreur : ' + esc(d.error) + '</p>'; return; }
+    renderDiff(d);
+}
+
+function renderDiff(data) {
+    const ma = data.manifest_a || {}, mb = data.manifest_b || {};
+    let html = '<div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;flex-wrap:wrap">' +
+        '<div><b>Snapshot A :</b> ' + esc(fmtDate(ma.collected_at)) + (ma.aap_version ? ' · v' + esc(ma.aap_version) : '') + '</div>' +
+        '<div><b>Snapshot B :</b> ' + esc(fmtDate(mb.collected_at)) + (mb.aap_version ? ' · v' + esc(mb.aap_version) : '') + '</div>' +
+        '</div>';
+
+    const diff = data.diff || {};
+    Object.entries(diff).forEach(([sec, d]) => {
+        const label = SECTION_LABELS[sec] || sec;
+        const hasChanges = d.added.length || d.removed.length;
+        html += '<div class="diff-section"><div class="diff-section-title">' +
+            esc(label) +
+            '<span class="diff-counts">A: ' + d.count_a + ' → B: ' + d.count_b + '</span>' +
+        '</div>';
+        if (!hasChanges) {
+            html += '<div style="font-size:12px;color:#888;padding:4px 10px;">Aucun changement</div>';
+        } else {
+            d.added.forEach(i =>
+                html += '<div class="diff-item add">+ ' + esc(i.name) + '</div>'
+            );
+            d.removed.forEach(i =>
+                html += '<div class="diff-item rem">− ' + esc(i.name) + '</div>'
+            );
+        }
+        html += '</div>';
+    });
+    document.getElementById('diffResult').innerHTML = html;
+}
+
+// ── Instance modal ─────────────────────────────────────────────────────────────
+function renderColorSwatches() {
+    const el = document.getElementById('instColorSwatches');
+    el.innerHTML = INST_COLORS.map(c =>
+        '<div class="color-swatch' + (c === _selectedColor ? ' active' : '') + '" style="background:' + c + '" onclick="selectInstColor(\'' + c + '\')"></div>'
+    ).join('');
+}
+
+function selectInstColor(color) {
+    _selectedColor = color;
+    renderColorSwatches();
+}
+
+function openInstModal(inst) {
+    _editInstId    = inst ? inst.id : null;
+    _selectedColor = inst ? inst.color : '#c62828';
+    document.getElementById('instModalTitle').textContent = inst ? 'Modifier l\'instance' : 'Nouvelle instance';
+    document.getElementById('imName').value    = inst ? inst.name : '';
+    document.getElementById('imEnvType').value = inst ? (inst.env_type || '') : '';
+    document.getElementById('imDesc').value    = inst ? (inst.description || '') : '';
+    document.getElementById('btnSaveInst').textContent   = inst ? 'Enregistrer' : 'Créer';
+    document.getElementById('btnDeleteInst').style.display = inst ? 'inline-flex' : 'none';
+    document.getElementById('instModalFeedback').className = 'modal-feedback';
+    renderColorSwatches();
+    document.getElementById('instModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('imName').focus(), 50);
+}
+
+function closeInstModal() {
+    document.getElementById('instModal').style.display = 'none';
+}
+
+async function saveInst() {
+    const name = document.getElementById('imName').value.trim();
+    const fb   = document.getElementById('instModalFeedback');
+    if (!name) { fb.textContent = 'Nom requis.'; fb.className = 'modal-feedback err'; return; }
+    const btn = document.getElementById('btnSaveInst');
+    btn.disabled = true;
+    try {
+        const method = _editInstId ? 'PUT' : 'POST';
+        const url    = _editInstId ? '/api/aap-checker/instances/' + _editInstId : '/api/aap-checker/instances';
+        const r = await fetch(url, {
+            method, headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name, env_type: document.getElementById('imEnvType').value.trim(),
+                description: document.getElementById('imDesc').value.trim(),
+                color: _selectedColor,
+            }),
+        });
+        const d = await r.json();
+        if (!r.ok) { fb.textContent = d.error || 'Erreur'; fb.className = 'modal-feedback err'; return; }
+        closeInstModal();
+        await loadInstances();
+        if (_editInstId && currentInst?.id === _editInstId) {
+            currentInst = instances.find(i => i.id === _editInstId) || null;
+            if (currentInst) {
+                document.getElementById('detailTitle').textContent = currentInst.name;
+                document.getElementById('detailEnv').textContent   = currentInst.env_type || '';
+                document.getElementById('detailDot').style.background = currentInst.color;
+            }
+        }
+    } catch(e) { fb.textContent = 'Erreur réseau.'; fb.className = 'modal-feedback err'; }
+    finally { btn.disabled = false; }
+}
+
+async function deleteCurrentInst() {
+    if (!currentInst) return;
+    if (!confirm('Supprimer l\'instance « ' + currentInst.name + ' » et tous ses snapshots ?')) return;
+    closeInstModal();
+    await fetch('/api/aap-checker/instances/' + currentInst.id, { method: 'DELETE' });
+    await loadInstances();
+    backToList();
+}
+
+// ── Config modal ───────────────────────────────────────────────────────────────
+async function showConfig() {
+    if (!currentInst) return;
+    const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/config');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('cfgInstName').value    = d.name;
+    document.getElementById('cfgEncKey').textContent = d.enc_key;
+    document.getElementById('configModal').style.display = 'flex';
+}
+
+function closeConfigModal() {
+    document.getElementById('configModal').style.display = 'none';
+}
+
+function selectEncKey() {
+    const el = document.getElementById('cfgEncKey');
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(d) {
+    if (!d) return '<span style="color:#bbb">—</span>';
+    try {
+        return new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    } catch { return String(d); }
+}
+
+function fmtDateShort(d) {
+    if (!d) return '—';
+    try {
+        return new Date(d).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'});
+    } catch { return String(d); }
+}
+
+function rateColor(rate) {
+    if (rate === null || rate === undefined) return '#9e9e9e';
+    if (rate >= 90) return '#2e7d32';
+    if (rate >= 70) return '#e65100';
+    return '#c62828';
+}
+
+function rateBar(rate) {
+    if (rate === null || rate === undefined) return '<span style="color:#bbb;font-size:11px">N/A</span>';
+    const col = rateColor(rate);
+    return '<div class="rate-wrap">' +
+        '<div class="rate-bar"><div class="rate-fill" style="width:' + rate + '%;background:' + col + '"></div></div>' +
+        '<span class="rate-txt" style="color:' + col + '">' + rate + '%</span>' +
+        '</div>';
+}
+
+function statusBadge(status) {
+    const map = {
+        'successful':    ['badge-ok',   'Succès'],
+        'failed':        ['badge-fail', 'Échec'],
+        'canceled':      ['badge-grey', 'Annulé'],
+        'running':       ['badge-info', 'En cours'],
+        'pending':       ['badge-warn', 'En attente'],
+        'waiting':       ['badge-warn', 'En attente'],
+        'never updated': ['badge-grey', 'Jamais'],
+        'ok':            ['badge-ok',   'OK'],
+        'changed':       ['badge-info', 'Modifié'],
+        'unreachable':   ['badge-fail', 'Injoignable'],
+    };
+    const [cls, lbl] = map[status] || ['badge-grey', status || '—'];
+    return '<span class="badge-status ' + cls + '">' + esc(lbl) + '</span>';
+}
+
+function statsCards(stats) {
+    return '<div class="stats-row">' +
+        stats.map(s => '<div class="stat-card"><div class="stat-val" style="color:' + s.color + '">' + s.value + '</div><div class="stat-lbl">' + esc(s.label) + '</div></div>').join('') +
+        '</div>';
+}
+
+function parseRrule(rrule) {
+    if (!rrule) return '—';
+    const freq = rrule.match(/FREQ=(\w+)/i);
+    const iv   = rrule.match(/INTERVAL=(\d+)/i);
+    if (!freq) return rrule.substring(0, 30);
+    const labels = { DAILY:'Quotidien', WEEKLY:'Hebdomadaire', MONTHLY:'Mensuel', YEARLY:'Annuel', HOURLY:'Horaire' };
+    const f = labels[freq[1].toUpperCase()] || freq[1];
+    const n = iv ? parseInt(iv[1]) : 1;
+    return n > 1 ? 'Tous les ' + n + ' ' + f.toLowerCase() + 's' : f;
+}
+
+function noData() {
+    return '<div class="no-data">Aucune donnée dans ce snapshot.</div>';
+}
+
+init();
+</script>
+</body>
+</html>

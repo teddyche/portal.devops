@@ -179,6 +179,13 @@ def ordo_page():
     return _page('ordo.html')
 
 
+# === AAP Checker ===
+
+@pages_bp.route('/aap-checker')
+def aap_checker_page():
+    return _page('aap_checker.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')
