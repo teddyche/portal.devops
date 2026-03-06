@@ -261,6 +261,19 @@
         .toast.error { background: #c62828; }
         .toast.warning { background: #f57f17; }
 
+        /* ── Type entry cards ──────────────────────────────────── */
+        .type-cards { display: flex; gap: 10px; margin-top: 8px; }
+        .type-card {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
+            padding: 14px 10px; border: 2px solid #ede7f6; border-radius: 10px;
+            cursor: pointer; transition: all .15s; background: white;
+            user-select: none; text-align: center;
+        }
+        .type-card:hover { border-color: #ce93d8; background: #fdf8ff; }
+        .type-card.active { border-color: #6a1b9a; background: #f3e5f5; box-shadow: 0 0 0 3px rgba(106,27,154,.1); }
+        .type-card-icon { font-size: 26px; line-height: 1; }
+        .type-card-label { font-size: 12px; font-weight: bold; color: #4a148c; }
+
         /* Misc */
         .hidden { display: none !important; }
         .divider { border: none; border-top: 1px solid #f3e5f5; margin: 14px 0; }
@@ -634,16 +647,22 @@
             <!-- Type selector -->
             <div class="form-group">
                 <label>Type d'entrée</label>
-                <div style="display:flex;gap:10px;margin-top:4px">
-                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
-                        <input type="radio" name="entry-type" value="login" checked onchange="switchEntryType()"> 🔐 Login / Password
-                    </label>
-                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
-                        <input type="radio" name="entry-type" value="ssh_token" onchange="switchEntryType()"> 🔑 SSH / Token API
-                    </label>
-                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
-                        <input type="radio" name="entry-type" value="note" onchange="switchEntryType()"> 📝 Note sécurisée
-                    </label>
+                <div class="type-cards">
+                    <div class="type-card active" data-type="login" onclick="selectTypeCard('login')">
+                        <input type="radio" name="entry-type" value="login" checked style="display:none">
+                        <div class="type-card-icon">🔐</div>
+                        <div class="type-card-label">Login / Password</div>
+                    </div>
+                    <div class="type-card" data-type="ssh_token" onclick="selectTypeCard('ssh_token')">
+                        <input type="radio" name="entry-type" value="ssh_token" style="display:none">
+                        <div class="type-card-icon">🔑</div>
+                        <div class="type-card-label">SSH / Token API</div>
+                    </div>
+                    <div class="type-card" data-type="note" onclick="selectTypeCard('note')">
+                        <input type="radio" name="entry-type" value="note" style="display:none">
+                        <div class="type-card-icon">📝</div>
+                        <div class="type-card-label">Note sécurisée</div>
+                    </div>
                 </div>
             </div>
 
@@ -1191,6 +1210,7 @@ function openCreateEntry() {
     document.getElementById('entry-gen').classList.remove('open');
     document.getElementById('entry-lock-warn').classList.add('hidden');
 
+    syncTypeCards();
     switchEntryType();
     fillEntryMpw();
     openModal('modal-entry');
@@ -1208,6 +1228,7 @@ function editEntry(eid) {
     document.getElementById('entry-submit-btn').textContent  = 'Enregistrer';
 
     document.querySelector(`input[name=entry-type][value="${e.type}"]`).checked = true;
+    syncTypeCards();
     switchEntryType();
 
     document.getElementById('entry-title').value    = e.title || '';
@@ -1246,6 +1267,22 @@ function fillEntryMpw() {
     }
 }
 
+function selectTypeCard(type) {
+    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+    const card = document.querySelector(`.type-card[data-type="${type}"]`);
+    if (card) card.classList.add('active');
+    const radio = document.querySelector(`input[name=entry-type][value="${type}"]`);
+    if (radio) radio.checked = true;
+    switchEntryType();
+}
+
+function syncTypeCards() {
+    const type = document.querySelector('input[name=entry-type]:checked')?.value || 'login';
+    document.querySelectorAll('.type-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.type === type);
+    });
+}
+
 function switchEntryType() {
     const type = document.querySelector('input[name=entry-type]:checked')?.value || 'login';
     document.getElementById('entry-login-fields').style.display = (type === 'login') ? '' : 'none';
@@ -1253,9 +1290,9 @@ function switchEntryType() {
     document.getElementById('entry-notes-group').style.display  = (type !== 'ssh_token') ? '' : 'none';
 
     const secretLabel = document.getElementById('entry-secret-label');
-    if (type === 'login')      secretLabel.textContent = 'Password *';
+    if (type === 'login')          secretLabel.textContent = 'Password *';
     else if (type === 'ssh_token') secretLabel.textContent = 'Clé SSH / Token *';
-    else                       secretLabel.textContent = 'Contenu de la note *';
+    else                           secretLabel.textContent = 'Contenu de la note *';
 }
 
 async function submitEntry() {
