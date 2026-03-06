@@ -90,8 +90,9 @@ def create_app(config: Optional[dict] = None) -> Flask:
     from blueprints.gitlab_bp import gitlab_bp
     from blueprints.ordo import ordo_bp
     from blueprints.aap_checker_bp import aap_checker_bp
+    from blueprints.clpass_bp import clpass_bp
 
-    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp, kubi_bp, gitlab_bp, ordo_bp, aap_checker_bp):
+    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp, kubi_bp, gitlab_bp, ordo_bp, aap_checker_bp, clpass_bp):
         app.register_blueprint(bp)
 
     # === #23 — Versioning /api/v1/ → /api/ (réécriture transparente) ===

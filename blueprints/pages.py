@@ -186,6 +186,13 @@ def aap_checker_page():
     return _page('aap_checker.html')
 
 
+# === CLPASS ===
+
+@pages_bp.route('/clpass')
+def clpass_page():
+    return _page('clpass.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

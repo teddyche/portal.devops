@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLPASS — Gestionnaire de secrets</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f4f8; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* ── Top bar ───────────────────────────────────────────── */
+        .top-bar {
+            background: #4a148c; color: white; padding: 0 20px;
+            height: 52px; display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.3); z-index: 200;
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 10px; }
+        .top-bar-left h1 { font-size: 18px; letter-spacing: 1px; }
+        .top-bar-left .lock-icon { font-size: 20px; }
+        .top-bar a { color: rgba(255,255,255,.75); text-decoration: none; font-size: 13px; }
+        .top-bar a:hover { color: white; }
+        .top-bar-right { display: flex; align-items: center; gap: 14px; }
+        .user-info { font-size: 13px; opacity: .85; }
+
+        /* ── App layout ────────────────────────────────────────── */
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+
+        /* ── Sidebar ───────────────────────────────────────────── */
+        .sidebar {
+            width: 280px; flex-shrink: 0; background: white;
+            border-right: 2px solid #ede7f6; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .sidebar-header {
+            padding: 16px 14px 12px; border-bottom: 1px solid #ede7f6;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-title { font-size: 13px; font-weight: bold; color: #4a148c; text-transform: uppercase; letter-spacing: .5px; }
+        .btn-new-vault {
+            background: #6a1b9a; color: white; border: none; border-radius: 6px;
+            padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; gap: 4px; transition: background .15s;
+        }
+        .btn-new-vault:hover { background: #4a148c; }
+
+        .sidebar-search {
+            padding: 10px 12px; border-bottom: 1px solid #f3e5f5;
+        }
+        .sidebar-search input {
+            width: 100%; padding: 6px 10px; border: 1px solid #ce93d8; border-radius: 6px;
+            font-size: 12px; outline: none; color: #333;
+        }
+        .sidebar-search input:focus { border-color: #6a1b9a; box-shadow: 0 0 0 2px rgba(106,27,154,.15); }
+
+        .vault-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+        .team-group-label {
+            padding: 8px 14px 4px; font-size: 10px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .6px; color: #9c4dcc;
+        }
+
+        .vault-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 14px; cursor: pointer; transition: background .1s;
+            border-left: 3px solid transparent;
+        }
+        .vault-item:hover { background: #f9f0ff; }
+        .vault-item.active { background: #f3e5f5; border-left-color: #6a1b9a; }
+        .vault-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .vault-name { font-size: 13px; color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vault-lock { font-size: 14px; flex-shrink: 0; }
+
+        .sidebar-empty { padding: 24px 14px; text-align: center; color: #bbb; font-size: 13px; }
+
+        /* ── Main panel ────────────────────────────────────────── */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Empty state */
+        .empty-main {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #ccc; gap: 12px;
+        }
+        .empty-main .em-icon { font-size: 64px; }
+        .empty-main .em-text { font-size: 16px; font-weight: bold; color: #bbb; }
+        .empty-main .em-sub { font-size: 13px; color: #ccc; }
+
+        /* Vault header */
+        .vault-header {
+            background: white; border-bottom: 2px solid #ede7f6;
+            padding: 12px 20px; display: flex; align-items: center;
+            justify-content: space-between; flex-shrink: 0; gap: 12px;
+        }
+        .vault-header-left { display: flex; align-items: center; gap: 10px; }
+        .vault-header-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        .vault-header-name { font-size: 16px; font-weight: bold; color: #333; }
+        .vault-header-team { font-size: 12px; color: #9c4dcc; background: #f3e5f5; padding: 2px 8px; border-radius: 10px; }
+        .vault-lock-badge {
+            font-size: 12px; padding: 3px 10px; border-radius: 12px; font-weight: bold;
+        }
+        .vault-lock-badge.locked { background: #fff8e1; color: #f9a825; }
+        .vault-lock-badge.unlocked { background: #e8f5e9; color: #2e7d32; }
+        .vault-header-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+        /* Toolbar */
+        .entries-toolbar {
+            padding: 12px 20px; display: flex; align-items: center; gap: 10px;
+            background: #fafafa; border-bottom: 1px solid #f0e6ff; flex-shrink: 0; flex-wrap: wrap;
+        }
+        .entries-search {
+            padding: 7px 12px; border: 1px solid #ce93d8; border-radius: 6px;
+            font-size: 13px; outline: none; min-width: 200px; flex: 1; max-width: 320px;
+        }
+        .entries-search:focus { border-color: #6a1b9a; box-shadow: 0 0 0 2px rgba(106,27,154,.12); }
+        .type-filter {
+            padding: 7px 10px; border: 1px solid #ce93d8; border-radius: 6px;
+            font-size: 13px; background: white; cursor: pointer; outline: none;
+        }
+        .toolbar-spacer { flex: 1; }
+
+        /* Entries table */
+        .entries-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; }
+        .entries-table { width: 100%; border-collapse: collapse; }
+        .entries-table th {
+            text-align: left; padding: 8px 12px; font-size: 11px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .5px; color: #9c4dcc;
+            border-bottom: 2px solid #ede7f6; background: white; position: sticky; top: 0; z-index: 10;
+        }
+        .entries-table td { padding: 10px 12px; border-bottom: 1px solid #f5f5f5; font-size: 13px; vertical-align: middle; }
+        .entries-table tr:hover td { background: #fdf8ff; }
+        .entry-icon { font-size: 18px; }
+        .entry-title { font-weight: bold; color: #333; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .entry-username { color: #666; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .entry-url a { color: #6a1b9a; text-decoration: none; font-size: 12px; max-width: 180px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+        .entry-url a:hover { text-decoration: underline; }
+        .tags-row { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tag { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #ede7f6; color: #6a1b9a; }
+        .entry-actions { display: flex; gap: 5px; }
+
+        /* Empty entries */
+        .entries-empty { text-align: center; padding: 48px 20px; color: #ccc; }
+        .entries-empty span { font-size: 48px; display: block; margin-bottom: 10px; }
+
+        /* ── Buttons ───────────────────────────────────────────── */
+        .btn {
+            padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: bold; transition: opacity .15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { opacity: .85; }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary   { background: #6a1b9a; color: white; }
+        .btn-purple    { background: #4a148c; color: white; }
+        .btn-secondary { background: #ede7f6; color: #4a148c; border: 1px solid #ce93d8; }
+        .btn-success   { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .btn-danger    { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .btn-warning   { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+        .btn-sm { padding: 5px 9px; font-size: 12px; }
+        .btn-xs { padding: 3px 7px; font-size: 11px; }
+
+        /* ── Modals ────────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; padding: 20px;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal {
+            background: white; border-radius: 12px; padding: 0;
+            width: 100%; max-width: 520px; max-height: 90vh;
+            display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            overflow: hidden;
+        }
+        .modal-lg { max-width: 640px; }
+        .modal-header {
+            padding: 18px 22px 14px; border-bottom: 2px solid #f3e5f5;
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+        }
+        .modal-header h3 { font-size: 16px; color: #4a148c; }
+        .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1; padding: 0 4px; }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 14px 22px; border-top: 1px solid #f3e5f5; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+        /* ── Form elements ─────────────────────────────────────── */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 9px 12px; border: 1px solid #ce93d8; border-radius: 6px;
+            font-size: 13px; outline: none; font-family: inherit; color: #333;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: #6a1b9a; box-shadow: 0 0 0 2px rgba(106,27,154,.12);
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group .hint { font-size: 11px; color: #999; margin-top: 4px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group.full { grid-column: span 2; }
+
+        /* Password field with toggle + generator */
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 80px; font-family: monospace; }
+        .pw-btns { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; }
+        .pw-btn { background: #ede7f6; border: none; border-radius: 4px; cursor: pointer; padding: 3px 6px; font-size: 13px; }
+        .pw-btn:hover { background: #d1c4e9; }
+
+        /* Color swatches */
+        .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .color-swatch {
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+            border: 3px solid transparent; transition: border-color .1s, transform .1s;
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px #4a148c; }
+
+        /* Password generator panel */
+        .gen-panel {
+            background: #f3e5f5; border-radius: 8px; padding: 12px 14px;
+            margin-top: 8px; display: none;
+        }
+        .gen-panel.open { display: block; }
+        .gen-panel label { font-size: 12px; color: #4a148c; font-weight: bold; }
+        .gen-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        .gen-slider { flex: 1; min-width: 100px; accent-color: #6a1b9a; }
+        .gen-len { font-size: 13px; font-weight: bold; color: #4a148c; min-width: 24px; text-align: center; }
+        .gen-checks { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+        .gen-checks label { font-size: 12px; color: #333; font-weight: normal; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .gen-output {
+            margin-top: 10px; background: white; border: 1px solid #ce93d8;
+            border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 13px;
+            color: #4a148c; word-break: break-all; min-height: 36px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .gen-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+        /* Tags input */
+        .tags-input-wrap { display: flex; gap: 6px; }
+        .tags-input-wrap input { flex: 1; }
+        .tags-display { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+        .tag-rm { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #ede7f6; color: #6a1b9a; cursor: pointer; }
+        .tag-rm span.x { color: #c62828; font-size: 13px; font-weight: bold; }
+
+        /* Secret reveal area */
+        .secret-display {
+            background: #f9f0ff; border: 1px solid #ce93d8; border-radius: 6px;
+            padding: 10px 14px; font-family: monospace; font-size: 13px;
+            color: #4a148c; word-break: break-all; min-height: 36px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        .secret-text { flex: 1; white-space: pre-wrap; }
+        .secret-placeholder { color: #ccc; font-size: 22px; letter-spacing: 4px; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; background: #323232; color: white;
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 9999;
+            opacity: 0; transform: translateY(10px); transition: all .25s;
+            pointer-events: none; max-width: 320px;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #2e7d32; }
+        .toast.error { background: #c62828; }
+        .toast.warning { background: #f57f17; }
+
+        /* Misc */
+        .divider { border: none; border-top: 1px solid #f3e5f5; margin: 14px 0; }
+        .text-muted { font-size: 12px; color: #999; }
+        .section-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #9c4dcc; margin-bottom: 10px; }
+        .info-box { background: #f3e5f5; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #4a148c; margin-bottom: 12px; }
+        .danger-box { background: #ffebee; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #c62828; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────────── -->
+<div class="top-bar">
+    <div class="top-bar-left">
+        <span class="lock-icon">🔐</span>
+        <h1>CLPASS</h1>
+        <span style="opacity:.6;font-size:13px">Gestionnaire de secrets</span>
+    </div>
+    <div class="top-bar-right">
+        <span class="user-info" id="user-info"></span>
+        <a href="/">← Accueil</a>
+    </div>
+</div>
+
+<!-- ── App body ────────────────────────────────────────────────── -->
+<div class="app-body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-title">☰ Coffres</span>
+            <button class="btn-new-vault" onclick="openCreateVault()">+ Nouveau</button>
+        </div>
+        <div class="sidebar-search">
+            <input type="text" id="vault-search" placeholder="Rechercher un coffre…" oninput="filterVaults()">
+        </div>
+        <div class="vault-list" id="vault-list">
+            <div class="sidebar-empty">Chargement…</div>
+        </div>
+    </div>
+
+    <!-- Main panel -->
+    <div class="main" id="main-panel">
+        <div class="empty-main" id="empty-main">
+            <div class="em-icon">🔒</div>
+            <div class="em-text">Sélectionnez un coffre</div>
+            <div class="em-sub">Choisissez un coffre dans la liste ou créez-en un nouveau</div>
+        </div>
+
+        <!-- Vault content (hidden until vault selected) -->
+        <div id="vault-content" style="display:none;display:flex;flex-direction:column;height:100%;overflow:hidden;">
+            <div class="vault-header">
+                <div class="vault-header-left">
+                    <div class="vault-header-dot" id="vh-dot"></div>
+                    <span class="vault-header-name" id="vh-name"></span>
+                    <span class="vault-header-team" id="vh-team"></span>
+                    <span class="vault-lock-badge locked" id="vh-lock">🔒 Verrouillé</span>
+                </div>
+                <div class="vault-header-right">
+                    <button class="btn btn-warning btn-sm" id="btn-unlock" onclick="openUnlock()">🔓 Déverrouiller</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openEditVault()">✏️ Modifier</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openChangePw()">🔑 Changer mdp</button>
+                    <button class="btn btn-danger btn-sm" onclick="openDeleteVault()">🗑 Supprimer</button>
+                </div>
+            </div>
+
+            <div class="entries-toolbar">
+                <input class="entries-search" type="text" id="entry-search" placeholder="Rechercher une entrée…" oninput="filterEntries()">
+                <select class="type-filter" id="type-filter" onchange="filterEntries()">
+                    <option value="">Tous les types</option>
+                    <option value="login">🔐 Login</option>
+                    <option value="ssh_token">🔑 SSH / Token</option>
+                    <option value="note">📝 Note</option>
+                </select>
+                <div class="toolbar-spacer"></div>
+                <button class="btn btn-primary btn-sm" onclick="openCreateEntry()">+ Entrée</button>
+            </div>
+
+            <div class="entries-wrap">
+                <table class="entries-table" id="entries-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px"></th>
+                            <th>Titre</th>
+                            <th>Utilisateur</th>
+                            <th>URL / Description</th>
+                            <th>Tags</th>
+                            <th style="width:140px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="entries-tbody"></tbody>
+                </table>
+                <div class="entries-empty hidden" id="entries-empty">
+                    <span>🔐</span>
+                    <div>Aucune entrée dans ce coffre</div>
+                    <div class="text-muted" style="margin-top:6px">Cliquez sur "+ Entrée" pour commencer</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Créer coffre
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-create-vault">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>🔐 Nouveau coffre</h3>
+            <button class="modal-close" onclick="closeModal('modal-create-vault')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Nom du coffre *</label>
+                <input type="text" id="cv-name" placeholder="ex: Infrastructure Production">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="cv-desc" placeholder="Description optionnelle">
+            </div>
+            <div class="form-group">
+                <label>Équipe</label>
+                <select id="cv-team">
+                    <option value="">— Sans équipe —</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Couleur</label>
+                <div class="color-swatches" id="cv-colors">
+                    <div class="color-swatch active" style="background:#6a1b9a" data-color="#6a1b9a" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#1565c0" data-color="#1565c0" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#c62828" data-color="#c62828" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#2e7d32" data-color="#2e7d32" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#e65100" data-color="#e65100" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#1a237e" data-color="#1a237e" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#00695c" data-color="#00695c" onclick="selectColor(this,'cv')"></div>
+                    <div class="color-swatch" style="background:#37474f" data-color="#37474f" onclick="selectColor(this,'cv')"></div>
+                </div>
+            </div>
+            <hr class="divider">
+            <div class="info-box">🔒 Le master password n'est jamais stocké sur le serveur. Seul un marqueur chiffré permet la vérification.</div>
+            <div class="form-group">
+                <label>Master Password *</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cv-pw" placeholder="Mot de passe fort…" autocomplete="new-password">
+                    <div class="pw-btns">
+                        <button class="pw-btn" title="Afficher/Masquer" onclick="togglePw('cv-pw')">👁</button>
+                        <button class="pw-btn" title="Générateur" onclick="toggleGen('cv-gen')">🎲</button>
+                    </div>
+                </div>
+            </div>
+            <div class="gen-panel" id="cv-gen">
+                <div class="section-label">Générateur de mot de passe</div>
+                <div class="gen-row">
+                    <input type="range" class="gen-slider" id="cv-gen-len" min="8" max="64" value="20" oninput="updateGenLen('cv')">
+                    <span class="gen-len" id="cv-gen-len-val">20</span> car.
+                </div>
+                <div class="gen-checks">
+                    <label><input type="checkbox" id="cv-gen-upper" checked> Majuscules</label>
+                    <label><input type="checkbox" id="cv-gen-digits" checked> Chiffres</label>
+                    <label><input type="checkbox" id="cv-gen-sym" checked> Symboles</label>
+                </div>
+                <div class="gen-output" id="cv-gen-out"><span id="cv-gen-pwd" style="flex:1">—</span></div>
+                <div class="gen-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="generatePw('cv')">🎲 Générer</button>
+                    <button class="btn btn-primary btn-sm" onclick="useGenPw('cv','cv-pw')">✓ Utiliser</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Confirmer Master Password *</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cv-pw2" placeholder="Répéter le mot de passe…" autocomplete="new-password">
+                    <div class="pw-btns">
+                        <button class="pw-btn" onclick="togglePw('cv-pw2')">👁</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-create-vault')">Annuler</button>
+            <button class="btn btn-primary" onclick="submitCreateVault()">Créer le coffre</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Modifier coffre
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-edit-vault">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>✏️ Modifier le coffre</h3>
+            <button class="modal-close" onclick="closeModal('modal-edit-vault')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Nom du coffre *</label>
+                <input type="text" id="ev-name">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="ev-desc">
+            </div>
+            <div class="form-group">
+                <label>Équipe</label>
+                <select id="ev-team">
+                    <option value="">— Sans équipe —</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Couleur</label>
+                <div class="color-swatches" id="ev-colors">
+                    <div class="color-swatch" style="background:#6a1b9a" data-color="#6a1b9a" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#1565c0" data-color="#1565c0" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#c62828" data-color="#c62828" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#2e7d32" data-color="#2e7d32" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#e65100" data-color="#e65100" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#1a237e" data-color="#1a237e" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#00695c" data-color="#00695c" onclick="selectColor(this,'ev')"></div>
+                    <div class="color-swatch" style="background:#37474f" data-color="#37474f" onclick="selectColor(this,'ev')"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-edit-vault')">Annuler</button>
+            <button class="btn btn-primary" onclick="submitEditVault()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Unlock
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-unlock">
+    <div class="modal" style="max-width:380px">
+        <div class="modal-header">
+            <h3>🔓 Déverrouiller le coffre</h3>
+            <button class="modal-close" onclick="closeModal('modal-unlock')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="info-box" id="unlock-vault-name" style="font-weight:bold;text-align:center;font-size:14px">Coffre</div>
+            <div class="form-group">
+                <label>Master Password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="unlock-pw" placeholder="Saisir le master password…" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitUnlock()">
+                    <div class="pw-btns">
+                        <button class="pw-btn" onclick="togglePw('unlock-pw')">👁</button>
+                    </div>
+                </div>
+            </div>
+            <div class="danger-box hidden" id="unlock-error">Master password incorrect.</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-unlock')">Annuler</button>
+            <button class="btn btn-primary" onclick="submitUnlock()">Déverrouiller</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Changer master password
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-change-pw">
+    <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+            <h3>🔑 Changer le master password</h3>
+            <button class="modal-close" onclick="closeModal('modal-change-pw')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="info-box">⚠️ Toutes les entrées seront re-chiffrées avec le nouveau password. Cette opération peut prendre quelques secondes.</div>
+            <div class="form-group">
+                <label>Master Password actuel</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cpw-old" placeholder="Password actuel…">
+                    <div class="pw-btns"><button class="pw-btn" onclick="togglePw('cpw-old')">👁</button></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Nouveau Master Password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cpw-new" placeholder="Nouveau password…" autocomplete="new-password">
+                    <div class="pw-btns">
+                        <button class="pw-btn" onclick="togglePw('cpw-new')">👁</button>
+                        <button class="pw-btn" onclick="toggleGen('cpw-gen')">🎲</button>
+                    </div>
+                </div>
+            </div>
+            <div class="gen-panel" id="cpw-gen">
+                <div class="section-label">Générateur</div>
+                <div class="gen-row">
+                    <input type="range" class="gen-slider" id="cpw-gen-len" min="8" max="64" value="20" oninput="updateGenLen('cpw')">
+                    <span class="gen-len" id="cpw-gen-len-val">20</span> car.
+                </div>
+                <div class="gen-checks">
+                    <label><input type="checkbox" id="cpw-gen-upper" checked> Majuscules</label>
+                    <label><input type="checkbox" id="cpw-gen-digits" checked> Chiffres</label>
+                    <label><input type="checkbox" id="cpw-gen-sym" checked> Symboles</label>
+                </div>
+                <div class="gen-output"><span id="cpw-gen-pwd" style="flex:1">—</span></div>
+                <div class="gen-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="generatePw('cpw')">🎲 Générer</button>
+                    <button class="btn btn-primary btn-sm" onclick="useGenPw('cpw','cpw-new')">✓ Utiliser</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Confirmer nouveau password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="cpw-new2" placeholder="Confirmer…" autocomplete="new-password">
+                    <div class="pw-btns"><button class="pw-btn" onclick="togglePw('cpw-new2')">👁</button></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-change-pw')">Annuler</button>
+            <button class="btn btn-primary" onclick="submitChangePw()">Changer le password</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Supprimer coffre
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-delete-vault">
+    <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+            <h3>🗑 Supprimer le coffre</h3>
+            <button class="modal-close" onclick="closeModal('modal-delete-vault')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="danger-box">⚠️ Cette action est irréversible. Toutes les entrées seront définitivement supprimées.</div>
+            <div class="form-group">
+                <label>Master Password (confirmation)</label>
+                <div class="pw-wrap">
+                    <input type="password" id="dv-pw" placeholder="Saisir le master password…">
+                    <div class="pw-btns"><button class="pw-btn" onclick="togglePw('dv-pw')">👁</button></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-delete-vault')">Annuler</button>
+            <button class="btn btn-danger" onclick="submitDeleteVault()">Supprimer définitivement</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Créer / Modifier entrée
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-entry">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="entry-modal-title">+ Nouvelle entrée</h3>
+            <button class="modal-close" onclick="closeModal('modal-entry')">×</button>
+        </div>
+        <div class="modal-body">
+            <!-- Unlock required banner -->
+            <div class="danger-box hidden" id="entry-lock-warn">
+                🔒 Ce coffre est verrouillé. <a href="#" onclick="closeModal('modal-entry');openUnlock();return false" style="color:#c62828">Déverrouiller d'abord</a>.
+            </div>
+
+            <!-- Master pw (always needed) -->
+            <div class="form-group" id="entry-mpw-group" style="display:none">
+                <label>Master Password du coffre</label>
+                <div class="pw-wrap">
+                    <input type="password" id="entry-mpw" placeholder="Master password requis pour chiffrer…">
+                    <div class="pw-btns"><button class="pw-btn" onclick="togglePw('entry-mpw')">👁</button></div>
+                </div>
+                <div class="hint">Le coffre est déverrouillé — le master password est déjà en mémoire.</div>
+            </div>
+
+            <!-- Type selector -->
+            <div class="form-group">
+                <label>Type d'entrée</label>
+                <div style="display:flex;gap:10px;margin-top:4px">
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
+                        <input type="radio" name="entry-type" value="login" checked onchange="switchEntryType()"> 🔐 Login / Password
+                    </label>
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
+                        <input type="radio" name="entry-type" value="ssh_token" onchange="switchEntryType()"> 🔑 SSH / Token API
+                    </label>
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:normal">
+                        <input type="radio" name="entry-type" value="note" onchange="switchEntryType()"> 📝 Note sécurisée
+                    </label>
+                </div>
+            </div>
+
+            <!-- Common fields -->
+            <div class="form-group">
+                <label>Titre *</label>
+                <input type="text" id="entry-title" placeholder="ex: Accès Production, Token GitLab…">
+            </div>
+
+            <!-- Login fields -->
+            <div id="entry-login-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nom d'utilisateur</label>
+                        <input type="text" id="entry-username" placeholder="admin, service-account…" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input type="text" id="entry-url" placeholder="https://…">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SSH/Token description -->
+            <div id="entry-ssh-fields" style="display:none">
+                <div class="form-group">
+                    <label>Description (non chiffré)</label>
+                    <input type="text" id="entry-ssh-desc" placeholder="ex: Clé SSH deploy, Token GitLab CI…">
+                </div>
+            </div>
+
+            <!-- Secret (all types) -->
+            <div class="form-group">
+                <label id="entry-secret-label">Password / Secret *</label>
+                <div class="pw-wrap">
+                    <input type="password" id="entry-secret" placeholder="Valeur secrète…" autocomplete="new-password">
+                    <div class="pw-btns">
+                        <button class="pw-btn" title="Afficher" onclick="togglePw('entry-secret')">👁</button>
+                        <button class="pw-btn" title="Générateur" onclick="toggleGen('entry-gen')">🎲</button>
+                    </div>
+                </div>
+            </div>
+            <div class="gen-panel" id="entry-gen">
+                <div class="section-label">Générateur de mot de passe</div>
+                <div class="gen-row">
+                    <input type="range" class="gen-slider" id="entry-gen-len" min="8" max="64" value="20" oninput="updateGenLen('entry')">
+                    <span class="gen-len" id="entry-gen-len-val">20</span> car.
+                </div>
+                <div class="gen-checks">
+                    <label><input type="checkbox" id="entry-gen-upper" checked> Majuscules</label>
+                    <label><input type="checkbox" id="entry-gen-digits" checked> Chiffres</label>
+                    <label><input type="checkbox" id="entry-gen-sym" checked> Symboles</label>
+                </div>
+                <div class="gen-output"><span id="entry-gen-pwd" style="flex:1">—</span></div>
+                <div class="gen-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="generatePw('entry')">🎲 Générer</button>
+                    <button class="btn btn-primary btn-sm" onclick="useGenPw('entry','entry-secret')">✓ Utiliser</button>
+                </div>
+            </div>
+
+            <!-- Notes (login + note types) -->
+            <div class="form-group" id="entry-notes-group">
+                <label>Notes</label>
+                <textarea id="entry-notes" placeholder="Notes libres (optionnel)…" rows="3"></textarea>
+            </div>
+
+            <!-- Tags -->
+            <div class="form-group">
+                <label>Tags</label>
+                <div class="tags-input-wrap">
+                    <input type="text" id="entry-tag-input" placeholder="Ajouter un tag…" onkeydown="addTagOnEnter(event)">
+                    <button class="btn btn-secondary btn-sm" onclick="addTag()">+ Tag</button>
+                </div>
+                <div class="tags-display" id="entry-tags-display"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-entry')">Annuler</button>
+            <button class="btn btn-primary" id="entry-submit-btn" onclick="submitEntry()">Créer l'entrée</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Voir entrée
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-view">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="view-title">Entrée</h3>
+            <button class="modal-close" onclick="closeModal('modal-view')">×</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap">
+                <div>
+                    <div class="text-muted">Type</div>
+                    <div style="font-size:20px;margin-top:2px" id="view-type-icon"></div>
+                </div>
+                <div style="flex:1">
+                    <div class="text-muted">Nom d'utilisateur</div>
+                    <div id="view-username" style="font-size:14px;margin-top:2px;color:#333"></div>
+                </div>
+                <div style="flex:1">
+                    <div class="text-muted">URL</div>
+                    <div id="view-url" style="font-size:14px;margin-top:2px"></div>
+                </div>
+            </div>
+            <div style="margin-bottom:12px">
+                <div class="text-muted">Tags</div>
+                <div class="tags-row" id="view-tags" style="margin-top:4px"></div>
+            </div>
+            <hr class="divider">
+            <div class="form-group">
+                <label>Secret</label>
+                <div class="secret-display" id="view-secret-box">
+                    <span class="secret-text" id="view-secret-text"><span class="secret-placeholder">••••••••••••</span></span>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                        <button class="btn btn-secondary btn-sm" id="view-reveal-btn" onclick="revealSecret()">👁 Révéler</button>
+                        <button class="btn btn-success btn-sm" id="view-copy-btn" onclick="copySecret()">📋 Copier</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" id="view-notes-group">
+                <label>Notes</label>
+                <div class="secret-display" style="align-items:flex-start" id="view-notes-box">
+                    <span class="secret-text" id="view-notes-text"><span class="secret-placeholder">••••••••••••</span></span>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                        <button class="btn btn-secondary btn-sm" id="view-notes-reveal-btn" onclick="revealNotes()">👁 Révéler</button>
+                        <button class="btn btn-success btn-sm" onclick="copyNotes()">📋 Copier</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modal-view')">Fermer</button>
+            <button class="btn btn-warning btn-sm" onclick="editCurrentEntry()">✏️ Modifier</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCurrentEntry()">🗑 Supprimer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     JavaScript
+═══════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── State ──────────────────────────────────────────────────── */
+let _csrf   = '';
+let _user   = null;
+let _teams  = [];        // user's teams [{id, name}]
+let _vaults = [];        // all vaults
+let _mpw    = {};        // {vault_id: master_password} — in-memory only
+let _currentVault = null;
+let _entries       = [];
+let _currentEntry  = null;
+let _entryTags     = [];
+let _editMode      = false;  // true = edit existing entry
+
+/* ── CSRF / Auth ────────────────────────────────────────────── */
+(async function init() {
+    try {
+        const r = await fetch('/api/auth/me');
+        if (!r.ok) { location.href = '/login'; return; }
+        const u = await r.json();
+        _user   = u;
+        _csrf   = u.csrf_token || '';
+        _teams  = (u.teams || []).map(t => ({id: t.id, name: t.name}));
+
+        // Patch fetch with CSRF
+        const orig = window.fetch;
+        window.fetch = function(url, opts) {
+            opts = opts || {};
+            if (opts.method && ['POST','PUT','DELETE'].includes(opts.method.toUpperCase())) {
+                opts.headers = Object.assign({'X-CSRF-Token': _csrf}, opts.headers || {});
+            }
+            return orig.call(this, url, opts);
+        };
+
+        document.getElementById('user-info').textContent = u.display_name || u.id;
+
+        // If superadmin, also fetch all teams
+        if (u.role === 'superadmin' || u.is_admin) {
+            try {
+                const tr = await fetch('/api/auth/teams');
+                if (tr.ok) _teams = (await tr.json()).map(t => ({id: t.id, name: t.name}));
+            } catch(e) {}
+        }
+
+        loadVaults();
+    } catch(e) { location.href = '/login'; }
+})();
+
+/* ── Fetch helpers ──────────────────────────────────────────── */
+async function api(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(path, opts);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || data.message || `Erreur ${r.status}`);
+    return data;
+}
+
+/* ── Toast ──────────────────────────────────────────────────── */
+function toast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast' + (type ? ' ' + type : '');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ── Modals ─────────────────────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden')); });
+
+/* ── Vault list ─────────────────────────────────────────────── */
+async function loadVaults() {
+    try {
+        const d = await api('GET', '/api/clpass/vaults');
+        _vaults = d.vaults || [];
+        renderVaults();
+    } catch(e) { toast('Erreur chargement coffres: ' + e.message, 'error'); }
+}
+
+function filterVaults() {
+    const q = document.getElementById('vault-search').value.toLowerCase();
+    document.querySelectorAll('.vault-item').forEach(el => {
+        const name = el.dataset.name || '';
+        el.style.display = name.toLowerCase().includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('.team-group-label').forEach(el => {
+        const next = el.nextElementSibling;
+        let visible = false;
+        let cur = next;
+        while (cur && cur.classList.contains('vault-item')) { if (cur.style.display !== 'none') visible = true; cur = cur.nextElementSibling; }
+        el.style.display = visible ? '' : 'none';
+    });
+}
+
+function renderVaults() {
+    const list = document.getElementById('vault-list');
+    if (!_vaults.length) { list.innerHTML = '<div class="sidebar-empty">Aucun coffre</div>'; return; }
+
+    // Group by team
+    const byTeam = {};
+    for (const v of _vaults) {
+        const tid = v.team_id || '';
+        if (!byTeam[tid]) byTeam[tid] = [];
+        byTeam[tid].push(v);
+    }
+
+    const teamLabel = tid => {
+        const t = _teams.find(x => x.id === tid);
+        return t ? t.name : (tid || 'Sans équipe');
+    };
+
+    let html = '';
+    for (const [tid, vaults] of Object.entries(byTeam)) {
+        html += `<div class="team-group-label">${esc(teamLabel(tid))}</div>`;
+        for (const v of vaults) {
+            const locked = !_mpw[v.id];
+            const active = _currentVault && _currentVault.id === v.id ? ' active' : '';
+            html += `<div class="vault-item${active}" data-id="${v.id}" data-name="${esc(v.name)}" onclick="selectVault('${v.id}')">
+                <div class="vault-dot" style="background:${esc(v.color || '#6a1b9a')}"></div>
+                <span class="vault-name">${esc(v.name)}</span>
+                <span class="vault-lock">${locked ? '🔒' : '🔓'}</span>
+            </div>`;
+        }
+    }
+    list.innerHTML = html;
+}
+
+async function selectVault(vid) {
+    _currentVault = _vaults.find(v => v.id === vid);
+    if (!_currentVault) return;
+
+    // Mark active
+    document.querySelectorAll('.vault-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === vid);
+    });
+
+    showVaultContent();
+
+    if (!_mpw[vid]) {
+        // Show content skeleton but vault is locked
+        await loadEntries(vid);
+        updateLockBadge();
+    } else {
+        await loadEntries(vid);
+        updateLockBadge();
+    }
+}
+
+function showVaultContent() {
+    document.getElementById('empty-main').style.display = 'none';
+    const vc = document.getElementById('vault-content');
+    vc.style.display = 'flex';
+    vc.style.flexDirection = 'column';
+    vc.style.height = '100%';
+    vc.style.overflow = 'hidden';
+
+    const v = _currentVault;
+    document.getElementById('vh-dot').style.background = v.color || '#6a1b9a';
+    document.getElementById('vh-name').textContent = v.name;
+    const teamName = _teams.find(t => t.id === v.team_id)?.name || v.team_id || '';
+    document.getElementById('vh-team').textContent = teamName ? '👥 ' + teamName : '';
+}
+
+function updateLockBadge() {
+    const vid = _currentVault?.id;
+    const locked = !_mpw[vid];
+    const badge = document.getElementById('vh-lock');
+    const btn   = document.getElementById('btn-unlock');
+    badge.textContent = locked ? '🔒 Verrouillé' : '🔓 Déverrouillé';
+    badge.className   = 'vault-lock-badge ' + (locked ? 'locked' : 'unlocked');
+    btn.style.display = locked ? '' : 'none';
+    renderVaults(); // refresh lock icons in sidebar
+}
+
+async function loadEntries(vid) {
+    try {
+        const d = await api('GET', `/api/clpass/vaults/${vid}/entries`);
+        _entries = d.entries || [];
+        renderEntries();
+    } catch(e) { toast('Erreur chargement entrées: ' + e.message, 'error'); }
+}
+
+function filterEntries() {
+    const q    = document.getElementById('entry-search').value.toLowerCase();
+    const type = document.getElementById('type-filter').value;
+    let vis = _entries.filter(e => {
+        const matchQ = !q ||
+            (e.title||'').toLowerCase().includes(q) ||
+            (e.username||'').toLowerCase().includes(q) ||
+            (e.url||'').toLowerCase().includes(q) ||
+            (e.tags||[]).join(' ').toLowerCase().includes(q);
+        const matchT = !type || e.type === type;
+        return matchQ && matchT;
+    });
+    renderEntriesRows(vis);
+}
+
+function renderEntries() { filterEntries(); }
+
+const TYPE_ICON = { login: '🔐', ssh_token: '🔑', note: '📝' };
+const TYPE_LABEL = { login: 'Login', ssh_token: 'SSH/Token', note: 'Note' };
+
+function renderEntriesRows(entries) {
+    const tbody = document.getElementById('entries-tbody');
+    const empty = document.getElementById('entries-empty');
+    if (!entries.length) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    tbody.innerHTML = entries.map(e => {
+        const icon = TYPE_ICON[e.type] || '🔐';
+        const tags = (e.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+        const urlHtml = e.url
+            ? `<a href="${esc(e.url)}" target="_blank" rel="noopener" title="${esc(e.url)}">${esc(e.url.replace(/^https?:\/\//, ''))}</a>`
+            : (e.type === 'ssh_token' ? `<span style="color:#999;font-size:12px">${esc(e.username||'')}</span>` : '');
+        return `<tr>
+            <td class="entry-icon">${icon}</td>
+            <td><div class="entry-title">${esc(e.title)}</div></td>
+            <td><div class="entry-username">${esc(e.username||'')}</div></td>
+            <td><div class="entry-url">${urlHtml}</div></td>
+            <td><div class="tags-row">${tags}</div></td>
+            <td class="entry-actions">
+                <button class="btn btn-success btn-xs" onclick="quickCopy('${e.id}')" title="Copier le secret">📋</button>
+                <button class="btn btn-secondary btn-xs" onclick="viewEntry('${e.id}')" title="Voir">👁</button>
+                <button class="btn btn-secondary btn-xs" onclick="editEntry('${e.id}')" title="Modifier">✏️</button>
+                <button class="btn btn-danger btn-xs" onclick="deleteEntry('${e.id}')" title="Supprimer">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+/* ── Unlock ─────────────────────────────────────────────────── */
+function openUnlock() {
+    document.getElementById('unlock-pw').value = '';
+    document.getElementById('unlock-error').classList.add('hidden');
+    document.getElementById('unlock-vault-name').textContent = _currentVault?.name || 'Coffre';
+    openModal('modal-unlock');
+    setTimeout(() => document.getElementById('unlock-pw').focus(), 100);
+}
+
+async function submitUnlock() {
+    const pw = document.getElementById('unlock-pw').value;
+    if (!pw) { toast('Saisir le master password', 'warning'); return; }
+    const vid = _currentVault.id;
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/verify`, { master_password: pw });
+        if (r.ok) {
+            _mpw[vid] = pw;
+            closeModal('modal-unlock');
+            updateLockBadge();
+            toast('Coffre déverrouillé ✓', 'success');
+        } else {
+            document.getElementById('unlock-error').classList.remove('hidden');
+        }
+    } catch(e) {
+        document.getElementById('unlock-error').classList.remove('hidden');
+    }
+}
+
+/* ── Create vault ───────────────────────────────────────────── */
+function openCreateVault() {
+    document.getElementById('cv-name').value = '';
+    document.getElementById('cv-desc').value = '';
+    document.getElementById('cv-pw').value   = '';
+    document.getElementById('cv-pw2').value  = '';
+    document.getElementById('cv-gen').classList.remove('open');
+    selectColor(document.querySelector('#cv-colors .color-swatch'), 'cv');
+
+    const sel = document.getElementById('cv-team');
+    sel.innerHTML = '<option value="">— Sans équipe —</option>' +
+        _teams.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+
+    openModal('modal-create-vault');
+    setTimeout(() => document.getElementById('cv-name').focus(), 100);
+}
+
+async function submitCreateVault() {
+    const name = document.getElementById('cv-name').value.trim();
+    const pw   = document.getElementById('cv-pw').value;
+    const pw2  = document.getElementById('cv-pw2').value;
+    if (!name) { toast('Nom requis', 'warning'); return; }
+    if (!pw)   { toast('Master password requis', 'warning'); return; }
+    if (pw !== pw2) { toast('Les passwords ne correspondent pas', 'warning'); return; }
+
+    const color   = document.querySelector('#cv-colors .color-swatch.active')?.dataset.color || '#6a1b9a';
+    const team_id = document.getElementById('cv-team').value;
+    const desc    = document.getElementById('cv-desc').value.trim();
+
+    try {
+        await api('POST', '/api/clpass/vaults', { name, description: desc, color, team_id, master_password: pw });
+        closeModal('modal-create-vault');
+        toast('Coffre créé ✓', 'success');
+        await loadVaults();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Edit vault ─────────────────────────────────────────────── */
+function openEditVault() {
+    const v = _currentVault;
+    if (!v) return;
+    document.getElementById('ev-name').value = v.name;
+    document.getElementById('ev-desc').value = v.description || '';
+
+    const sel = document.getElementById('ev-team');
+    sel.innerHTML = '<option value="">— Sans équipe —</option>' +
+        _teams.map(t => `<option value="${esc(t.id)}"${t.id === v.team_id ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+
+    // Color swatches
+    document.querySelectorAll('#ev-colors .color-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.dataset.color === v.color);
+    });
+
+    openModal('modal-edit-vault');
+}
+
+async function submitEditVault() {
+    const name = document.getElementById('ev-name').value.trim();
+    if (!name) { toast('Nom requis', 'warning'); return; }
+    const color   = document.querySelector('#ev-colors .color-swatch.active')?.dataset.color || _currentVault.color;
+    const team_id = document.getElementById('ev-team').value;
+    const desc    = document.getElementById('ev-desc').value.trim();
+    try {
+        await api('PUT', `/api/clpass/vaults/${_currentVault.id}`, { name, description: desc, color, team_id });
+        closeModal('modal-edit-vault');
+        toast('Coffre modifié ✓', 'success');
+        await loadVaults();
+        _currentVault = _vaults.find(v => v.id === _currentVault.id) || _currentVault;
+        showVaultContent();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Change master password ─────────────────────────────────── */
+function openChangePw() {
+    document.getElementById('cpw-old').value  = '';
+    document.getElementById('cpw-new').value  = '';
+    document.getElementById('cpw-new2').value = '';
+    document.getElementById('cpw-gen').classList.remove('open');
+    openModal('modal-change-pw');
+}
+
+async function submitChangePw() {
+    const old_pw = document.getElementById('cpw-old').value;
+    const new_pw = document.getElementById('cpw-new').value;
+    const new_pw2= document.getElementById('cpw-new2').value;
+    if (!old_pw) { toast('Master password actuel requis', 'warning'); return; }
+    if (!new_pw) { toast('Nouveau password requis', 'warning'); return; }
+    if (new_pw !== new_pw2) { toast('Les passwords ne correspondent pas', 'warning'); return; }
+    try {
+        await api('POST', `/api/clpass/vaults/${_currentVault.id}/change-password`, { old_password: old_pw, new_password: new_pw });
+        // Update in-memory
+        _mpw[_currentVault.id] = new_pw;
+        closeModal('modal-change-pw');
+        toast('Master password changé ✓', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Delete vault ───────────────────────────────────────────── */
+function openDeleteVault() {
+    document.getElementById('dv-pw').value = '';
+    openModal('modal-delete-vault');
+}
+
+async function submitDeleteVault() {
+    const pw = document.getElementById('dv-pw').value;
+    if (!pw) { toast('Master password requis', 'warning'); return; }
+    try {
+        await api('DELETE', `/api/clpass/vaults/${_currentVault.id}`, { master_password: pw });
+        delete _mpw[_currentVault.id];
+        _currentVault = null;
+        _entries = [];
+        closeModal('modal-delete-vault');
+        toast('Coffre supprimé', 'success');
+        document.getElementById('vault-content').style.display = 'none';
+        document.getElementById('empty-main').style.display = '';
+        await loadVaults();
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Create / Edit entry ────────────────────────────────────── */
+function openCreateEntry() {
+    _editMode = false;
+    _currentEntry = null;
+    _entryTags = [];
+
+    document.getElementById('entry-modal-title').textContent = '+ Nouvelle entrée';
+    document.getElementById('entry-submit-btn').textContent  = 'Créer l\'entrée';
+
+    // Reset form
+    document.querySelectorAll('#modal-entry input[type=text], #modal-entry input[type=password], #modal-entry textarea')
+        .forEach(el => el.value = '');
+    document.querySelector('input[name=entry-type][value=login]').checked = true;
+    document.getElementById('entry-tags-display').innerHTML = '';
+    document.getElementById('entry-gen').classList.remove('open');
+    document.getElementById('entry-lock-warn').classList.add('hidden');
+
+    switchEntryType();
+    fillEntryMpw();
+    openModal('modal-entry');
+    setTimeout(() => document.getElementById('entry-title').focus(), 100);
+}
+
+function editEntry(eid) {
+    const e = _entries.find(x => x.id === eid);
+    if (!e) return;
+    _editMode = true;
+    _currentEntry = e;
+    _entryTags = [...(e.tags || [])];
+
+    document.getElementById('entry-modal-title').textContent = '✏️ Modifier l\'entrée';
+    document.getElementById('entry-submit-btn').textContent  = 'Enregistrer';
+
+    document.querySelector(`input[name=entry-type][value="${e.type}"]`).checked = true;
+    switchEntryType();
+
+    document.getElementById('entry-title').value    = e.title || '';
+    document.getElementById('entry-username').value = e.username || '';
+    document.getElementById('entry-url').value      = e.url || '';
+    document.getElementById('entry-ssh-desc').value = e.username || '';
+    document.getElementById('entry-secret').value   = '';  // always empty — decrypt on demand
+    document.getElementById('entry-notes').value    = '';
+    document.getElementById('entry-gen').classList.remove('open');
+    document.getElementById('entry-lock-warn').classList.add('hidden');
+
+    renderTagsDisplay();
+    fillEntryMpw();
+    openModal('modal-entry');
+}
+
+function editCurrentEntry() {
+    closeModal('modal-view');
+    if (_currentEntry) editEntry(_currentEntry.id);
+}
+
+function fillEntryMpw() {
+    const vid = _currentVault?.id;
+    const mpwGroup = document.getElementById('entry-mpw-group');
+    const mpwInput = document.getElementById('entry-mpw');
+    const lockWarn = document.getElementById('entry-lock-warn');
+
+    if (_mpw[vid]) {
+        mpwInput.value = _mpw[vid];
+        mpwGroup.style.display = 'none';
+        lockWarn.classList.add('hidden');
+    } else {
+        mpwInput.value = '';
+        mpwGroup.style.display = 'block';
+        lockWarn.classList.remove('hidden');
+    }
+}
+
+function switchEntryType() {
+    const type = document.querySelector('input[name=entry-type]:checked')?.value || 'login';
+    document.getElementById('entry-login-fields').style.display = (type === 'login') ? '' : 'none';
+    document.getElementById('entry-ssh-fields').style.display   = (type === 'ssh_token') ? '' : 'none';
+    document.getElementById('entry-notes-group').style.display  = (type !== 'ssh_token') ? '' : 'none';
+
+    const secretLabel = document.getElementById('entry-secret-label');
+    if (type === 'login')      secretLabel.textContent = 'Password *';
+    else if (type === 'ssh_token') secretLabel.textContent = 'Clé SSH / Token *';
+    else                       secretLabel.textContent = 'Contenu de la note *';
+}
+
+async function submitEntry() {
+    const vid     = _currentVault?.id;
+    const mpw     = document.getElementById('entry-mpw').value || _mpw[vid] || '';
+    const type    = document.querySelector('input[name=entry-type]:checked')?.value || 'login';
+    const title   = document.getElementById('entry-title').value.trim();
+    const secret  = document.getElementById('entry-secret').value;
+    const notes   = document.getElementById('entry-notes').value;
+    const username = type === 'ssh_token'
+        ? document.getElementById('entry-ssh-desc').value
+        : document.getElementById('entry-username').value;
+    const url     = document.getElementById('entry-url').value.trim();
+
+    if (!title)  { toast('Titre requis', 'warning'); return; }
+    if (!mpw)    { toast('Master password requis', 'warning'); return; }
+
+    const body = {
+        master_password: mpw,
+        type, title, username, url,
+        tags: _entryTags,
+        notes,
+    };
+    if (secret) body.secret = secret;
+
+    try {
+        if (_editMode && _currentEntry) {
+            await api('PUT', `/api/clpass/vaults/${vid}/entries/${_currentEntry.id}`, body);
+            toast('Entrée modifiée ✓', 'success');
+        } else {
+            if (!secret) { toast('Secret requis', 'warning'); return; }
+            body.secret = secret;
+            await api('POST', `/api/clpass/vaults/${vid}/entries`, body);
+            toast('Entrée créée ✓', 'success');
+        }
+        // Store mpw if not already
+        if (!_mpw[vid] && mpw) { _mpw[vid] = mpw; updateLockBadge(); }
+        closeModal('modal-entry');
+        await loadEntries(vid);
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── View entry ─────────────────────────────────────────────── */
+async function viewEntry(eid) {
+    const e = _entries.find(x => x.id === eid);
+    if (!e) return;
+    _currentEntry = e;
+
+    document.getElementById('view-title').textContent     = (TYPE_ICON[e.type] || '') + ' ' + e.title;
+    document.getElementById('view-type-icon').textContent = TYPE_ICON[e.type] || '';
+    document.getElementById('view-username').textContent  = e.username || '—';
+    const urlEl = document.getElementById('view-url');
+    urlEl.innerHTML = e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener" style="color:#6a1b9a">${esc(e.url)}</a>` : '—';
+    document.getElementById('view-tags').innerHTML = (e.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('') || '—';
+
+    // Reset secret/notes reveal state
+    document.getElementById('view-secret-text').innerHTML = '<span class="secret-placeholder">••••••••••••</span>';
+    document.getElementById('view-notes-text').innerHTML  = '<span class="secret-placeholder">••••••••••••</span>';
+    document.getElementById('view-notes-group').style.display = (e.type !== 'ssh_token') ? '' : 'none';
+
+    openModal('modal-view');
+}
+
+async function revealSecret() {
+    const vid = _currentVault?.id;
+    const eid = _currentEntry?.id;
+    const mpw = _mpw[vid];
+    if (!mpw) { toast('Déverrouillez le coffre d\'abord', 'warning'); return; }
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/entries/${eid}/decrypt`, { master_password: mpw });
+        document.getElementById('view-secret-text').textContent = r.secret || '(vide)';
+        document.getElementById('view-reveal-btn').textContent = '🙈 Masquer';
+        document.getElementById('view-reveal-btn').onclick = () => {
+            document.getElementById('view-secret-text').innerHTML = '<span class="secret-placeholder">••••••••••••</span>';
+            document.getElementById('view-reveal-btn').textContent = '👁 Révéler';
+            document.getElementById('view-reveal-btn').onclick = revealSecret;
+        };
+    } catch(e) { toast('Erreur déchiffrement: ' + e.message, 'error'); }
+}
+
+async function revealNotes() {
+    const vid = _currentVault?.id;
+    const eid = _currentEntry?.id;
+    const mpw = _mpw[vid];
+    if (!mpw) { toast('Déverrouillez le coffre d\'abord', 'warning'); return; }
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/entries/${eid}/decrypt`, { master_password: mpw });
+        document.getElementById('view-notes-text').textContent = r.notes || '(vide)';
+        document.getElementById('view-notes-reveal-btn').textContent = '🙈 Masquer';
+        document.getElementById('view-notes-reveal-btn').onclick = () => {
+            document.getElementById('view-notes-text').innerHTML = '<span class="secret-placeholder">••••••••••••</span>';
+            document.getElementById('view-notes-reveal-btn').textContent = '👁 Révéler';
+            document.getElementById('view-notes-reveal-btn').onclick = revealNotes;
+        };
+    } catch(e) { toast('Erreur déchiffrement: ' + e.message, 'error'); }
+}
+
+async function copySecret() {
+    const vid = _currentVault?.id;
+    const eid = _currentEntry?.id;
+    const mpw = _mpw[vid];
+    if (!mpw) { toast('Déverrouillez le coffre d\'abord', 'warning'); return; }
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/entries/${eid}/decrypt`, { master_password: mpw });
+        await navigator.clipboard.writeText(r.secret || '');
+        toast('Secret copié dans le presse-papiers ✓', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+async function copyNotes() {
+    const vid = _currentVault?.id;
+    const eid = _currentEntry?.id;
+    const mpw = _mpw[vid];
+    if (!mpw) { toast('Déverrouillez le coffre d\'abord', 'warning'); return; }
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/entries/${eid}/decrypt`, { master_password: mpw });
+        await navigator.clipboard.writeText(r.notes || '');
+        toast('Notes copiées dans le presse-papiers ✓', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+async function quickCopy(eid) {
+    const vid = _currentVault?.id;
+    const mpw = _mpw[vid];
+    if (!mpw) { toast('Déverrouillez le coffre d\'abord 🔒', 'warning'); return; }
+    try {
+        const r = await api('POST', `/api/clpass/vaults/${vid}/entries/${eid}/decrypt`, { master_password: mpw });
+        await navigator.clipboard.writeText(r.secret || '');
+        toast('Copié ✓', 'success');
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+/* ── Delete entry ───────────────────────────────────────────── */
+async function deleteEntry(eid) {
+    if (!confirm('Supprimer cette entrée ?')) return;
+    const vid = _currentVault?.id;
+    try {
+        await api('DELETE', `/api/clpass/vaults/${vid}/entries/${eid}`, {});
+        toast('Entrée supprimée', 'success');
+        await loadEntries(vid);
+        if (document.getElementById('modal-view') && !document.getElementById('modal-view').classList.contains('hidden')) {
+            closeModal('modal-view');
+        }
+    } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+}
+
+async function deleteCurrentEntry() {
+    if (_currentEntry) await deleteEntry(_currentEntry.id);
+}
+
+/* ── Tags ───────────────────────────────────────────────────── */
+function addTagOnEnter(e) { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }
+
+function addTag() {
+    const input = document.getElementById('entry-tag-input');
+    const val = input.value.trim().toLowerCase();
+    if (val && !_entryTags.includes(val)) {
+        _entryTags.push(val);
+        renderTagsDisplay();
+    }
+    input.value = '';
+}
+
+function removeTag(tag) {
+    _entryTags = _entryTags.filter(t => t !== tag);
+    renderTagsDisplay();
+}
+
+function renderTagsDisplay() {
+    document.getElementById('entry-tags-display').innerHTML =
+        _entryTags.map(t => `<span class="tag-rm">${esc(t)} <span class="x" onclick="removeTag('${esc(t)}')">×</span></span>`).join('');
+}
+
+/* ── Color swatches ─────────────────────────────────────────── */
+function selectColor(el, prefix) {
+    document.querySelectorAll(`#${prefix}-colors .color-swatch`).forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+}
+
+/* ── Password helpers ───────────────────────────────────────── */
+function togglePw(id) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function toggleGen(id) {
+    document.getElementById(id).classList.toggle('open');
+}
+
+function updateGenLen(prefix) {
+    const len = document.getElementById(`${prefix}-gen-len`).value;
+    document.getElementById(`${prefix}-gen-len-val`).textContent = len;
+}
+
+function generatePw(prefix) {
+    const len   = parseInt(document.getElementById(`${prefix}-gen-len`).value, 10);
+    const upper = document.getElementById(`${prefix}-gen-upper`).checked;
+    const digits= document.getElementById(`${prefix}-gen-digits`).checked;
+    const sym   = document.getElementById(`${prefix}-gen-sym`).checked;
+
+    let chars = 'abcdefghijklmnopqrstuvwxyz';
+    if (upper)  chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (digits) chars += '0123456789';
+    if (sym)    chars += '!@#$%^&*()-_=+[]{}|;:,.<>?';
+
+    const arr  = new Uint32Array(len);
+    crypto.getRandomValues(arr);
+    const pwd  = Array.from(arr).map(n => chars[n % chars.length]).join('');
+    document.getElementById(`${prefix}-gen-pwd`).textContent = pwd;
+}
+
+function useGenPw(prefix, targetId) {
+    const pwd = document.getElementById(`${prefix}-gen-pwd`).textContent;
+    if (pwd && pwd !== '—') {
+        document.getElementById(targetId).value = pwd;
+        document.getElementById(targetId).type  = 'text';
+        toast('Password inséré', 'success');
+    }
+}
+
+/* ── Escape HTML ─────────────────────────────────────────────── */
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
