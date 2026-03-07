@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevOps Tools — AppOps</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a2332;min-height:100vh}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
+
+/* ── Topbar ── */
+.topbar{background:#fff;border-bottom:1.5px solid #e2e6ea;padding:0 24px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:100}
+.tb-brand{font-weight:700;font-size:15px;color:#1976d2;display:flex;align-items:center;gap:8px}
+.tb-brand span{font-size:20px}
+.tb-home{font-size:13px;color:#90a4ae;margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;border:1.5px solid #e0e0e0;background:white;transition:.12s}
+.tb-home:hover{border-color:#90a4ae;color:#546e7a}
+.tb-sep{color:#ddd;font-size:18px}
+.tb-crumb{font-size:13px;color:#546e7a;cursor:default}
+.tb-crumb.link{cursor:pointer;color:#1976d2}
+.tb-crumb.link:hover{text-decoration:underline}
+
+/* ── Layout ── */
+.wrap{max-width:860px;margin:0 auto;padding:28px 20px}
+
+/* ── Hub ── */
+.hub-title{font-size:26px;font-weight:700;color:#1a2332;margin-bottom:5px}
+.hub-sub{font-size:14px;color:#90a4ae;margin-bottom:28px}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.tool-card{background:#fff;border:1.5px solid #e8ecef;border-radius:14px;padding:24px 22px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+.tool-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;border-radius:14px 14px 0 0;background:var(--accent,#90a4ae)}
+.tool-card:hover{border-color:var(--accent,#90a4ae);box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px)}
+.tool-card.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.tc-head{display:flex;align-items:flex-start;gap:14px}
+.tc-icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.tc-meta{display:flex;flex-direction:column;gap:4px;padding-top:2px}
+.tc-name{font-size:16px;font-weight:700;color:#1a2332}
+.tc-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;letter-spacing:.3px;width:fit-content}
+.tc-desc{font-size:13px;color:#78909c;line-height:1.55}
+.badge-zip {background:#e3f2fd;color:#1565c0}
+.badge-soon{background:#fce4ec;color:#c62828}
+
+/* ── Tool view ── */
+.tool-view{display:none}
+.btn-back{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#90a4ae;background:none;border:none;padding:4px 0;margin-bottom:20px;transition:.12s}
+.btn-back:hover{color:#1976d2}
+.vhdr{margin-bottom:22px}
+.vhdr h1{font-size:22px;font-weight:700;color:#1a2332;margin-bottom:4px}
+.vhdr p{font-size:13px;color:#90a4ae}
+
+/* ── Info cards ── */
+.info-card{background:#fff;border:1.5px solid #e8ecef;border-radius:12px;padding:18px 22px;margin-bottom:14px}
+.info-card h3{font-size:11px;font-weight:700;color:#b0bec5;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.info-card h3 span{font-size:14px}
+.info-table{width:100%;border-collapse:collapse;font-size:13px}
+.info-table th{text-align:left;padding:6px 10px;font-weight:600;color:#546e7a;border-bottom:1.5px solid #f0f0f0;font-size:12px}
+.info-table td{padding:7px 10px;border-bottom:1px solid #f7f7f7;color:#37474f}
+.info-table tr:last-child td{border-bottom:none}
+.info-table code{background:#f5f6fa;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:#1a237e}
+.req-dot{width:7px;height:7px;border-radius:50%;background:#43a047;display:inline-block}
+
+/* ── Contenu ZIP ── */
+.zip-files{display:flex;flex-direction:column;gap:0}
+.zip-file{display:flex;align-items:baseline;gap:12px;font-size:13px;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.zip-file:last-child{border-bottom:none}
+.zip-name{font-family:monospace;font-size:12px;color:#1a237e;white-space:nowrap;min-width:200px}
+.zip-desc{color:#78909c}
+
+/* ── Warning box ── */
+.warn-box{background:#fff8e1;border:1.5px solid #ffca28;border-radius:10px;padding:14px 18px;display:flex;gap:12px;margin-bottom:16px;font-size:13px;color:#5d4037;line-height:1.55}
+
+/* ── Download bar ── */
+.dl-bar{display:flex;align-items:center;gap:16px;padding:6px 0}
+.btn-dl{padding:12px 28px;border-radius:8px;border:none;font-size:15px;font-weight:600;transition:.12s;display:flex;align-items:center;gap:8px;color:#fff}
+.btn-dl.blue{background:#1976d2}
+.btn-dl.blue:hover{background:#1565c0}
+.btn-dl.red{background:#d32f2f}
+.btn-dl.red:hover{background:#b71c1c}
+.btn-dl:disabled{opacity:.6;cursor:not-allowed}
+.dl-hint{font-size:12px;color:#90a4ae}
+
+/* ── Toast ── */
+#dt-toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:500;color:#fff;background:#43a047;z-index:999;display:none;box-shadow:0 3px 14px rgba(0,0,0,.18)}
+#dt-toast.err{background:#e53935}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ─────────────────────────────────────────────────────────────── -->
+<div class="topbar">
+    <div class="tb-brand"><span>⚙️</span> DevOps Tools</div>
+    <div class="tb-sep">›</div>
+    <div class="tb-crumb link" id="tb-hub" onclick="showView('v-hub')">Hub</div>
+    <div class="tb-sep" id="tb-sep2" style="display:none">›</div>
+    <div class="tb-crumb" id="tb-sub" style="display:none"></div>
+    <a class="tb-home" href="/">🏠 Accueil</a>
+</div>
+
+<div class="wrap">
+
+<!-- ═══════════════════════════════════════════════════════ HUB ══════════════ -->
+<div id="v-hub">
+    <div class="hub-title">DevOps Tools</div>
+    <div class="hub-sub">Outils d'automatisation — projets Ansible prêts à l'emploi</div>
+
+    <div class="tool-grid">
+
+        <div class="tool-card" style="--accent:#1976d2" onclick="showView('v-on')">
+            <div class="tc-head">
+                <div class="tc-icon" style="background:#e3f2fd">🚀</div>
+                <div class="tc-meta">
+                    <div class="tc-name">Onboarding</div>
+                    <span class="tc-badge badge-zip">📦 Ansible ZIP</span>
+                </div>
+            </div>
+            <div class="tc-desc">Bootstrap GitLab + AAP — mirror Premium → interne, project, inventaires, job templates.</div>
+        </div>
+
+        <div class="tool-card" style="--accent:#d32f2f" onclick="showView('v-off')">
+            <div class="tc-head">
+                <div class="tc-icon" style="background:#fce4ec">🚪</div>
+                <div class="tc-meta">
+                    <div class="tc-name">Deboarding</div>
+                    <span class="tc-badge badge-zip">📦 Ansible ZIP</span>
+                </div>
+            </div>
+            <div class="tc-desc">Retrait propre — supprime les objets AAP et archive le repo GitLab interne.</div>
+        </div>
+
+        <div class="tool-card disabled" style="--accent:#00897b">
+            <div class="tc-head">
+                <div class="tc-icon" style="background:#e0f2f1">📡</div>
+                <div class="tc-meta">
+                    <div class="tc-name">Flux Validateur</div>
+                    <span class="tc-badge badge-soon">BIENTÔT</span>
+                </div>
+            </div>
+            <div class="tc-desc">Génère un playbook de test des flux réseau src→dst (nc/telnet, AIX/Linux, diagnostic routing).</div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ ONBOARDING ══════════════ -->
+<div id="v-on" class="tool-view">
+    <button class="btn-back" onclick="showView('v-hub')">← DevOps Tools</button>
+    <div class="vhdr">
+        <h1>🚀 Onboarding AAP</h1>
+        <p>ZIP générique — déployer une fois, paramétrer via Survey AAP pour chaque application.</p>
+    </div>
+
+    <div class="info-card">
+        <h3><span>①</span> Adapter <code>vars/config.yml</code> après extraction</h3>
+        <table class="info-table">
+            <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+            <tbody>
+                <tr><td><code>gitlab_internal_url</code></td><td>URL de votre GitLab interne</td></tr>
+                <tr><td><code>aap_controller_host</code></td><td>URL de votre AAP Controller</td></tr>
+                <tr><td><code>aap_organization</code></td><td>Organisation AAP cible</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>②</span> Credentials AAP à associer aux job templates</h3>
+        <table class="info-table">
+            <thead><tr><th>Credential</th><th>Variables injectées</th><th>Droits requis</th></tr></thead>
+            <tbody>
+                <tr><td><b>GitLab Interne</b></td><td><code>gitlab_internal_token</code></td><td>API read + write</td></tr>
+                <tr><td><b>GitLab Premium</b></td><td><code>gitlab_premium_token</code>, <code>gitlab_premium_mirror_url</code></td><td>read + write (mirror)</td></tr>
+                <tr><td><b>AAP Controller</b></td><td><code>aap_token</code></td><td>Admin</td></tr>
+            </tbody>
+        </table>
+        <div style="margin-top:10px;font-size:12px;color:#90a4ae">
+            <code>gitlab_premium_mirror_url</code> → format : <code>https://oauth2:TOKEN@gitlab-premium.example.com/team/repo.git</code>
+        </div>
+    </div>
+
+    <div class="info-card">
+        <h3><span>③</span> Survey AAP — <code>01_gitlab_setup.yml</code></h3>
+        <table class="info-table">
+            <thead><tr><th>Variable</th><th>Label</th><th>Req</th><th>Exemple</th></tr></thead>
+            <tbody>
+                <tr><td><code>code_app</code></td><td>Code application</td><td><span class="req-dot"></span></td><td><code>myap</code></td></tr>
+                <tr><td><code>nom_app</code></td><td>Nom application</td><td><span class="req-dot"></span></td><td><code>My Application</code></td></tr>
+                <tr><td><code>premium_url</code></td><td>URL repo GitLab Premium (.git)</td><td><span class="req-dot"></span></td><td><code>https://gitlab-premium.example.com/…</code></td></tr>
+                <tr><td><code>gitlab_group</code></td><td>Groupe GitLab interne</td><td><span class="req-dot"></span></td><td><code>mon-equipe</code></td></tr>
+                <tr><td><code>gitlab_subgroup</code></td><td>Sous-groupe (optionnel)</td><td></td><td><code>applis-clp</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>③</span> Survey AAP — <code>02_aap_setup.yml</code></h3>
+        <table class="info-table">
+            <thead><tr><th>Variable</th><th>Label</th><th>Req</th><th>Exemple</th></tr></thead>
+            <tbody>
+                <tr><td><code>code_app</code></td><td>Code application</td><td><span class="req-dot"></span></td><td><code>myap</code></td></tr>
+                <tr><td><code>nom_app</code></td><td>Nom application</td><td><span class="req-dot"></span></td><td><code>My Application</code></td></tr>
+                <tr><td><code>gitlab_group</code></td><td>Groupe GitLab interne</td><td><span class="req-dot"></span></td><td><code>mon-equipe</code></td></tr>
+                <tr><td><code>gitlab_subgroup</code></td><td>Sous-groupe (optionnel)</td><td></td><td></td></tr>
+                <tr><td><code>environments</code></td><td>Environnements (virgule)</td><td><span class="req-dot"></span></td><td><code>low,mid,prod</code></td></tr>
+                <tr><td><code>middlewares</code></td><td>Middlewares (virgule, vide si aucun)</td><td></td><td><code>apache,tomcat</code></td></tr>
+                <tr><td><code>deploy_mode</code></td><td>Mode déploiement</td><td><span class="req-dot"></span></td><td><code>job</code> / <code>workflow</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>④</span> Contenu du ZIP</h3>
+        <div class="zip-files">
+            <div class="zip-file"><span class="zip-name">01_gitlab_setup.yml</span><span class="zip-desc">Crée groupe/repo GitLab interne + pull mirror ← Premium</span></div>
+            <div class="zip-file"><span class="zip-name">02_aap_setup.yml</span><span class="zip-desc">Crée credential, project, inventaires, job templates, workflows</span></div>
+            <div class="zip-file"><span class="zip-name">vars/config.yml</span><span class="zip-desc">Variables statiques infra (URLs uniquement)</span></div>
+            <div class="zip-file"><span class="zip-name">README.md</span><span class="zip-desc">Ce guide complet</span></div>
+        </div>
+    </div>
+
+    <div class="dl-bar">
+        <button class="btn-dl blue" id="btn-dl-on" onclick="download('onboarding')">📦 Télécharger le ZIP Onboarding</button>
+        <span class="dl-hint">ZIP générique — même contenu pour toutes les applications</span>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ DEBOARDING ══════════════ -->
+<div id="v-off" class="tool-view">
+    <button class="btn-back" onclick="showView('v-hub')">← DevOps Tools</button>
+    <div class="vhdr">
+        <h1>🚪 Deboarding AAP</h1>
+        <p>ZIP générique — paramétrer via Survey AAP pour chaque application à décommissionner.</p>
+    </div>
+
+    <div class="warn-box">
+        <span style="font-size:20px;flex-shrink:0">⚠️</span>
+        <div><strong>Actions irréversibles</strong> — Le playbook <strong>supprime définitivement</strong> les objets AAP (Credential, Project, Inventaires, Job Templates, Workflows) et archive le repo GitLab interne.</div>
+    </div>
+
+    <div class="info-card">
+        <h3><span>①</span> Adapter <code>vars/config.yml</code> après extraction</h3>
+        <table class="info-table">
+            <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+            <tbody>
+                <tr><td><code>gitlab_internal_url</code></td><td>URL de votre GitLab interne</td></tr>
+                <tr><td><code>aap_controller_host</code></td><td>URL de votre AAP Controller</td></tr>
+                <tr><td><code>aap_organization</code></td><td>Organisation AAP cible</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>②</span> Credentials AAP à associer aux job templates</h3>
+        <table class="info-table">
+            <thead><tr><th>Credential</th><th>Variables injectées</th></tr></thead>
+            <tbody>
+                <tr><td><b>GitLab Interne</b></td><td><code>gitlab_internal_token</code></td></tr>
+                <tr><td><b>AAP Controller</b></td><td><code>aap_token</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>③</span> Survey AAP à créer sur les job templates</h3>
+        <table class="info-table">
+            <thead><tr><th>Variable</th><th>Label</th><th>Req</th><th>Exemple</th></tr></thead>
+            <tbody>
+                <tr><td><code>code_app</code></td><td>Code application</td><td><span class="req-dot"></span></td><td><code>myap</code></td></tr>
+                <tr><td><code>gitlab_group</code></td><td>Groupe GitLab interne</td><td><span class="req-dot"></span></td><td><code>mon-equipe</code></td></tr>
+                <tr><td><code>gitlab_subgroup</code></td><td>Sous-groupe (optionnel)</td><td></td><td></td></tr>
+                <tr><td><code>environments</code></td><td>Environnements (virgule)</td><td><span class="req-dot"></span></td><td><code>low,mid,prod</code></td></tr>
+                <tr><td><code>middlewares</code></td><td>Middlewares (virgule, vide si aucun)</td><td></td><td><code>apache,tomcat</code></td></tr>
+                <tr><td><code>deploy_mode</code></td><td>Mode déploiement</td><td><span class="req-dot"></span></td><td><code>job</code> / <code>workflow</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-card">
+        <h3><span>④</span> Contenu du ZIP</h3>
+        <div class="zip-files">
+            <div class="zip-file"><span class="zip-name">01_aap_cleanup.yml</span><span class="zip-desc">Supprime WF → JT → Inventaires → Project → Credential</span></div>
+            <div class="zip-file"><span class="zip-name">02_gitlab_cleanup.yml</span><span class="zip-desc">Archive le repo GitLab interne</span></div>
+            <div class="zip-file"><span class="zip-name">vars/config.yml</span><span class="zip-desc">Variables statiques infra (URLs uniquement)</span></div>
+            <div class="zip-file"><span class="zip-name">README.md</span><span class="zip-desc">Ce guide complet</span></div>
+        </div>
+    </div>
+
+    <div class="dl-bar">
+        <button class="btn-dl red" id="btn-dl-off" onclick="download('deboarding')">📦 Télécharger le ZIP Deboarding</button>
+        <span class="dl-hint">ZIP générique — même contenu pour toutes les applications</span>
+    </div>
+</div>
+
+</div><!-- /wrap -->
+<div id="dt-toast"></div>
+
+<script>
+// ── CSRF ───────────────────────────────────────────────────────────────────────
+;(async () => {
+    try { const u = await fetch('/api/auth/me').then(r => r.json()); window._csrf = u.csrf_token || ''; }
+    catch { window._csrf = ''; }
+    const _orig = window.fetch;
+    window.fetch = (url, opts = {}) => {
+        if (typeof url === 'string' && url.startsWith('/api/'))
+            opts.headers = { ...opts.headers, 'X-CSRF-Token': window._csrf };
+        return _orig(url, opts);
+    };
+})();
+
+// ── Views ─────────────────────────────────────────────────────────────────────
+const VIEW_LABELS = {'v-hub': 'Hub', 'v-on': 'Onboarding', 'v-off': 'Deboarding'};
+function showView(id) {
+    document.getElementById('v-hub').style.display = id === 'v-hub' ? '' : 'none';
+    ['v-on','v-off'].forEach(v => document.getElementById(v).style.display = v === id ? 'block' : 'none');
+    const isHub = id === 'v-hub';
+    document.getElementById('tb-hub').classList.toggle('link', !isHub);
+    document.getElementById('tb-sep2').style.display = isHub ? 'none' : '';
+    document.getElementById('tb-sub').style.display  = isHub ? 'none' : '';
+    if (!isHub) document.getElementById('tb-sub').textContent = VIEW_LABELS[id] || '';
+    window.scrollTo(0, 0);
+}
+
+// ── Download ───────────────────────────────────────────────────────────────────
+async function download(tool) {
+    const btnId = tool === 'onboarding' ? 'btn-dl-on' : 'btn-dl-off';
+    const btn   = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.textContent = '⏳ Génération…';
+    try {
+        const url = tool === 'onboarding' ? '/api/devops/onboarding/generate' : '/api/devops/deboarding/generate';
+        const r   = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `Erreur ${r.status}`); }
+        const blob = await r.blob();
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = tool + '.zip';
+        a.click();
+        toast('ZIP ' + tool + ' téléchargé ✓');
+    } catch (e) {
+        toast(e.message, true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = tool === 'onboarding' ? '📦 Télécharger le ZIP Onboarding' : '📦 Télécharger le ZIP Deboarding';
+    }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, err = false) {
+    const t = document.getElementById('dt-toast');
+    t.textContent = msg; t.className = err ? 'err' : '';
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3200);
+}
+</script>
+</body>
+</html>

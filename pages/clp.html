@@ -677,17 +677,17 @@ function applyInstanceDefaults() {
 
 /* MW icons (SVG builtin) */
 const MW_SVGS = {
-    apache: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#cc2233" d="M24 4C13 4 4 13 4 24s9 20 20 20 20-9 20-20S35 4 24 4z"/><path fill="#fff" d="M14 32c1-4 3-8 6-11l3 3c-2 2-4 5-5 8H14zm6-14c2-3 5-6 9-8v4c-3 1-5 3-7 6l-2-2zm8-8c4 1 8 4 10 8h-4c-1-2-3-4-6-5V10zm2 22h4c-2 4-6 7-10 8v-4c3-1 5-3 6-4zm-8 4v4c-4-1-7-4-9-8h4c1 2 3 3 5 4z"/></svg>`,
-    tomcat: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#f57c00" d="M24 6c-10 0-18 8-18 18s8 18 18 18 18-8 18-18S34 6 24 6z"/><circle fill="#fff" cx="18" cy="20" r="3"/><circle fill="#fff" cx="30" cy="20" r="3"/><path fill="#fff" d="M16 28c2 3 5 5 8 5s6-2 8-5H16z"/></svg>`,
-    mq: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#1a237e" d="M24 4l18 10v20L24 44 6 34V14z"/><rect fill="#fff" x="16" y="20" width="16" height="8" rx="2"/><path fill="#f57c00" d="M20 22v4h8v-4z"/></svg>`,
-    websphere: `<svg class="mw-svg" viewBox="0 0 48 48"><circle fill="#1565c0" cx="24" cy="24" r="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="12" ry="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="20" ry="8"/><line stroke="#fff" stroke-width="2" x1="4" y1="24" x2="44" y2="24"/></svg>`,
-    php: `<svg class="mw-svg" viewBox="0 0 48 48"><ellipse fill="#7b1fa2" cx="24" cy="24" rx="20" ry="12"/><text fill="#fff" font-family="monospace" font-size="14" font-weight="bold" x="12" y="28">PHP</text></svg>`,
-    jboss: `<svg class="mw-svg" viewBox="0 0 48 48"><circle fill="#c62828" cx="24" cy="24" r="20"/><text fill="#fff" font-family="monospace" font-size="11" font-weight="bold" x="8" y="28">JBoss</text></svg>`,
-    cft: `<svg class="mw-svg" viewBox="0 0 48 48"><rect fill="#00695c" x="4" y="4" width="40" height="40" rx="8"/><path fill="#fff" d="M14 24l8-8 4 4 8-10" stroke="#fff" stroke-width="2" fill="none"/><path fill="#fff" d="M32 24l-8 8-4-4-8 10" stroke="#80cbc4" stroke-width="2" fill="none"/></svg>`,
+    apache: `<svg class="mw-svg" viewBox="0 0 48 48"><defs><linearGradient id="apG" x1="0.4" y1="1" x2="0.6" y2="0"><stop offset="0%" stop-color="#7b1fa2"/><stop offset="45%" stop-color="#d32f2f"/><stop offset="100%" stop-color="#f57f17"/></linearGradient></defs><path fill="url(#apG)" d="M22,44 C19,37 13,23 17,13 C19,6 24,3 29,3 C33,2 35,6 33,11 C30,17 26,21 24,29 C22,36 21,41 22,44 Z"/><path fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="1" d="M22,44 Q26,28 30,10"/><line stroke="rgba(255,255,255,0.45)" stroke-width="1.2" x1="27" y1="13" x2="18" y2="18"/><line stroke="rgba(255,255,255,0.45)" stroke-width="1.2" x1="25" y1="21" x2="16" y2="26"/><line stroke="rgba(255,255,255,0.45)" stroke-width="1.2" x1="23" y1="29" x2="15" y2="34"/><line stroke="rgba(255,255,255,0.45)" stroke-width="1.2" x1="27" y1="13" x2="32" y2="9"/><line stroke="rgba(255,255,255,0.45)" stroke-width="1.2" x1="25" y1="21" x2="30" y2="17"/></svg>`,
+    tomcat: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="none" stroke="#2a1a00" stroke-width="3" stroke-linecap="round" d="M9,38 C3,28 3,16 9,10"/><circle fill="#2a1a00" cx="9" cy="10" r="3"/><ellipse fill="#d4851a" cx="23" cy="34" rx="13" ry="8" transform="rotate(-10,23,34)"/><path fill="#d4851a" d="M28,27 Q33,22 37,22 Q39,22 39,25 Q38,28 35,29 Q32,30 27,33 Z"/><circle fill="#f0a830" cx="37" cy="20" r="10"/><polygon fill="#d4851a" stroke="#2a1a00" stroke-width="1.5" points="30,13 32,6 36,12"/><polygon fill="#2a1a00" points="31,13 32,7 35,12" opacity="0.8"/><polygon fill="#d4851a" stroke="#2a1a00" stroke-width="1.5" points="38,11 42,5 44,12"/><polygon fill="#2a1a00" points="39,11 42,7 44,12" opacity="0.8"/><path fill="none" stroke="#2a1a00" stroke-width="2" d="M31,17 Q33,15 35,17"/><path fill="none" stroke="#2a1a00" stroke-width="2" d="M38,16 Q40,14 42,16"/><polygon fill="#2a1a00" points="34,21 36,21 35,23" opacity="0.8"/><line stroke="#2a1a00" stroke-width="1.2" x1="28" y1="21" x2="21" y2="20"/><line stroke="#2a1a00" stroke-width="1.2" x1="28" y1="23" x2="21" y2="24"/><path fill="none" stroke="#2a1a00" stroke-width="1.2" d="M14,32 Q15,29 17,32"/><path fill="none" stroke="#2a1a00" stroke-width="1.2" d="M17,36 Q18,33 20,36"/><path fill="none" stroke="#2a1a00" stroke-width="1.2" d="M21,30 Q22,27 24,30"/></svg>`,
+    mq: `<svg class="mw-svg" viewBox="0 0 48 48"><polygon fill="#8da8cc" points="24,2 43,12.5 43,35.5 24,46 5,35.5 5,12.5"/><polygon fill="#4d6fa8" points="24,5 40,14 40,34 24,43 8,34 8,14"/><rect fill="white" x="12" y="17" width="24" height="15" rx="1.5"/><polyline fill="none" stroke="#4d6fa8" stroke-width="2" points="12,17 24,26 36,17"/><text fill="white" font-family="Arial,Helvetica,sans-serif" font-size="7" font-weight="bold" text-anchor="middle" x="24" y="38">IBM MQ</text></svg>`,
+    websphere: `<svg class="mw-svg" viewBox="0 0 48 48"><circle fill="#7b1fa2" cx="24" cy="24" r="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="12" ry="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="20" ry="8"/><line stroke="#fff" stroke-width="2" x1="4" y1="24" x2="44" y2="24"/></svg>`,
+    php: `<svg class="mw-svg" viewBox="0 0 48 48"><ellipse fill="#0277bd" cx="24" cy="24" rx="20" ry="12"/><text fill="#fff" font-family="monospace" font-size="14" font-weight="bold" x="12" y="28">PHP</text></svg>`,
+    jboss: `<svg class="mw-svg" viewBox="0 0 48 48"><rect fill="white" width="48" height="48" rx="8"/><circle fill="#cc0000" cx="11" cy="5" r="2"/><circle fill="#cc0000" cx="6" cy="12" r="2.5"/><circle fill="#cc0000" cx="4" cy="20" r="3"/><circle fill="#cc0000" cx="4" cy="28" r="3.2"/><circle fill="#cc0000" cx="6" cy="36" r="2.8"/><circle fill="#cc0000" cx="10" cy="43" r="2.2"/><text fill="#cc0000" font-family="Arial Black,Impact,sans-serif" font-size="32" font-weight="900" x="16" y="44">J</text></svg>`,
+    cft: `<svg class="mw-svg" viewBox="0 0 48 48"><rect fill="#b71c1c" width="48" height="48" rx="8"/><polygon fill="white" points="4,5 42,5 46,12 8,12"/><polygon fill="white" points="4,17 36,17 38,24 6,24"/><polygon fill="white" points="4,29 20,29 24,35 16,44 10,44 16,36 4,36"/></svg>`,
 };
 const MW_COLORS = {
-    apache:'#cc2233',tomcat:'#f57c00',mq:'#1a237e',websphere:'#1565c0',
-    php:'#7b1fa2',jboss:'#c62828',cft:'#00695c',
+    apache:'#cc2233',tomcat:'#f57c00',mq:'#1a237e',websphere:'#7b1fa2',
+    php:'#0277bd',jboss:'#c62828',cft:'#b71c1c',
 };
 
 function getMwIcon(mw) {
@@ -987,7 +987,7 @@ function renderMwCfgGrid(mws) {
 }
 
 function getMwIconSmall(mw) {
-    if (MW_SVGS[mw.id]) return `<span style="font-size:18px">${mw.icon||''}</span>`;
+    if (MW_SVGS[mw.id]) return MW_SVGS[mw.id];
     return `<span style="font-size:22px">${mw.icon||'🔧'}</span>`;
 }
 

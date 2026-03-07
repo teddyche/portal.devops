@@ -219,6 +219,13 @@ def clp_page():
     return _page('clp.html')
 
 
+# === DevOps Tools ===
+
+@pages_bp.route('/devops')
+def devops_page():
+    return _page('devops.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')
