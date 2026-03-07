@@ -303,12 +303,14 @@ _GROUP_VARS_GLOBAL = """\
 # Variables globales — surchargées par inventories/<ENV>/group_vars/all.yml
 
 # ── Limites de collecte ───────────────────────────────────────────────────────
-# Nombre d'objets récupérés par endpoint (job templates, workflows, credentials…)
-aap_page_size_objects: 400
-# Nombre de jobs/workflow_jobs récents récupérés
-aap_page_size_jobs: 400
-# Nombre de hosts récupérés
-aap_page_size_hosts: 1000
+# Par défaut (limit: false) : page_size=10000 → récupère tous les objets en une requête
+# Mettre limit: true pour utiliser les variables aap_page_size_* ci-dessous
+limit: false
+
+# Tailles de page utilisées uniquement si limit: true
+aap_page_size_objects: 200
+aap_page_size_jobs: 200
+aap_page_size_hosts: 500
 """
 
 _GROUP_VARS_HP = """\
@@ -360,84 +362,84 @@ _TASKS = """\
 
 - name: "AAP | Job templates"
   uri:
-    url: "{{ aap_url }}/api/v2/job_templates/?page_size={{ aap_page_size_objects | default(400) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/job_templates/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _jt
 
 - name: "AAP | Jobs récents"
   uri:
-    url: "{{ aap_url }}/api/v2/jobs/?page_size={{ aap_page_size_jobs | default(400) }}&order_by=-finished"
+    url: "{{ aap_url }}/api/v2/jobs/?page_size={{ limit | default(false) | ternary(aap_page_size_jobs, 10000) }}&order_by=-finished"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _jobs
 
 - name: "AAP | Workflow job templates"
   uri:
-    url: "{{ aap_url }}/api/v2/workflow_job_templates/?page_size={{ aap_page_size_objects | default(400) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/workflow_job_templates/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _wfjt
 
 - name: "AAP | Workflow jobs récents"
   uri:
-    url: "{{ aap_url }}/api/v2/workflow_jobs/?page_size={{ aap_page_size_jobs | default(400) }}&order_by=-finished"
+    url: "{{ aap_url }}/api/v2/workflow_jobs/?page_size={{ limit | default(false) | ternary(aap_page_size_jobs, 10000) }}&order_by=-finished"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _wfjobs
 
 - name: "AAP | Projects"
   uri:
-    url: "{{ aap_url }}/api/v2/projects/?page_size={{ aap_page_size_objects | default(400) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/projects/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _projects
 
 - name: "AAP | Schedules"
   uri:
-    url: "{{ aap_url }}/api/v2/schedules/?page_size={{ aap_page_size_objects | default(400) }}"
+    url: "{{ aap_url }}/api/v2/schedules/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _schedules
 
 - name: "AAP | Tokens"
   uri:
-    url: "{{ aap_url }}/api/v2/tokens/?page_size={{ aap_page_size_objects | default(400) }}"
+    url: "{{ aap_url }}/api/v2/tokens/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _tokens
 
 - name: "AAP | Credentials"
   uri:
-    url: "{{ aap_url }}/api/v2/credentials/?page_size={{ aap_page_size_objects | default(400) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/credentials/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _creds
 
 - name: "AAP | Inventories"
   uri:
-    url: "{{ aap_url }}/api/v2/inventories/?page_size={{ aap_page_size_objects | default(400) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/inventories/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _inv
 
 - name: "AAP | Hosts"
   uri:
-    url: "{{ aap_url }}/api/v2/hosts/?page_size={{ aap_page_size_hosts | default(1000) }}&order_by=name"
+    url: "{{ aap_url }}/api/v2/hosts/?page_size={{ limit | default(false) | ternary(aap_page_size_hosts, 10000) }}&order_by=name"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _hosts
 
 - name: "AAP | Organizations"
   uri:
-    url: "{{ aap_url }}/api/v2/organizations/?page_size={{ aap_page_size_objects | default(400) }}"
+    url: "{{ aap_url }}/api/v2/organizations/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _orgs
 
 - name: "AAP | Teams"
   uri:
-    url: "{{ aap_url }}/api/v2/teams/?page_size={{ aap_page_size_objects | default(400) }}"
+    url: "{{ aap_url }}/api/v2/teams/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _teams

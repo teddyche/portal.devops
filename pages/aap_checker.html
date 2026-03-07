@@ -158,7 +158,8 @@
         .nc-be { display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#c62828;color:white;margin-left:4px;vertical-align:middle; }
 
         /* ── Badges ──────────────────────────────────────────── */
-        .badge-status { display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold; }
+        .badge-status { display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold;white-space:nowrap; }
+        .data-table td.td-badge { white-space:nowrap; }
         .badge-ok    { background:#e8f5e9;color:#2e7d32; }
         .badge-fail  { background:#ffebee;color:#c62828; }
         .badge-warn  { background:#fff8e1;color:#e65100; }
@@ -1538,7 +1539,19 @@ function rateBar(rate) {
 }
 
 function statusBadge(status) {
-    const m = { successful:['badge-ok','✓ Succès'], failed:['badge-fail','✗ Échec'], running:['badge-warn','▶ Running'], pending:['badge-info','⏳ Attente'], canceled:['badge-grey','⊘ Annulé'], never:['badge-grey','Jamais'] };
+    const m = {
+        successful: ['badge-ok',   '✓ Succès'],
+        ok:         ['badge-ok',   '✓ OK'],
+        failed:     ['badge-fail', '✗ Échec'],
+        fail:       ['badge-fail', '✗ Échec'],
+        error:      ['badge-fail', '✗ Erreur'],
+        running:    ['badge-warn', '▶ Running'],
+        updating:   ['badge-warn', '↻ Sync…'],
+        pending:    ['badge-info', '⏳ Attente'],
+        canceled:   ['badge-grey', '⊘ Annulé'],
+        never:      ['badge-grey', 'Jamais'],
+        disabled:   ['badge-grey', '⊘ Désactivé'],
+    };
     const [cls, lbl] = m[status] || ['badge-grey', esc(status || '—')];
     return '<span class="badge-status ' + cls + '">' + lbl + '</span>';
 }
