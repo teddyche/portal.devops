@@ -207,6 +207,13 @@ def jfrog_page():
     return _page('jfrog.html')
 
 
+# === CLP Ansible Builder ===
+
+@pages_bp.route('/clp-builder')
+def clp_builder_page():
+    return _page('clp_builder.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

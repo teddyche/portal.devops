@@ -93,8 +93,9 @@ def create_app(config: Optional[dict] = None) -> Flask:
     from blueprints.clpass_bp import clpass_bp
     from blueprints.annuaire_bp import annuaire_bp
     from blueprints.jfrog_bp import jfrog_bp
+    from blueprints.clp_builder_bp import clp_builder_bp
 
-    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp, kubi_bp, gitlab_bp, ordo_bp, aap_checker_bp, clpass_bp, annuaire_bp, jfrog_bp):
+    for bp in (auth_bp, auth_admin_bp, pages_bp, sre_bp, pssit_bp, cad_bp, health_bp, ldap_bp, kubi_bp, gitlab_bp, ordo_bp, aap_checker_bp, clpass_bp, annuaire_bp, jfrog_bp, clp_builder_bp):
         app.register_blueprint(bp)
 
     # === #23 — Versioning /api/v1/ → /api/ (réécriture transparente) ===

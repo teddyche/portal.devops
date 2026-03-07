@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLP Ansible Builder — AppOps</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        .top-bar {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 24px;
+        }
+        .back-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: 7px;
+            background: white; border: 1.5px solid #ddd;
+            color: #444; font-size: 13px; cursor: pointer;
+            text-decoration: none; transition: all .15s;
+        }
+        .back-btn:hover { border-color: #999; color: #111; }
+        .page-title { font-size: 22px; font-weight: bold; color: #333; }
+        .page-subtitle { font-size: 13px; color: #888; }
+
+        /* ── Cards ───────────────────────────────────────────────── */
+        .card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.07);
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .card-header {
+            padding: 14px 20px; border-bottom: 1px solid #f0f0f0;
+            font-weight: bold; font-size: 14px; color: #333;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card-body { padding: 20px; }
+
+        /* ── Form fields ─────────────────────────────────────────── */
+        .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
+        .form-group label { font-size: 12px; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: .4px; }
+        .form-group input, .form-group select {
+            padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 7px;
+            font-size: 14px; outline: none; transition: border-color .15s;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: #607d8b; }
+        .form-hint { font-size: 11px; color: #999; }
+
+        /* ── Environments grid ───────────────────────────────────── */
+        .env-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+        .env-chip {
+            display: flex; align-items: center; gap: 7px;
+            padding: 8px 14px; border-radius: 20px;
+            border: 2px solid #ddd; background: white;
+            cursor: pointer; font-size: 13px; font-weight: bold;
+            color: #666; transition: all .15s; user-select: none;
+        }
+        .env-chip:hover { border-color: #607d8b; color: #607d8b; }
+        .env-chip.active { border-color: #607d8b; background: #607d8b; color: white; }
+        .env-chip input { display: none; }
+        .env-chip .env-badge {
+            font-size: 10px; padding: 1px 5px; border-radius: 8px;
+            background: rgba(255,255,255,.25); font-weight: normal;
+        }
+        .env-chip:not(.active) .env-badge { background: #f0f0f0; color: #999; }
+
+        /* ── Env sections ────────────────────────────────────────── */
+        .env-sections { display: flex; flex-direction: column; gap: 14px; }
+        .env-section {
+            border: 1.5px solid #e0e7ec; border-radius: 8px; overflow: hidden;
+        }
+        .env-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px; background: #f7f9fb;
+            border-bottom: 1px solid #e0e7ec;
+        }
+        .env-section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-weight: bold; font-size: 14px; color: #333;
+        }
+        .env-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+        .env-fqdn-label {
+            font-size: 12px; color: #888; font-family: monospace;
+        }
+        .env-hosts { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .host-row {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .host-row input, .host-row select {
+            padding: 7px 10px; border: 1.5px solid #ddd; border-radius: 6px;
+            font-size: 13px; outline: none; transition: border-color .15s;
+        }
+        .host-row input { flex: 2; font-family: monospace; }
+        .host-row select { flex: 1; }
+        .host-row input:focus, .host-row select:focus { border-color: #607d8b; }
+        .host-del {
+            background: none; border: none; cursor: pointer;
+            color: #ccc; font-size: 16px; padding: 4px;
+            transition: color .15s; line-height: 1;
+        }
+        .host-del:hover { color: #e53935; }
+        .add-host-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 6px;
+            border: 1.5px dashed #ccc; background: none;
+            color: #888; font-size: 12px; cursor: pointer;
+            transition: all .15s; margin-top: 2px;
+        }
+        .add-host-btn:hover { border-color: #607d8b; color: #607d8b; }
+
+        /* ── Buttons ─────────────────────────────────────────────── */
+        .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+        .btn-generate {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 28px; border-radius: 8px;
+            background: #607d8b; color: white;
+            border: none; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: background .15s;
+        }
+        .btn-generate:hover { background: #546e7a; }
+        .btn-generate:disabled { background: #b0bec5; cursor: not-allowed; }
+
+        /* ── Toast ───────────────────────────────────────────────── */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            padding: 12px 20px; border-radius: 8px;
+            color: white; font-size: 14px; font-weight: bold;
+            display: none; z-index: 1000; max-width: 380px;
+            animation: fadeIn .2s;
+        }
+        .toast.ok  { background: #2e7d32; }
+        .toast.err { background: #c62828; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        /* ── FQDN section ────────────────────────────────────────── */
+        .fqdn-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .fqdn-group { flex: 1; min-width: 180px; }
+        .fqdn-group label { font-size: 12px; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: .4px; display: block; margin-bottom: 5px; }
+        .fqdn-group input {
+            width: 100%; padding: 9px 12px; border: 1.5px solid #ddd;
+            border-radius: 7px; font-size: 14px; font-family: monospace;
+            outline: none; transition: border-color .15s;
+        }
+        .fqdn-group input:focus { border-color: #607d8b; }
+        .fqdn-badge {
+            display: inline-block; font-size: 11px; padding: 2px 8px;
+            border-radius: 10px; margin-left: 6px; vertical-align: middle;
+            font-weight: normal;
+        }
+        .fqdn-badge.nonprod { background: #e8f5e9; color: #2e7d32; }
+        .fqdn-badge.prod    { background: #fce4ec; color: #c62828; }
+
+        /* ── Empty state ─────────────────────────────────────────── */
+        .empty-envs {
+            text-align: center; padding: 32px 20px;
+            color: #bbb; font-size: 14px;
+        }
+
+        /* ── Spinner ─────────────────────────────────────────────── */
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2.5px solid rgba(255,255,255,.4);
+            border-top-color: white; border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="top-bar">
+        <a class="back-btn" href="/">← Accueil</a>
+        <div>
+            <div class="page-title">🏗️ CLP Ansible Builder</div>
+            <div class="page-subtitle">Génération de packages Ansible — inventaires + rôle get-from-artifactory</div>
+        </div>
+    </div>
+
+    <!-- Projet -->
+    <div class="card">
+        <div class="card-header">📁 Informations projet</div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group" style="max-width:120px">
+                    <label>Code appli</label>
+                    <input id="inp-code" type="text" maxlength="4" placeholder="YA" autocomplete="off"
+                           oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9]/g,'')">
+                    <span class="form-hint">2 lettres min.</span>
+                </div>
+                <div class="form-group">
+                    <label>Nom appli</label>
+                    <input id="inp-nom" type="text" placeholder="mon_application" autocomplete="off">
+                </div>
+                <div class="form-group" style="max-width:160px">
+                    <label>Entité</label>
+                    <input id="inp-entite" type="text" placeholder="caps" value="caps" autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FQDN -->
+    <div class="card">
+        <div class="card-header">
+            🌐 Domaines FQDN
+        </div>
+        <div class="card-body">
+            <div class="fqdn-row">
+                <div class="fqdn-group">
+                    <label>
+                        Pre-prod
+                        <span class="fqdn-badge nonprod">dev rec qua int hom pre</span>
+                    </label>
+                    <input id="fqdn-nonprod" type="text" placeholder="ca-cedicam.fr"
+                           oninput="refreshEnvFqdns()">
+                </div>
+                <div class="fqdn-group">
+                    <label>
+                        Production
+                        <span class="fqdn-badge prod">prd</span>
+                    </label>
+                    <input id="fqdn-prod" type="text" placeholder="sec-prod1.lan"
+                           oninput="refreshEnvFqdns()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Environnements -->
+    <div class="card">
+        <div class="card-header">🗂️ Environnements</div>
+        <div class="card-body">
+            <div class="env-grid" id="env-chips"></div>
+        </div>
+    </div>
+
+    <!-- Hôtes par env -->
+    <div class="card">
+        <div class="card-header">🖥️ Hôtes par environnement</div>
+        <div class="card-body">
+            <div class="env-sections" id="env-sections">
+                <div class="empty-envs">Sélectionnez au moins un environnement ci-dessus</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+        <button class="btn-generate" id="btn-gen" onclick="generate()">
+            <span>📦</span> Générer le package ZIP
+        </button>
+    </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Config ─────────────────────────────────────────────────────────────── */
+const ALL_ENVS = [
+    { name: 'dev',  label: 'DEV',  prod: false },
+    { name: 'rec',  label: 'REC',  prod: false },
+    { name: 'qua',  label: 'QUA',  prod: false },
+    { name: 'int',  label: 'INT',  prod: false },
+    { name: 'int2', label: 'INT2', prod: false },
+    { name: 'int3', label: 'INT3', prod: false },
+    { name: 'hom',  label: 'HOM',  prod: false },
+    { name: 'pre',  label: 'PRE',  prod: false },
+    { name: 'prd',  label: 'PRD',  prod: true  },
+];
+
+const ENV_COLORS = {
+    dev: '#43a047', rec: '#fb8c00', qua: '#8e24aa',
+    int: '#1e88e5', int2: '#1565c0', int3: '#0d47a1',
+    hom: '#00897b', pre: '#e53935', prd: '#b71c1c',
+};
+
+const DEFAULT_GROUPS = ['APP', 'DB', 'WEB', 'BATCH', 'MQ'];
+let selectedEnvs = new Set();
+
+/* ── Init ────────────────────────────────────────────────────────────────── */
+function init() {
+    const chips = document.getElementById('env-chips');
+    ALL_ENVS.forEach(env => {
+        const chip = document.createElement('div');
+        chip.className = 'env-chip';
+        chip.id = `chip-${env.name}`;
+        chip.innerHTML = `
+            ${env.label}
+            <span class="env-badge">${env.prod ? 'PROD' : 'pre-prod'}</span>
+        `;
+        chip.onclick = () => toggleEnv(env.name, chip);
+        chips.appendChild(chip);
+    });
+}
+
+function toggleEnv(name, chip) {
+    if (selectedEnvs.has(name)) {
+        selectedEnvs.delete(name);
+        chip.classList.remove('active');
+    } else {
+        selectedEnvs.add(name);
+        chip.classList.add('active');
+    }
+    renderEnvSections();
+}
+
+/* ── FQDN helpers ────────────────────────────────────────────────────────── */
+function getFqdn(envName) {
+    const isProd = envName === 'prd';
+    const val = isProd
+        ? document.getElementById('fqdn-prod').value.trim()
+        : document.getElementById('fqdn-nonprod').value.trim();
+    return val;
+}
+
+function refreshEnvFqdns() {
+    ALL_ENVS.forEach(env => {
+        if (!selectedEnvs.has(env.name)) return;
+        const label = document.getElementById(`fqdn-label-${env.name}`);
+        if (label) {
+            const fqdn = getFqdn(env.name);
+            label.textContent = fqdn ? `.${fqdn}` : '(pas de FQDN)';
+        }
+    });
+}
+
+/* ── Env sections ────────────────────────────────────────────────────────── */
+function renderEnvSections() {
+    const container = document.getElementById('env-sections');
+    if (selectedEnvs.size === 0) {
+        container.innerHTML = '<div class="empty-envs">Sélectionnez au moins un environnement ci-dessus</div>';
+        return;
+    }
+
+    // Preserve existing host rows before re-render
+    const existing = {};
+    container.querySelectorAll('.env-section').forEach(sec => {
+        const env = sec.dataset.env;
+        existing[env] = collectHosts(sec);
+    });
+
+    container.innerHTML = '';
+    ALL_ENVS
+        .filter(e => selectedEnvs.has(e.name))
+        .forEach(env => {
+            const fqdn = getFqdn(env.name);
+            const color = ENV_COLORS[env.name] || '#607d8b';
+            const sec = document.createElement('div');
+            sec.className = 'env-section';
+            sec.dataset.env = env.name;
+            sec.innerHTML = `
+                <div class="env-section-header">
+                    <div class="env-section-title">
+                        <span class="env-dot" style="background:${color}"></span>
+                        ${env.label}
+                    </div>
+                    <span class="env-fqdn-label" id="fqdn-label-${env.name}">${fqdn ? '.' + fqdn : '(pas de FQDN)'}</span>
+                </div>
+                <div class="env-hosts" id="hosts-${env.name}"></div>
+                <div style="padding: 4px 16px 12px">
+                    <button class="add-host-btn" onclick="addHostRow('${env.name}')">+ Ajouter un hôte</button>
+                </div>
+            `;
+            container.appendChild(sec);
+
+            // Restore existing hosts
+            if (existing[env.name] && existing[env.name].length > 0) {
+                existing[env.name].forEach(h => addHostRow(env.name, h.hostname, h.group));
+            }
+        });
+}
+
+/* ── Host rows ───────────────────────────────────────────────────────────── */
+function addHostRow(envName, hostname = '', group = '') {
+    const container = document.getElementById(`hosts-${envName}`);
+    const row = document.createElement('div');
+    row.className = 'host-row';
+
+    const groupOpts = ['APP', 'DB', 'WEB', 'BATCH', 'MQ', 'OTHER']
+        .map(g => `<option value="${g}"${g === (group.toUpperCase() || 'APP') ? ' selected' : ''}>${g}</option>`)
+        .join('');
+
+    // Try to restore custom group
+    const groupVal = group.toUpperCase() || 'APP';
+    const isCustom = !['APP', 'DB', 'WEB', 'BATCH', 'MQ', 'OTHER'].includes(groupVal);
+
+    row.innerHTML = `
+        <input type="text" placeholder="nom-serveur" value="${escHtml(hostname)}"
+               style="font-family:monospace">
+        <input type="text" placeholder="Groupe (ex: AIX_APP)" value="${escHtml(groupVal)}"
+               style="flex:1; font-family:monospace; text-transform:uppercase"
+               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9_]/g,'')">
+        <button class="host-del" onclick="this.parentElement.remove()" title="Supprimer">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+function collectHosts(section) {
+    const hosts = [];
+    section.querySelectorAll('.host-row').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const hn = inputs[0].value.trim();
+        const grp = inputs[1].value.trim();
+        if (hn) hosts.push({ hostname: hn, group: grp || 'APP' });
+    });
+    return hosts;
+}
+
+/* ── Generate ────────────────────────────────────────────────────────────── */
+async function generate() {
+    const code_app = document.getElementById('inp-code').value.trim();
+    const nom_app  = document.getElementById('inp-nom').value.trim();
+    const entite   = document.getElementById('inp-entite').value.trim() || 'caps';
+
+    if (code_app.length < 2) {
+        return toast('Le code appli doit contenir au moins 2 caractères', 'err');
+    }
+    if (!nom_app) {
+        return toast('Le nom appli est requis', 'err');
+    }
+    if (selectedEnvs.size === 0) {
+        return toast('Sélectionnez au moins un environnement', 'err');
+    }
+
+    // Build envs payload
+    const envs = [];
+    ALL_ENVS.filter(e => selectedEnvs.has(e.name)).forEach(env => {
+        const sec = document.querySelector(`.env-section[data-env="${env.name}"]`);
+        const hosts = sec ? collectHosts(sec) : [];
+        envs.push({
+            name: env.name,
+            fqdn: getFqdn(env.name),
+            hosts,
+        });
+    });
+
+    const btn = document.getElementById('btn-gen');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Génération...';
+
+    try {
+        const resp = await fetch('/api/clp-builder/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code_app, nom_app, entite, envs }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || `Erreur ${resp.status}`);
+        }
+
+        // Trigger download
+        const blob = await resp.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `${code_app}_deploy.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        toast(`Package ${code_app}_deploy.zip généré !`, 'ok');
+    } catch (e) {
+        toast(e.message, 'err');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>📦</span> Générer le package ZIP';
+    }
+}
+
+/* ── Utils ───────────────────────────────────────────────────────────────── */
+let _toastTimer;
+function toast(msg, type = 'ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `toast ${type}`;
+    el.style.display = 'block';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Boot ────────────────────────────────────────────────────────────────── */
+init();
+</script>
+</body>
+</html>
