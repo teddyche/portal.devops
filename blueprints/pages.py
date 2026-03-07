@@ -200,6 +200,13 @@ def annuaire_page():
     return _page('annuaire.html')
 
 
+# === JFrog ===
+
+@pages_bp.route('/jfrog')
+def jfrog_page():
+    return _page('jfrog.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

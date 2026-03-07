@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JFrog Tokens</title>
+<link rel="stylesheet" href="/css/base.css">
+<style>
+    /* ── Layout ────────────────────────────────────── */
+    body { background:#f5f6fa; }
+    .page-header { background:#fff; border-bottom:2px solid #e8eaf6; padding:14px 24px;
+        display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .page-title { font-size:20px; font-weight:bold; color:#1a237e; display:flex; align-items:center; gap:10px; }
+    .main { padding:24px; max-width:1400px; margin:0 auto; }
+
+    /* ── Instance cards ────────────────────────────── */
+    .cards-row { display:flex; flex-wrap:wrap; gap:16px; margin-top:16px; }
+    .inst-card { background:#fff; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.08);
+        padding:18px 20px; min-width:240px; max-width:300px; cursor:pointer;
+        transition:all .15s; border-left:4px solid #2196f3;
+        display:flex; flex-direction:column; gap:8px; position:relative; }
+    .inst-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(0,0,0,.14); }
+    .inst-card-name { font-size:15px; font-weight:bold; color:#1a237e; }
+    .inst-card-desc { font-size:12px; color:#777; }
+    .inst-card-meta { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+    .inst-card-sub  { font-size:12px; color:#888; }
+    .inst-card-kebab { position:absolute; top:8px; right:8px; background:none; border:none;
+        cursor:pointer; font-size:18px; color:#bdbdbd; padding:2px 6px; border-radius:4px;
+        opacity:0; transition:opacity .15s; line-height:1; z-index:1; }
+    .inst-card:hover .inst-card-kebab { opacity:1; }
+    .inst-card-kebab:hover { background:#f0f0f0; color:#555; }
+    .inst-ctx-menu { position:fixed; z-index:9999; background:#fff; border:1px solid #e0e0e0;
+        border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,.18); min-width:160px; padding:4px 0; }
+    .inst-ctx-item { padding:9px 16px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:9px; color:#333; }
+    .inst-ctx-item:hover { background:#f5f5f5; }
+    .inst-ctx-item.danger { color:#c62828; }
+    .inst-ctx-item.danger:hover { background:#ffebee; }
+    .inst-ctx-sep { height:1px; background:#f0f0f0; margin:3px 0; }
+
+    /* ── Detail view ───────────────────────────────── */
+    #detailView { display:none; }
+    .detail-header { background:#fff; border-bottom:2px solid #e8eaf6;
+        padding:12px 24px; display:flex; align-items:center;
+        justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .detail-title { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:bold; color:#1a237e; }
+    .color-dot { width:14px; height:14px; border-radius:50%; display:inline-block; flex-shrink:0; }
+    .detail-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .detail-body { padding:20px 24px; max-width:1400px; margin:0 auto; }
+
+    /* ── Stats ─────────────────────────────────────── */
+    .stats-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .stat-card { background:#fff; border-radius:8px; padding:14px 20px; text-align:center;
+        box-shadow:0 1px 4px rgba(0,0,0,.07); min-width:100px; flex:1; }
+    .stat-val { font-size:28px; font-weight:bold; }
+    .stat-lbl { font-size:11px; color:#888; margin-top:3px; }
+
+    /* ── Table ─────────────────────────────────────── */
+    .table-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .table-search { padding:7px 12px; border:1px solid #ddd; border-radius:6px; font-size:13px;
+        width:260px; outline:none; }
+    .table-search:focus { border-color:#1a237e; }
+    select.table-filter { padding:6px 10px; border:1px solid #ddd; border-radius:6px;
+        font-size:13px; background:#fff; cursor:pointer; }
+    .filter-count { font-size:12px; color:#888; margin-left:4px; }
+    .table-wrap { overflow-x:auto; }
+    .data-table { width:100%; border-collapse:collapse; font-size:13px; background:#fff;
+        border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.07); }
+    .data-table th { background:#f5f6fa; padding:10px 12px; text-align:left; font-weight:600;
+        color:#424242; white-space:nowrap; border-bottom:2px solid #e0e0e0; cursor:pointer;
+        user-select:none; }
+    .data-table th:hover { background:#e8eaf6; }
+    .data-table td { padding:9px 12px; border-bottom:1px solid #f0f0f0; color:#333; }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tr:hover td { background:#fafafa; }
+    .sa::after { content:' ↕'; font-size:10px; color:#aaa; }
+    .sa-asc::after  { content:' ↑'; color:#1a237e; }
+    .sa-desc::after { content:' ↓'; color:#1a237e; }
+    .no-data { text-align:center; padding:40px; color:#aaa; font-size:14px; }
+
+    /* ── Badges ─────────────────────────────────────── */
+    .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px;
+        font-weight:bold; white-space:nowrap; }
+    .badge-expired  { background:#ffebee; color:#c62828; }
+    .badge-critical { background:#fbe9e7; color:#bf360c; }
+    .badge-warning  { background:#fff3e0; color:#e65100; }
+    .badge-ok       { background:#e8f5e9; color:#2e7d32; }
+    .badge-never    { background:#f5f5f5; color:#757575; }
+    .badge-at       { background:#e3f2fd; color:#1565c0; }
+    .badge-apikey   { background:#f3e5f5; color:#6a1b9a; }
+
+    /* ── Snapshots panel ────────────────────────────── */
+    .snap-panel { position:fixed; top:0; right:0; width:340px; height:100vh;
+        background:#fff; box-shadow:-4px 0 18px rgba(0,0,0,.12); z-index:500;
+        display:flex; flex-direction:column; transform:translateX(100%);
+        transition:transform .25s; }
+    .snap-panel.open { transform:none; }
+    .snap-panel-hd { padding:16px 20px; border-bottom:2px solid #e8eaf6;
+        display:flex; align-items:center; justify-content:space-between; }
+    .snap-panel-title { font-weight:bold; color:#1a237e; }
+    .snap-list { overflow-y:auto; flex:1; padding:8px 0; }
+    .snap-item { padding:10px 20px; cursor:pointer; border-bottom:1px solid #f5f5f5;
+        display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .snap-item:hover { background:#f5f6fa; }
+    .snap-item.active { background:#e8eaf6; }
+    .snap-ts { font-size:12px; color:#555; }
+    .snap-stats { font-size:11px; color:#888; }
+    .snap-del { background:none; border:none; cursor:pointer; color:#e57373; font-size:16px;
+        padding:2px 6px; border-radius:4px; opacity:0; }
+    .snap-item:hover .snap-del { opacity:1; }
+    .snap-del:hover { background:#ffebee; }
+    .snap-overlay { position:fixed; inset:0; background:rgba(0,0,0,.2); z-index:499; display:none; }
+    .snap-overlay.open { display:block; }
+
+    /* ── Diff ───────────────────────────────────────── */
+    .diff-banner { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:6px;
+        padding:10px 16px; margin-bottom:12px; font-size:13px; color:#1b5e20;
+        display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .diff-banner.warn { background:#fff3e0; border-color:#ffcc02; color:#e65100; }
+    tr.diff-added td { background:#e8f5e9 !important; }
+    tr.diff-removed td { background:#ffebee !important; text-decoration:line-through; color:#aaa; }
+
+    /* ── Modals ─────────────────────────────────────── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000;
+        display:flex; align-items:center; justify-content:center; }
+    .modal { background:#fff; border-radius:12px; padding:28px 32px; min-width:360px;
+        max-width:520px; width:100%; box-shadow:0 8px 32px rgba(0,0,0,.2); }
+    .modal-title { font-size:17px; font-weight:bold; color:#1a237e; margin-bottom:20px; }
+    .form-group { margin-bottom:14px; }
+    .form-group label { display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:5px; }
+    .form-group input, .form-group select { width:100%; padding:8px 10px; border:1px solid #ddd;
+        border-radius:6px; font-size:13px; box-sizing:border-box; }
+    .form-group input:focus, .form-group select:focus { outline:none; border-color:#1a237e; }
+    .form-group .hint { font-size:11px; color:#888; margin-top:3px; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+    .modal-feedback { font-size:12px; margin-top:8px; min-height:16px; }
+    .modal-feedback.ok  { color:#2e7d32; }
+    .modal-feedback.err { color:#c62828; }
+    .color-swatches { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+    .color-sw { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+    .color-sw.selected { border-color:#333; }
+
+    /* ── Boutons ────────────────────────────────────── */
+    .btn { padding:7px 16px; border-radius:6px; border:none; cursor:pointer; font-size:13px;
+        font-weight:500; transition:all .15s; }
+    .btn-primary   { background:#1a237e; color:#fff; }
+    .btn-primary:hover { background:#283593; }
+    .btn-secondary { background:#e8eaf6; color:#1a237e; }
+    .btn-secondary:hover { background:#c5cae9; }
+    .btn-danger    { background:#ffebee; color:#c62828; }
+    .btn-danger:hover { background:#ffcdd2; }
+    .btn-sm { padding:5px 12px; font-size:12px; }
+    .btn-icon { padding:6px 10px; }
+    .empty-state { text-align:center; padding:48px 20px; color:#aaa; font-size:14px; }
+    .empty-state span { font-size:48px; display:block; margin-bottom:12px; }
+
+    /* ── Toast ──────────────────────────────────────── */
+    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(60px);
+        background:#323232; color:#fff; padding:10px 20px; border-radius:6px;
+        font-size:13px; z-index:9999; transition:transform .3s; opacity:0; }
+    #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+    /* ── Loading spinner ────────────────────────────── */
+    .loading { display:flex; align-items:center; gap:10px; color:#888; padding:24px; font-size:14px; }
+    .spinner { width:20px; height:20px; border:2px solid #e0e0e0; border-top-color:#1a237e;
+        border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     VUE LISTE INSTANCES
+═══════════════════════════════════════════════════════════════ -->
+<div id="listView">
+    <div class="page-header">
+        <div class="page-title">🐸 JFrog Tokens</div>
+        <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="openInstModal(null)">+ Nouvelle instance</button>
+        </div>
+    </div>
+    <div class="main">
+        <div id="instancesContainer"></div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     VUE DÉTAIL INSTANCE
+═══════════════════════════════════════════════════════════════ -->
+<div id="detailView">
+    <div class="detail-header">
+        <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn btn-secondary btn-sm btn-icon" onclick="backToList()" title="Retour">←</button>
+            <div class="detail-title">
+                <span class="color-dot" id="detailDot"></span>
+                <span id="detailName">—</span>
+            </div>
+            <span id="detailUrl" style="font-size:12px;color:#888;"></span>
+        </div>
+        <div class="detail-actions">
+            <span id="snapViewBadge" style="display:none;font-size:12px;color:#e65100;font-weight:bold;padding:4px 10px;background:#fff3e0;border-radius:12px;"></span>
+            <button class="btn btn-secondary btn-sm" id="btnRefresh" onclick="loadTokens()">🔄 Actualiser</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleSnapPanel()">📸 Snapshots</button>
+            <button class="btn btn-secondary btn-sm" onclick="openInstModal(currentInst)">✏️ Modifier</button>
+        </div>
+    </div>
+    <div class="detail-body">
+        <div id="detailContent">
+            <div class="empty-state"><span>🐸</span>Cliquez sur <b>🔄 Actualiser</b> pour charger les tokens.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel snapshots -->
+<div class="snap-overlay" id="snapOverlay" onclick="closeSnapPanel()"></div>
+<div class="snap-panel" id="snapPanel">
+    <div class="snap-panel-hd">
+        <span class="snap-panel-title">📸 Historique snapshots</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeSnapPanel()">✕</button>
+    </div>
+    <div style="padding:8px 20px;border-bottom:1px solid #f0f0f0">
+        <button class="btn btn-primary btn-sm" style="width:100%" onclick="saveSnapNow()">💾 Sauvegarder maintenant</button>
+    </div>
+    <div class="snap-list" id="snapList"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════════ -->
+
+<!-- Modal instance -->
+<div id="instModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeInstModal()">
+    <div class="modal">
+        <div class="modal-title" id="instModalTitle">Nouvelle instance</div>
+        <div class="form-group">
+            <label>Nom *</label>
+            <input type="text" id="imName" placeholder="ex : Artifactory Prod">
+        </div>
+        <div class="form-group">
+            <label>URL Artifactory *</label>
+            <input type="text" id="imUrl" placeholder="https://artifactory.example.com">
+        </div>
+        <div class="form-group">
+            <label>Token admin *</label>
+            <input type="password" id="imToken" placeholder="Token access ou API key admin">
+            <div class="hint">Nécessite les droits admin pour lister tous les tokens.</div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="imDesc" placeholder="Optionnel">
+        </div>
+        <div class="form-group">
+            <label>Couleur</label>
+            <div class="color-swatches" id="colorSwatches"></div>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="imCerts" checked style="width:auto">
+            <label style="margin:0;font-weight:normal">Vérifier le certificat SSL</label>
+        </div>
+        <div class="modal-feedback" id="instModalFeedback"></div>
+        <div class="modal-actions">
+            <button class="btn btn-danger btn-sm" id="btnDeleteInst" style="display:none;margin-right:auto" onclick="deleteCurrentInst()">🗑 Supprimer</button>
+            <button class="btn btn-secondary" onclick="closeInstModal()">Annuler</button>
+            <button class="btn btn-secondary btn-sm" onclick="testCurrentInst()">🔌 Tester</button>
+            <button class="btn btn-primary" id="btnSaveInst" onclick="saveInst()">Créer</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let instances    = [];
+let currentInst  = null;
+let _editInstId  = null;
+let _selColor    = '#2196f3';
+let _liveTokens  = null;
+let _snapTokens  = null;    // tokens du snapshot affiché (null = live)
+let _snapTs      = null;
+let _allTokens   = [];
+let _snapshots   = [];
+let _sortCol     = 'days_left';
+let _sortDir     = 1;
+let _filterType  = '';
+let _filterStat  = '';
+let _searchVal   = '';
+
+const COLORS = ['#2196f3','#c62828','#2e7d32','#e65100','#6a1b9a','#00838f','#1a237e','#607d8b'];
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+    // CSRF patch
+    const me = await fetch('/api/auth/me');
+    if (me.ok) { const u = await me.json(); window._csrf = u.csrf_token || ''; }
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+        opts.headers = opts.headers || {};
+        if (['POST','PUT','DELETE'].includes((opts.method || '').toUpperCase()))
+            opts.headers['X-CSRF-Token'] = window._csrf || '';
+        return _origFetch.call(this, url, opts);
+    };
+    await loadInstances();
+});
+
+// ── Utilities ──────────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, ms = 2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function showFb(id, msg, ok) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'modal-feedback ' + (ok ? 'ok' : 'err');
+}
+
+function fmtDate(s) {
+    if (!s || s === '—') return '—';
+    try { return new Date(s).toLocaleDateString('fr-FR'); } catch { return s; }
+}
+
+function daysLeftBadge(t) {
+    if (t.expired)                                        return '<span class="badge badge-expired">✗ Expiré</span>';
+    if (t.days_left === null)                             return '<span class="badge badge-never">∞ Jamais</span>';
+    if (t.days_left <= 7)  return '<span class="badge badge-critical">⚠ ' + t.days_left + 'j</span>';
+    if (t.days_left <= 30) return '<span class="badge badge-warning">⚠ ' + t.days_left + 'j</span>';
+    return '<span class="badge badge-ok">✓ ' + t.days_left + 'j</span>';
+}
+
+function typeBadge(t) {
+    if (t.type === 'api_key') return '<span class="badge badge-apikey">API Key</span>';
+    return '<span class="badge badge-at">Access Token</span>';
+}
+
+// ── Instances ──────────────────────────────────────────────────────────────────
+async function loadInstances() {
+    const r = await fetch('/api/jfrog/instances');
+    if (r.ok) { const d = await r.json(); instances = d.instances || []; }
+    renderInstList();
+}
+
+function renderInstList() {
+    const c = document.getElementById('instancesContainer');
+    if (!instances.length) {
+        c.innerHTML = '<div class="empty-state"><span>🐸</span>Aucune instance — cliquez sur « + Nouvelle instance ».</div>';
+        return;
+    }
+    c.innerHTML = '<div class="cards-row">' + instances.map(i =>
+        '<div class="inst-card" style="border-left-color:' + esc(i.color) + '" onclick="openInstance(\'' + i.id + '\')">' +
+        '<button class="inst-card-kebab" onclick="openInstCtxMenu(event,\'' + i.id + '\')" title="Options">⋮</button>' +
+        '<div class="inst-card-name">' + esc(i.name) + '</div>' +
+        (i.description ? '<div class="inst-card-desc">' + esc(i.description) + '</div>' : '') +
+        '<div class="inst-card-meta"><span class="inst-card-sub">' + esc(i.url) + '</span></div>' +
+        '</div>'
+    ).join('') + '</div>';
+}
+
+// ── Context menu ───────────────────────────────────────────────────────────────
+function openInstCtxMenu(event, iid) {
+    event.stopPropagation();
+    closeInstCtxMenu();
+    const menu = document.createElement('div');
+    menu.id = 'instCtxMenu'; menu.className = 'inst-ctx-menu';
+    menu.innerHTML =
+        '<div class="inst-ctx-item" onclick="closeInstCtxMenu();openInstModal(instances.find(i=>i.id===\'' + iid + '\'))">✏️ Modifier</div>' +
+        '<div class="inst-ctx-sep"></div>' +
+        '<div class="inst-ctx-item danger" onclick="closeInstCtxMenu();confirmDeleteInst(\'' + iid + '\')">🗑 Supprimer</div>';
+    document.body.appendChild(menu);
+    const r = event.currentTarget.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+    setTimeout(() => document.addEventListener('click', closeInstCtxMenu, { once: true }), 0);
+}
+function closeInstCtxMenu() { const m = document.getElementById('instCtxMenu'); if (m) m.remove(); }
+
+function confirmDeleteInst(iid) {
+    const inst = instances.find(i => i.id === iid);
+    if (!inst) return;
+    if (!confirm('Supprimer l\'instance "' + inst.name + '" et tous ses snapshots ?\nCette action est irréversible.')) return;
+    fetch('/api/jfrog/instances/' + iid, { method: 'DELETE' }).then(() => loadInstances());
+}
+
+// ── Open instance detail ───────────────────────────────────────────────────────
+function openInstance(iid) {
+    currentInst = instances.find(i => i.id === iid) || null;
+    if (!currentInst) return;
+    _liveTokens = null; _snapTokens = null; _allTokens = []; _snapshots = [];
+    document.getElementById('listView').style.display   = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    document.getElementById('detailName').textContent   = currentInst.name;
+    document.getElementById('detailUrl').textContent    = currentInst.url;
+    document.getElementById('detailDot').style.background = currentInst.color;
+    document.getElementById('detailContent').innerHTML  =
+        '<div class="empty-state"><span>🐸</span>Cliquez sur <b>🔄 Actualiser</b> pour charger les tokens.</div>';
+    document.getElementById('snapViewBadge').style.display = 'none';
+    loadSnapshotList();
+}
+
+function backToList() {
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('listView').style.display   = 'block';
+    closeSnapPanel();
+    currentInst = null;
+}
+
+// ── Tokens ─────────────────────────────────────────────────────────────────────
+async function loadTokens() {
+    if (!currentInst) return;
+    const btn = document.getElementById('btnRefresh');
+    btn.disabled = true; btn.textContent = '⏳ Chargement…';
+    document.getElementById('detailContent').innerHTML =
+        '<div class="loading"><div class="spinner"></div>Collecte des tokens en cours…</div>';
+    try {
+        const r = await fetch('/api/jfrog/instances/' + currentInst.id + '/tokens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Erreur');
+        _liveTokens = d.tokens || [];
+        _allTokens  = _liveTokens;
+        _snapTokens = null; _snapTs = null;
+        document.getElementById('snapViewBadge').style.display = 'none';
+        _searchVal = ''; _filterType = ''; _filterStat = '';
+        renderDetail(d.tokens, d.stats, null);
+        autoSaveSnap(d.tokens, d.stats);
+    } catch (e) {
+        document.getElementById('detailContent').innerHTML =
+            '<div class="empty-state" style="color:#c62828"><span>⚠</span>' + esc(e.message) + '</div>';
+    } finally {
+        btn.disabled = false; btn.textContent = '🔄 Actualiser';
+    }
+}
+
+async function autoSaveSnap(tokens, stats) {
+    await fetch('/api/jfrog/instances/' + currentInst.id + '/snapshots', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokens, stats })
+    });
+    loadSnapshotList();
+}
+
+// ── Render detail ──────────────────────────────────────────────────────────────
+function renderDetail(tokens, stats, snapTs) {
+    const isSnap = !!snapTs;
+    const exp  = stats.expired  || 0;
+    const crit = stats.critical || 0;
+    const warn = stats.warning  || 0;
+    const never = tokens.filter(t => t.days_left === null && !t.expired).length;
+
+    let html = '<div class="stats-row">';
+    html += statCard(stats.total,         'Total',             '#1a237e');
+    html += statCard(stats.access_tokens, 'Access Tokens',     '#1565c0');
+    html += statCard(stats.api_keys,      'API Keys',          '#6a1b9a');
+    html += statCard(exp,                 'Expirés',           exp  > 0 ? '#c62828' : '#2e7d32');
+    html += statCard(crit,                'Critiques ≤7j',     crit > 0 ? '#bf360c' : '#2e7d32');
+    html += statCard(warn,                'Avertissement ≤30j',warn > 0 ? '#e65100' : '#2e7d32');
+    html += statCard(never,               'Sans expiration',   '#757575');
+    html += '</div>';
+
+    if (isSnap)
+        html += '<div class="diff-banner warn">📸 Snapshot du ' + fmtDate(snapTs.substring(0, 10)) + ' ' + snapTs.substring(11, 16) +
+                ' — <button class="btn btn-secondary btn-sm" onclick="switchToLive()">Revenir au live</button></div>';
+
+    // Filter bar
+    html += '<div class="table-controls">' +
+        '<input type="text" class="table-search" id="tokenSearch" placeholder="🔍 Rechercher…" value="' + esc(_searchVal) + '" oninput="_searchVal=this.value;renderTable()">' +
+        '<select class="table-filter" id="ftType" onchange="_filterType=this.value;renderTable()">' +
+        '<option value="">Tous types</option>' +
+        '<option value="access_token"' + (_filterType === 'access_token' ? ' selected' : '') + '>Access Token</option>' +
+        '<option value="api_key"' + (_filterType === 'api_key' ? ' selected' : '') + '>API Key</option>' +
+        '</select>' +
+        '<select class="table-filter" id="ftStat" onchange="_filterStat=this.value;renderTable()">' +
+        '<option value="">Tous statuts</option>' +
+        '<option value="expired"' + (_filterStat === 'expired' ? ' selected' : '') + '>Expirés</option>' +
+        '<option value="critical"' + (_filterStat === 'critical' ? ' selected' : '') + '>Critiques ≤7j</option>' +
+        '<option value="warning"' + (_filterStat === 'warning' ? ' selected' : '') + '>Avertissement ≤30j</option>' +
+        '<option value="ok"' + (_filterStat === 'ok' ? ' selected' : '') + '>OK</option>' +
+        '<option value="never"' + (_filterStat === 'never' ? ' selected' : '') + '>Sans expiration</option>' +
+        '</select>' +
+        '<button class="btn btn-secondary btn-sm" onclick="exportCSV()">📤 Export CSV</button>' +
+        '<span class="filter-count" id="tokenCount"></span></div>' +
+        '<div id="tokenTable"></div>';
+
+    document.getElementById('detailContent').innerHTML = html;
+    _allTokens = tokens;
+    renderTable();
+}
+
+function statCard(val, lbl, color) {
+    return '<div class="stat-card"><div class="stat-val" style="color:' + color + '">' + val + '</div><div class="stat-lbl">' + lbl + '</div></div>';
+}
+
+function renderTable() {
+    const search = (_searchVal || '').toLowerCase();
+    let filtered = _allTokens.filter(t => {
+        if (_filterType && t.type !== _filterType) return false;
+        if (_filterStat) {
+            if (_filterStat === 'expired'  && !t.expired) return false;
+            if (_filterStat === 'critical' && (t.expired || t.days_left === null || t.days_left > 7)) return false;
+            if (_filterStat === 'warning'  && (t.expired || t.days_left === null || t.days_left <= 7 || t.days_left > 30)) return false;
+            if (_filterStat === 'ok'       && (t.expired || t.days_left === null || t.days_left <= 30)) return false;
+            if (_filterStat === 'never'    && (t.expired || t.days_left !== null)) return false;
+        }
+        if (search) {
+            const hay = (t.name + ' ' + t.subject + ' ' + t.scope + ' ' + t.token_type + ' ' + t.project_key).toLowerCase();
+            if (!hay.includes(search)) return false;
+        }
+        return true;
+    });
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+        let va = a[_sortCol], vb = b[_sortCol];
+        if (_sortCol === 'days_left') {
+            va = a.expired ? -99999 : (a.days_left === null ? 99999 : a.days_left);
+            vb = b.expired ? -99999 : (b.days_left === null ? 99999 : b.days_left);
+        }
+        if (va === null || va === undefined) va = '';
+        if (vb === null || vb === undefined) vb = '';
+        if (va < vb) return -_sortDir;
+        if (va > vb) return  _sortDir;
+        return 0;
+    });
+
+    const cnt = document.getElementById('tokenCount');
+    if (cnt) cnt.textContent = filtered.length + ' / ' + _allTokens.length;
+
+    if (!filtered.length) {
+        document.getElementById('tokenTable').innerHTML = '<div class="no-data">Aucun token ne correspond aux filtres.</div>';
+        return;
+    }
+
+    const diffKeys = new Set();
+    let isDiff = false;
+    if (_snapTokens && _liveTokens) {
+        isDiff = true;
+        const liveKeys = new Set(_liveTokens.map(diffKey));
+        _snapTokens.forEach(t => { if (!liveKeys.has(diffKey(t))) diffKeys.add(diffKey(t) + '_removed'); });
+        const snapKeys = new Set(_snapTokens.map(diffKey));
+        _liveTokens.forEach(t => { if (!snapKeys.has(diffKey(t))) diffKeys.add(diffKey(t) + '_added'); });
+    }
+
+    const cols = [
+        { k: 'name',       l: 'Nom' },
+        { k: 'type',       l: 'Type' },
+        { k: 'subject',    l: 'Sujet' },
+        { k: 'scope',      l: 'Scope' },
+        { k: 'issued_at',  l: 'Créé le' },
+        { k: 'expires_at', l: 'Expire le' },
+        { k: 'days_left',  l: 'Jours restants' },
+    ];
+
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>';
+    cols.forEach(c => {
+        const dir = _sortCol === c.k ? (_sortDir === 1 ? 'sa-asc' : 'sa-desc') : '';
+        tbl += '<th class="' + dir + '" onclick="sortBy(\'' + c.k + '\')">' + c.l + '<span class="sa"></span></th>';
+    });
+    tbl += '</tr></thead><tbody>';
+
+    filtered.forEach(t => {
+        const dk = diffKey(t);
+        const added   = isDiff && diffKeys.has(dk + '_added');
+        const removed = isDiff && diffKeys.has(dk + '_removed');
+        const cls = added ? ' class="diff-added"' : removed ? ' class="diff-removed"' : '';
+        tbl += '<tr' + cls + '>' +
+            '<td><b>' + esc(t.name) + '</b></td>' +
+            '<td>' + typeBadge(t) + '</td>' +
+            '<td>' + esc(t.subject || '—') + '</td>' +
+            '<td style="font-size:11px;color:#666;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.scope || '—') + '</td>' +
+            '<td>' + esc(fmtDate(t.issued_at)) + '</td>' +
+            '<td>' + esc(t.expires_at === '—' ? '—' : fmtDate(t.expires_at)) + '</td>' +
+            '<td>' + daysLeftBadge(t) + '</td>' +
+            '</tr>';
+    });
+    tbl += '</tbody></table></div>';
+    document.getElementById('tokenTable').innerHTML = tbl;
+}
+
+function diffKey(t) { return t.type + '|' + t.subject + '|' + t.name; }
+
+function sortBy(col) {
+    if (_sortCol === col) _sortDir = -_sortDir; else { _sortCol = col; _sortDir = 1; }
+    renderTable();
+}
+
+function switchToLive() {
+    _snapTokens = null; _snapTs = null;
+    _allTokens  = _liveTokens || [];
+    document.getElementById('snapViewBadge').style.display = 'none';
+    document.querySelectorAll('.snap-item').forEach(el => el.classList.remove('active'));
+    renderTable();
+}
+
+// ── Snapshots panel ────────────────────────────────────────────────────────────
+function toggleSnapPanel() {
+    const p = document.getElementById('snapPanel');
+    const o = document.getElementById('snapOverlay');
+    const open = p.classList.toggle('open');
+    o.classList.toggle('open', open);
+}
+function closeSnapPanel() {
+    document.getElementById('snapPanel').classList.remove('open');
+    document.getElementById('snapOverlay').classList.remove('open');
+}
+
+async function loadSnapshotList() {
+    if (!currentInst) return;
+    const r = await fetch('/api/jfrog/instances/' + currentInst.id + '/snapshots');
+    if (!r.ok) return;
+    const d = await r.json();
+    _snapshots = d.snapshots || [];
+    renderSnapList();
+}
+
+function renderSnapList() {
+    const c = document.getElementById('snapList');
+    if (!_snapshots.length) {
+        c.innerHTML = '<div style="padding:20px;color:#aaa;font-size:13px;text-align:center">Aucun snapshot</div>';
+        return;
+    }
+    c.innerHTML = _snapshots.map(s => {
+        const dt = new Date(s.timestamp);
+        const ts = dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+        const st = s.stats || {};
+        const sub = `${st.total || 0} tokens — ${st.expired || 0} expirés`;
+        return '<div class="snap-item" id="snap-' + s.id + '" onclick="loadSnapshot(\'' + s.id + '\')">' +
+            '<div><div class="snap-ts">' + ts + '</div><div class="snap-stats">' + sub + '</div></div>' +
+            '<button class="snap-del" onclick="event.stopPropagation();deleteSnap(\'' + s.id + '\')" title="Supprimer">✕</button>' +
+            '</div>';
+    }).join('');
+}
+
+async function loadSnapshot(sid) {
+    if (!currentInst) return;
+    const r = await fetch('/api/jfrog/instances/' + currentInst.id + '/snapshots/' + sid);
+    if (!r.ok) return;
+    const d = await r.json();
+    _snapTokens = d.tokens || [];
+    _snapTs     = d.timestamp;
+    _allTokens  = _liveTokens ? [..._liveTokens] : _snapTokens;
+    if (_liveTokens) {
+        // show diff: combined list
+        const liveKeys = new Set(_liveTokens.map(diffKey));
+        _snapTokens.forEach(t => { if (!liveKeys.has(diffKey(t))) _allTokens.push(t); });
+    } else {
+        _allTokens = _snapTokens;
+    }
+    const badge = document.getElementById('snapViewBadge');
+    const dt = new Date(_snapTs);
+    badge.textContent = '📸 ' + dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    badge.style.display = '';
+    document.querySelectorAll('.snap-item').forEach(el => el.classList.remove('active'));
+    const el = document.getElementById('snap-' + sid);
+    if (el) el.classList.add('active');
+    if (!_liveTokens) {
+        renderDetail(_snapTokens, d.stats || {}, _snapTs);
+    } else {
+        renderTable();
+    }
+}
+
+async function saveSnapNow() {
+    if (!currentInst || !_liveTokens) { showToast('Chargez d\'abord les tokens.'); return; }
+    const stats = calcStats(_liveTokens);
+    await fetch('/api/jfrog/instances/' + currentInst.id + '/snapshots', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokens: _liveTokens, stats })
+    });
+    await loadSnapshotList();
+    showToast('Snapshot sauvegardé.');
+}
+
+function calcStats(tokens) {
+    const expired  = tokens.filter(t => t.expired).length;
+    const critical = tokens.filter(t => !t.expired && t.days_left !== null && t.days_left <= 7).length;
+    const warning  = tokens.filter(t => !t.expired && t.days_left !== null && t.days_left > 7 && t.days_left <= 30).length;
+    return {
+        total:         tokens.length,
+        access_tokens: tokens.filter(t => t.type === 'access_token').length,
+        api_keys:      tokens.filter(t => t.type === 'api_key').length,
+        expired, critical, warning
+    };
+}
+
+async function deleteSnap(sid) {
+    if (!currentInst) return;
+    await fetch('/api/jfrog/instances/' + currentInst.id + '/snapshots/' + sid, { method: 'DELETE' });
+    if (_snapTs && _snapshots.find(s => s.id === sid)?.timestamp === _snapTs) switchToLive();
+    await loadSnapshotList();
+    showToast('Snapshot supprimé.');
+}
+
+// ── Export CSV ─────────────────────────────────────────────────────────────────
+function exportCSV() {
+    const search = (_searchVal || '').toLowerCase();
+    let rows = _allTokens.filter(t => {
+        if (_filterType && t.type !== _filterType) return false;
+        if (_filterStat) {
+            if (_filterStat === 'expired'  && !t.expired) return false;
+            if (_filterStat === 'critical' && (t.expired || t.days_left === null || t.days_left > 7)) return false;
+            if (_filterStat === 'warning'  && (t.expired || t.days_left === null || t.days_left <= 7 || t.days_left > 30)) return false;
+            if (_filterStat === 'ok'       && (t.expired || t.days_left === null || t.days_left <= 30)) return false;
+            if (_filterStat === 'never'    && (t.expired || t.days_left !== null)) return false;
+        }
+        if (search) {
+            const hay = (t.name + ' ' + t.subject + ' ' + t.scope + ' ' + t.token_type).toLowerCase();
+            if (!hay.includes(search)) return false;
+        }
+        return true;
+    });
+    const head = ['Nom','Type','Sujet','Scope','Token Type','Créé le','Expire le','Jours restants','Statut','Projet'];
+    const lines = [head, ...rows.map(t => [
+        t.name, t.type, t.subject, t.scope, t.token_type,
+        t.issued_at, t.expires_at,
+        t.days_left === null ? 'Jamais' : t.days_left,
+        t.expired ? 'Expiré' : t.days_left === null ? 'Jamais' : t.days_left <= 7 ? 'Critique' : t.days_left <= 30 ? 'Avertissement' : 'OK',
+        t.project_key
+    ])];
+    const csv = '\uFEFF' + lines.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'jfrog_tokens_' + (currentInst?.name || '').replace(/\s+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+}
+
+// ── Instance modal ─────────────────────────────────────────────────────────────
+function renderColorSwatches() {
+    document.getElementById('colorSwatches').innerHTML = COLORS.map(c =>
+        '<div class="color-sw' + (c === _selColor ? ' selected' : '') + '" style="background:' + c + '" onclick="selectColor(\'' + c + '\')" title="' + c + '"></div>'
+    ).join('');
+}
+
+function selectColor(c) {
+    _selColor = c;
+    document.querySelectorAll('.color-sw').forEach(el => el.classList.toggle('selected', el.title === c));
+}
+
+function openInstModal(inst) {
+    _editInstId = inst ? inst.id : null;
+    _selColor   = inst ? (inst.color || '#2196f3') : '#2196f3';
+    document.getElementById('instModalTitle').textContent    = inst ? 'Modifier instance' : 'Nouvelle instance';
+    document.getElementById('imName').value                  = inst ? inst.name : '';
+    document.getElementById('imUrl').value                   = inst ? inst.url : '';
+    document.getElementById('imToken').value                 = inst ? inst.token : '';
+    document.getElementById('imDesc').value                  = inst ? (inst.description || '') : '';
+    document.getElementById('imCerts').checked               = inst ? (inst.validate_certs !== false) : true;
+    document.getElementById('btnSaveInst').textContent       = inst ? 'Sauvegarder' : 'Créer';
+    document.getElementById('btnDeleteInst').style.display   = inst ? '' : 'none';
+    document.getElementById('instModalFeedback').className   = 'modal-feedback';
+    document.getElementById('instModalFeedback').textContent = '';
+    renderColorSwatches();
+    document.getElementById('instModal').style.display = 'flex';
+}
+
+function closeInstModal() { document.getElementById('instModal').style.display = 'none'; }
+
+async function testCurrentInst() {
+    const url   = document.getElementById('imUrl').value.trim();
+    const token = document.getElementById('imToken').value.trim();
+    if (!url || !token) { showFb('instModalFeedback', 'URL et token requis pour tester.', false); return; }
+    showFb('instModalFeedback', '⏳ Test en cours…', true);
+    if (_editInstId) {
+        const r = await fetch('/api/jfrog/instances/' + _editInstId + '/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+        const d = await r.json();
+        if (r.ok) showFb('instModalFeedback', '✓ Connexion OK — Version : ' + (d.version || '?'), true);
+        else showFb('instModalFeedback', '✗ ' + (d.error || 'Erreur'), false);
+    } else {
+        showFb('instModalFeedback', 'Sauvegardez d\'abord pour tester la connexion.', false);
+    }
+}
+
+async function saveInst() {
+    const name  = document.getElementById('imName').value.trim();
+    const url   = document.getElementById('imUrl').value.trim();
+    const token = document.getElementById('imToken').value.trim();
+    if (!name || !url || !token) { showFb('instModalFeedback', 'Nom, URL et token requis.', false); return; }
+    const body = {
+        name, url, description: document.getElementById('imDesc').value.trim(),
+        color: _selColor, validate_certs: document.getElementById('imCerts').checked,
+        token: set(token) <= new Set(['•']) ? undefined : token
+    };
+    if (body.token === undefined) delete body.token;
+    // always send token if not masked
+    if (!body.token && !_editInstId) { showFb('instModalFeedback', 'Token requis.', false); return; }
+    const apiUrl = _editInstId ? '/api/jfrog/instances/' + _editInstId : '/api/jfrog/instances';
+    const r = await fetch(apiUrl, { method: _editInstId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { showFb('instModalFeedback', d.error || 'Erreur', false); return; }
+    closeInstModal();
+    await loadInstances();
+    if (_editInstId && currentInst?.id === _editInstId) {
+        currentInst = { ...currentInst, ...d };
+        document.getElementById('detailName').textContent    = currentInst.name;
+        document.getElementById('detailUrl').textContent     = currentInst.url;
+        document.getElementById('detailDot').style.background = currentInst.color;
+    }
+}
+
+async function deleteCurrentInst() {
+    if (!_editInstId || !confirm('Supprimer cette instance et tous ses snapshots ?')) return;
+    await fetch('/api/jfrog/instances/' + _editInstId, { method: 'DELETE' });
+    closeInstModal();
+    await loadInstances();
+    if (currentInst?.id === _editInstId) backToList();
+}
+
+// helper — check if token value is all bullets
+function isTokenMasked(s) { return s && [...s].every(c => c === '•'); }
+</script>
+</body>
+</html>
