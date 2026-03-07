@@ -84,7 +84,11 @@ def _ctx(validate_certs):
 
 
 def _get(url, token, ctx, timeout=30):
-    req = Request(url, headers={'Authorization': f'Bearer {token}'})
+    try:
+        token_ascii = token.encode('ascii').decode('ascii')
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        raise ServiceError('Token invalide : il contient des caractères non-ASCII (vérifier le copier-coller)', 400)
+    req = Request(url, headers={'Authorization': f'Bearer {token_ascii}'})
     with urlopen(req, context=ctx, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
