@@ -240,6 +240,26 @@
             height: 2.8em; display: flex; align-items: center; justify-content: center;
         }
 
+        /* ── Mode de déploiement ─────────────────────────────────── */
+        .deploy-opts { display: flex; gap: 12px; flex-wrap: wrap; }
+        .deploy-opt {
+            display: flex; align-items: flex-start; gap: 12px;
+            flex: 1; min-width: 260px; padding: 14px 16px; border-radius: 9px;
+            border: 2px solid #e8ecef; background: white;
+            cursor: pointer; transition: all .15s; user-select: none;
+        }
+        .deploy-opt input[type=radio] { display: none; }
+        .deploy-opt:hover { border-color: #90a4ae; }
+        .deploy-opt.checked { border-color: #607d8b; background: #eceff1; }
+        .deploy-opt-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+        .deploy-opt-title { font-size: 13px; font-weight: 700; color: #37474f; margin-bottom: 5px; }
+        .deploy-opt-files { font-size: 11px; color: #607d8b; margin-bottom: 4px; }
+        .deploy-opt-files code {
+            background: rgba(96,125,139,.12); padding: 1px 5px;
+            border-radius: 3px; font-family: monospace; font-size: 10.5px;
+        }
+        .deploy-opt-desc { font-size: 11px; color: #aab4be; line-height: 1.4; }
+
         /* ── Empty state ─────────────────────────────────────────── */
         .empty-envs {
             text-align: center; padding: 32px 20px;
@@ -315,16 +335,24 @@
             <div class="fqdn-row">
                 <div class="fqdn-group">
                     <label>
-                        Hors-prod
-                        <span class="fqdn-badge nonprod">dev rec qua int hom pre</span>
+                        Basse qualif
+                        <span class="fqdn-badge nonprod">DEV REC QUA</span>
                     </label>
-                    <input id="fqdn-nonprod" type="text" placeholder="ca-cedicam.fr"
+                    <input id="fqdn-low" type="text" placeholder="dev.ca-cedicam.fr"
+                           oninput="refreshEnvFqdns()">
+                </div>
+                <div class="fqdn-group">
+                    <label>
+                        Staging / Hors-Prod
+                        <span class="fqdn-badge nonprod">INT HOM PRE</span>
+                    </label>
+                    <input id="fqdn-mid" type="text" placeholder="preprod.ca-cedicam.fr"
                            oninput="refreshEnvFqdns()">
                 </div>
                 <div class="fqdn-group">
                     <label>
                         Production
-                        <span class="fqdn-badge prod">prd</span>
+                        <span class="fqdn-badge prod">PRD</span>
                     </label>
                     <input id="fqdn-prod" type="text" placeholder="sec-prod1.lan"
                            oninput="refreshEnvFqdns()">
@@ -453,6 +481,39 @@
         <div class="card-body">
             <div class="env-sections" id="env-sections">
                 <div class="empty-envs">Sélectionnez au moins un environnement ci-dessus</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode de déploiement -->
+    <div class="card">
+        <div class="card-header">🚀 Mode de déploiement
+            <span style="font-size:12px;font-weight:normal;color:#aaa;margin-left:6px">— structure des playbooks générés dans /playbooks/</span>
+        </div>
+        <div class="card-body">
+            <div class="deploy-opts">
+                <label class="deploy-opt checked" id="dopt-job" onclick="setDeployMode('job')">
+                    <input type="radio" name="deploy-mode" value="job" checked>
+                    <div class="deploy-opt-icon">📋</div>
+                    <div>
+                        <div class="deploy-opt-title">Job Template</div>
+                        <div class="deploy-opt-files">
+                            <code>stop.yml</code> · <code>start.yml</code> · <code>status.yml</code> · <code>deploy.yml</code>
+                        </div>
+                        <div class="deploy-opt-desc">4 playbooks indépendants — chacun est un job AWX distinct appelant les rôles MW sélectionnés</div>
+                    </div>
+                </label>
+                <label class="deploy-opt" id="dopt-workflow" onclick="setDeployMode('workflow')">
+                    <input type="radio" name="deploy-mode" value="workflow">
+                    <div class="deploy-opt-icon">🔗</div>
+                    <div>
+                        <div class="deploy-opt-title">Workflow Template</div>
+                        <div class="deploy-opt-files">
+                            <code>stop_middleware.yml</code> · <code>start_middleware.yml</code> · <code>status_middleware.yml</code> · <code>deploy.yml</code>
+                        </div>
+                        <div class="deploy-opt-desc">3 playbooks MW + 1 deploy artefact — conçu pour chaînage AWX : stop → deploy → start → status</div>
+                    </div>
+                </label>
             </div>
         </div>
     </div>
@@ -640,12 +701,26 @@ function refreshGroupOptions() {
 }
 
 /* ── FQDN helpers ────────────────────────────────────────────────────────── */
+const FQDN_GROUP = {
+    dev: 'low', rec: 'low', qua: 'low',
+    int: 'mid', hom: 'mid', pre: 'mid',
+    prd: 'prod',
+};
+const FQDN_INPUT = { low: 'fqdn-low', mid: 'fqdn-mid', prod: 'fqdn-prod' };
+
 function getFqdn(envName) {
-    const isProd = envName === 'prd';
-    const val = isProd
-        ? document.getElementById('fqdn-prod').value.trim()
-        : document.getElementById('fqdn-nonprod').value.trim();
-    return val;
+    const base  = envName.replace(/\d+$/, '');
+    const group = FQDN_GROUP[base] || 'low';
+    return document.getElementById(FQDN_INPUT[group]).value.trim();
+}
+
+/* ── Mode de déploiement ─────────────────────────────────────────────────── */
+let selectedDeployMode = 'job';
+
+function setDeployMode(mode) {
+    selectedDeployMode = mode;
+    document.querySelectorAll('.deploy-opt').forEach(el => el.classList.remove('checked'));
+    document.getElementById(`dopt-${mode}`).classList.add('checked');
 }
 
 function refreshEnvFqdns() {
@@ -787,8 +862,9 @@ async function generate() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 code_app, nom_app, entite, envs,
-                repo_type: selectedRepoType,
+                repo_type:   selectedRepoType,
                 middlewares: [...selectedMiddlewares],
+                deploy_mode: selectedDeployMode,
             }),
         });
 

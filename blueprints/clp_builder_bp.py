@@ -38,6 +38,7 @@ def api_clp_generate():
         envs        = body.get('envs', [])
         repo_type   = body.get('repo_type', 'generic').strip().lower()
         middlewares = body.get('middlewares', [])
+        deploy_mode = body.get('deploy_mode', 'job').strip().lower()
 
         if len(code_app) < 2 or not code_app[:2].isalpha():
             return api_error('Le code appli doit commencer par 2 lettres', 400)
@@ -48,8 +49,11 @@ def api_clp_generate():
         if repo_type not in ('generic', 'maven'):
             repo_type = 'generic'
 
+        if deploy_mode not in ('job', 'workflow'):
+            deploy_mode = 'job'
+
         zip_bytes = clp_svc.generate_ansible_zip(
-            code_app, nom_app, entite, envs, repo_type, middlewares
+            code_app, nom_app, entite, envs, repo_type, middlewares, deploy_mode
         )
         filename  = f'{code_app}_deploy.zip'
 

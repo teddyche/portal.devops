@@ -1271,6 +1271,311 @@ def _cft_handlers() -> str:
 
 # ── Point d'entrée ────────────────────────────────────────────────────────────
 
+# ── Lifecycle tasks : stop / start / status par middleware ───────────────────
+
+_APACHE_STOP = """---
+- name: Arrêt Apache httpd
+  systemd:
+    name: httpd
+    state: stopped
+"""
+_APACHE_START = """---
+- name: Démarrage Apache httpd
+  systemd:
+    name: httpd
+    state: started
+
+- name: Attente disponibilité port 80
+  wait_for:
+    port: 80
+    delay: 3
+    timeout: 60
+"""
+_APACHE_STATUS = """---
+- name: Statut Apache httpd
+  command: systemctl status httpd
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_TOMCAT_STOP = """---
+- name: Arrêt Tomcat
+  systemd:
+    name: "{{ tomcat_service | default('tomcat') }}"
+    state: stopped
+"""
+_TOMCAT_START = """---
+- name: Démarrage Tomcat
+  systemd:
+    name: "{{ tomcat_service | default('tomcat') }}"
+    state: started
+
+- name: Attente démarrage Tomcat
+  wait_for:
+    port: "{{ tomcat_http_port | default(8080) }}"
+    delay: 5
+    timeout: 120
+"""
+_TOMCAT_STATUS = """---
+- name: Statut Tomcat
+  command: "systemctl status {{ tomcat_service | default('tomcat') }}"
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_MQ_STOP = """---
+- name: Arrêt IBM MQ
+  command: "endmqm {{ mq_manager_name }}"
+  become_user: "{{ mq_user | default('mqm') }}"
+  ignore_errors: true
+"""
+_MQ_START = """---
+- name: Démarrage IBM MQ
+  command: "strmqm {{ mq_manager_name }}"
+  become_user: "{{ mq_user | default('mqm') }}"
+
+- name: Attente listener MQ
+  wait_for:
+    port: "{{ mq_listener_port | default(1414) }}"
+    delay: 5
+    timeout: 60
+"""
+_MQ_STATUS = """---
+- name: Statut IBM MQ
+  command: "dspmq -m {{ mq_manager_name }}"
+  become_user: "{{ mq_user | default('mqm') }}"
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut MQ
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_WAS_STOP = """---
+- name: Arrêt WebSphere Application Server
+  command: >
+    {{ was_install_root }}/bin/stopServer.sh {{ was_server_name }}
+    -username {{ was_admin_user }} -password {{ was_admin_password }}
+  become_user: "{{ was_user | default('wsadmin') }}"
+  ignore_errors: true
+"""
+_WAS_START = """---
+- name: Démarrage WebSphere Application Server
+  command: >
+    {{ was_install_root }}/bin/startServer.sh {{ was_server_name }}
+  become_user: "{{ was_user | default('wsadmin') }}"
+
+- name: Attente démarrage WAS
+  wait_for:
+    port: "{{ was_http_port | default(9080) }}"
+    delay: 10
+    timeout: 180
+"""
+_WAS_STATUS = """---
+- name: Statut WebSphere Application Server
+  command: >
+    {{ was_install_root }}/bin/serverStatus.sh {{ was_server_name }}
+    -username {{ was_admin_user }} -password {{ was_admin_password }}
+  become_user: "{{ was_user | default('wsadmin') }}"
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut WAS
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_PHP_STOP = """---
+- name: Arrêt PHP-FPM
+  systemd:
+    name: "{{ php_fpm_service | default('php-fpm') }}"
+    state: stopped
+"""
+_PHP_START = """---
+- name: Démarrage PHP-FPM
+  systemd:
+    name: "{{ php_fpm_service | default('php-fpm') }}"
+    state: started
+
+- name: Attente démarrage PHP-FPM
+  wait_for:
+    port: "{{ php_fpm_port | default(9000) }}"
+    delay: 3
+    timeout: 60
+"""
+_PHP_STATUS = """---
+- name: Statut PHP-FPM
+  command: "systemctl status {{ php_fpm_service | default('php-fpm') }}"
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut PHP-FPM
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_JBOSS_STOP = """---
+- name: Arrêt JBoss/WildFly
+  systemd:
+    name: "{{ jboss_service | default('wildfly') }}"
+    state: stopped
+"""
+_JBOSS_START = """---
+- name: Démarrage JBoss/WildFly
+  systemd:
+    name: "{{ jboss_service | default('wildfly') }}"
+    state: started
+
+- name: Attente démarrage JBoss
+  wait_for:
+    port: "{{ jboss_http_port | default(8080) }}"
+    delay: 10
+    timeout: 180
+"""
+_JBOSS_STATUS = """---
+- name: Statut JBoss/WildFly
+  command: "systemctl status {{ jboss_service | default('wildfly') }}"
+  register: _st
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut JBoss
+  debug:
+    msg: "{{ _st.stdout_lines }}"
+"""
+
+_CFT_STOP = """---
+- name: Arrêt Axway CFT
+  command: cftstop
+  become_user: "{{ cft_user | default('cft') }}"
+  ignore_errors: true
+
+- name: Vérification arrêt CFT
+  command: cftping
+  become_user: "{{ cft_user | default('cft') }}"
+  register: _ping
+  failed_when: false
+  changed_when: false
+  retries: 5
+  delay: 5
+  until: _ping.rc != 0
+"""
+_CFT_START = """---
+- name: Démarrage Axway CFT
+  command: cftstart
+  become_user: "{{ cft_user | default('cft') }}"
+
+- name: Attente démarrage CFT
+  command: cftping
+  become_user: "{{ cft_user | default('cft') }}"
+  register: _ping
+  retries: 12
+  delay: 10
+  until: _ping.rc == 0
+  changed_when: false
+"""
+_CFT_STATUS = """---
+- name: Statut Axway CFT
+  command: cftping
+  become_user: "{{ cft_user | default('cft') }}"
+  register: _ping
+  failed_when: false
+  changed_when: false
+
+- name: Affichage statut CFT
+  debug:
+    msg: "CFT {{ 'UP' if _ping.rc == 0 else 'DOWN' }}"
+"""
+
+# ── Générateurs de playbooks ─────────────────────────────────────────────────
+
+_MW_LABELS = {
+    'apache': 'Apache httpd', 'tomcat': 'Tomcat',
+    'mq': 'IBM MQ', 'websphere': 'WebSphere AS',
+    'php': 'PHP-FPM', 'jboss': 'JBoss/WildFly', 'cft': 'Axway CFT',
+}
+
+_PB_VARS_FILES = (
+    '  vars_files:\n'
+    '    - "{{ playbook_dir }}/../inventories/{{ env }}/group_vars/all.yml"\n'
+    '    - "{{ playbook_dir }}/../group_vars/all.yml"\n'
+)
+
+
+def _playbook_mw_action(ca: str, middlewares: list, action: str, mode: str) -> str:
+    """stop/start/status playbook — job mode: stop.yml; workflow mode: stop_middleware.yml."""
+    suffix    = '_middleware' if mode == 'workflow' else ''
+    fname     = action + suffix
+    action_fr = {'stop': 'Arrêt', 'start': 'Démarrage', 'status': 'Statut'}.get(action, action)
+
+    out = (
+        '---\n'
+        '# ' + fname + '.yml — ' + action_fr + ' des middlewares\n'
+        '# Généré par CLP Ansible Builder\n'
+        '- name: "' + action_fr + ' middlewares"\n'
+        '  hosts: "' + ca + '_platform"\n'
+        '  become: true\n'
+        '  gather_facts: false\n'
+        + _PB_VARS_FILES +
+        '  tasks:\n'
+    )
+    for mw in middlewares:
+        grp   = ca + '_' + mw
+        label = _MW_LABELS.get(mw, mw.upper())
+        out += (
+            '\n'
+            '    - name: "' + action_fr + ' ' + label + '"\n'
+            '      include_role:\n'
+            '        name: ' + mw + '\n'
+            '        tasks_from: ' + action + '\n'
+            "      when: \"('" + grp + "' in groups) and (groups['" + grp + "'] | length > 0)\"\n"
+        )
+    return out + '\n'
+
+
+def _playbook_deploy(ca: str, middlewares: list, mode: str) -> str:
+    """deploy.yml — job: artefact + restart MW; workflow: artefact seulement."""
+    if mode == 'workflow':
+        comment = (
+            '# deploy.yml — Déploiement artefact uniquement\n'
+            '# La gestion des middlewares est assurée par le workflow AWX\n'
+        )
+    else:
+        comment = '# deploy.yml — Déploiement artefact + redémarrage middlewares\n'
+
+    out = (
+        '---\n'
+        + comment +
+        '# Généré par CLP Ansible Builder\n'
+        '- name: "Déploiement {{ app_name | default(\'' + ca + '\') }}"\n'
+        '  hosts: "' + ca + '_platform"\n'
+        '  become: true\n'
+        '  gather_facts: false\n'
+        + _PB_VARS_FILES +
+        '  roles:\n'
+        '    - get-from-artifactory\n'
+    )
+    if mode == 'job' and middlewares:
+        out += '    # Redémarrage des middlewares après déploiement\n'
+        for mw in middlewares:
+            out += '    - role: ' + mw + '\n'
+    return out + '\n'
+
+
 def generate_ansible_zip(
     code_app: str,
     nom_app: str,
@@ -1278,6 +1583,7 @@ def generate_ansible_zip(
     envs: list,
     repo_type: str = 'generic',
     middlewares: list | None = None,
+    deploy_mode: str = 'job',
 ) -> bytes:
     """
     Génère un package Ansible (ZIP) en mémoire.
@@ -1319,21 +1625,37 @@ def generate_ansible_zip(
         zf.writestr(role + 'defaults/main.yml', _get_from_artifactory_defaults(repo_type))
         zf.writestr(role + 'tasks/main.yml',    _get_from_artifactory_tasks(repo_type))
 
-        # Rôles middleware optionnels
+        # Rôles middleware optionnels + lifecycle tasks
         _MW_ROLES = {
-            'apache':    (_apache_defaults,    _apache_tasks,    _apache_handlers),
-            'tomcat':    (_tomcat_defaults,    _tomcat_tasks,    _tomcat_handlers),
-            'mq':        (_mq_defaults,        _mq_tasks,        _mq_handlers),
-            'websphere': (_websphere_defaults, _websphere_tasks, _websphere_handlers),
-            'php':       (_php_defaults,       _php_tasks,       _php_handlers),
-            'jboss':     (_jboss_defaults,     _jboss_tasks,     _jboss_handlers),
-            'cft':       (_cft_defaults,       _cft_tasks,       _cft_handlers),
+            'apache':    (_apache_defaults,    _apache_tasks,    _apache_handlers,    _APACHE_STOP, _APACHE_START, _APACHE_STATUS),
+            'tomcat':    (_tomcat_defaults,    _tomcat_tasks,    _tomcat_handlers,    _TOMCAT_STOP, _TOMCAT_START, _TOMCAT_STATUS),
+            'mq':        (_mq_defaults,        _mq_tasks,        _mq_handlers,        _MQ_STOP,     _MQ_START,     _MQ_STATUS),
+            'websphere': (_websphere_defaults, _websphere_tasks, _websphere_handlers, _WAS_STOP,    _WAS_START,    _WAS_STATUS),
+            'php':       (_php_defaults,       _php_tasks,       _php_handlers,       _PHP_STOP,    _PHP_START,    _PHP_STATUS),
+            'jboss':     (_jboss_defaults,     _jboss_tasks,     _jboss_handlers,     _JBOSS_STOP,  _JBOSS_START,  _JBOSS_STATUS),
+            'cft':       (_cft_defaults,       _cft_tasks,       _cft_handlers,       _CFT_STOP,    _CFT_START,    _CFT_STATUS),
         }
-        for mw_name, (fn_def, fn_tasks, fn_handlers) in _MW_ROLES.items():
+        for mw_name, (fn_def, fn_tasks, fn_handlers, stop_t, start_t, status_t) in _MW_ROLES.items():
             if mw_name in mw:
                 r = base + f'playbooks/roles/{mw_name}/'
                 zf.writestr(r + 'defaults/main.yml',  fn_def())
                 zf.writestr(r + 'tasks/main.yml',     fn_tasks())
                 zf.writestr(r + 'handlers/main.yml',  fn_handlers())
+                zf.writestr(r + 'tasks/stop.yml',     stop_t)
+                zf.writestr(r + 'tasks/start.yml',    start_t)
+                zf.writestr(r + 'tasks/status.yml',   status_t)
+
+        # Playbooks selon le mode de déploiement
+        dm = deploy_mode if deploy_mode in ('job', 'workflow') else 'job'
+        pb = base + 'playbooks/'
+        if dm == 'job':
+            zf.writestr(pb + 'stop.yml',   _playbook_mw_action(ca, mw, 'stop',   'job'))
+            zf.writestr(pb + 'start.yml',  _playbook_mw_action(ca, mw, 'start',  'job'))
+            zf.writestr(pb + 'status.yml', _playbook_mw_action(ca, mw, 'status', 'job'))
+        else:
+            zf.writestr(pb + 'stop_middleware.yml',   _playbook_mw_action(ca, mw, 'stop',   'workflow'))
+            zf.writestr(pb + 'start_middleware.yml',  _playbook_mw_action(ca, mw, 'start',  'workflow'))
+            zf.writestr(pb + 'status_middleware.yml', _playbook_mw_action(ca, mw, 'status', 'workflow'))
+        zf.writestr(pb + 'deploy.yml', _playbook_deploy(ca, mw, dm))
 
     return buf.getvalue()
