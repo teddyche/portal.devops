@@ -75,15 +75,15 @@ def load_json(path: str) -> Optional[Any]:
     return copy.deepcopy(data)
 
 
-def save_json(path: str, data: Any) -> None:
+def save_json(path: str, data: Any, max_bytes: Optional[int] = _JSON_MAX_BYTES) -> None:
     """Écrit un fichier JSON de façon atomique (tmp + os.replace) et met à jour le cache.
-    Lève ServiceError si les données dépassent 50 Mo.
+    max_bytes=None désactive la vérification de taille (ex : snapshots AAP volumineux).
     os.replace et mise à jour du cache sont effectués sous le même verrou pour éviter
     qu'un thread concurrent lise un cache expiré entre les deux opérations.
     """
     json_str = json.dumps(data, ensure_ascii=False, indent=2)
-    if len(json_str.encode()) > _JSON_MAX_BYTES:
-        raise ServiceError('Données trop volumineuses (limite 50 Mo)')
+    if max_bytes is not None and len(json_str.encode()) > max_bytes:
+        raise ServiceError(f'Données trop volumineuses (limite {max_bytes // 1_000_000} Mo)')
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + '.tmp'
     try:

@@ -154,7 +154,7 @@ def import_snapshot(dd, iid, enc_bytes):
     sid = uuid.uuid4().hex[:12]
     data['id'] = sid
     os.makedirs(_sdir(dd, iid), exist_ok=True)
-    save_json(_spath(dd, iid, sid), data)
+    save_json(_spath(dd, iid, sid), data, max_bytes=None)
     return sid
 
 
