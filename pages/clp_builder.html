@@ -508,10 +508,10 @@
                     <div class="deploy-opt-icon">🔗</div>
                     <div>
                         <div class="deploy-opt-title">Workflow Template</div>
-                        <div class="deploy-opt-files">
-                            <code>stop_middleware.yml</code> · <code>start_middleware.yml</code> · <code>status_middleware.yml</code> · <code>deploy.yml</code>
+                        <div class="deploy-opt-files" id="workflow-files-desc">
+                            <code>stop_{mw}.yml</code> · <code>start_{mw}.yml</code> · <code>status_{mw}.yml</code> · <code>deploy.yml</code>
                         </div>
-                        <div class="deploy-opt-desc">3 playbooks MW + 1 deploy artefact — conçu pour chaînage AWX : stop → deploy → start → status</div>
+                        <div class="deploy-opt-desc">1 playbook par MW × 3 actions + 1 deploy artefact — chaînage AWX : stop → deploy → start → status</div>
                     </div>
                 </label>
             </div>
@@ -670,6 +670,7 @@ function toggleMw(name, chip) {
         if (badge) badge.style.background = s.color;
     }
     refreshGroupOptions();
+    refreshWorkflowDesc();
 }
 
 function getGroupOptions() {
@@ -721,6 +722,20 @@ function setDeployMode(mode) {
     selectedDeployMode = mode;
     document.querySelectorAll('.deploy-opt').forEach(el => el.classList.remove('checked'));
     document.getElementById(`dopt-${mode}`).classList.add('checked');
+    refreshWorkflowDesc();
+}
+
+function refreshWorkflowDesc() {
+    const el = document.getElementById('workflow-files-desc');
+    if (!el) return;
+    const mws = [...selectedMiddlewares];
+    if (!mws.length) {
+        el.innerHTML = '<code>stop_{mw}.yml</code> · <code>start_{mw}.yml</code> · <code>status_{mw}.yml</code> · <code>deploy.yml</code>';
+        return;
+    }
+    const parts = mws.flatMap(m => [`stop_${m}.yml`, `start_${m}.yml`, `status_${m}.yml`]);
+    parts.push('deploy.yml');
+    el.innerHTML = parts.map(f => `<code>${f}</code>`).join(' · ');
 }
 
 function refreshEnvFqdns() {

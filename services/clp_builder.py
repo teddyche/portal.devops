@@ -1516,15 +1516,13 @@ _PB_VARS_FILES = (
 )
 
 
-def _playbook_mw_action(ca: str, middlewares: list, action: str, mode: str) -> str:
-    """stop/start/status playbook — job mode: stop.yml; workflow mode: stop_middleware.yml."""
-    suffix    = '_middleware' if mode == 'workflow' else ''
-    fname     = action + suffix
+def _playbook_mw_action(ca: str, middlewares: list, action: str) -> str:
+    """stop/start/status playbook (job mode) — un seul play, toutes les MWs."""
     action_fr = {'stop': 'Arrêt', 'start': 'Démarrage', 'status': 'Statut'}.get(action, action)
 
     out = (
         '---\n'
-        '# ' + fname + '.yml — ' + action_fr + ' des middlewares\n'
+        '# ' + action + '.yml — ' + action_fr + ' des middlewares\n'
         '# Généré par CLP Ansible Builder\n'
         '- name: "' + action_fr + ' middlewares"\n'
         '  hosts: "' + ca + '_platform"\n'
@@ -1545,6 +1543,32 @@ def _playbook_mw_action(ca: str, middlewares: list, action: str, mode: str) -> s
             "      when: \"('" + grp + "' in groups) and (groups['" + grp + "'] | length > 0)\"\n"
         )
     return out + '\n'
+
+
+def _playbook_single_mw_action(ca: str, mw_name: str, action: str) -> str:
+    """Playbook dédié à un seul middleware (workflow mode) — stop_apache.yml, etc."""
+    action_fr = {'stop': 'Arrêt', 'start': 'Démarrage', 'status': 'Statut'}.get(action, action)
+    label     = _MW_LABELS.get(mw_name, mw_name.upper())
+    grp       = ca + '_' + mw_name
+
+    return (
+        '---\n'
+        '# ' + action + '_' + mw_name + '.yml — ' + action_fr + ' ' + label + '\n'
+        '# Généré par CLP Ansible Builder\n'
+        '- name: "' + action_fr + ' ' + label + '"\n'
+        '  hosts: "' + ca + '_platform"\n'
+        '  become: true\n'
+        '  gather_facts: false\n'
+        + _PB_VARS_FILES +
+        '  tasks:\n'
+        '\n'
+        '    - name: "' + action_fr + ' ' + label + '"\n'
+        '      include_role:\n'
+        '        name: ' + mw_name + '\n'
+        '        tasks_from: ' + action + '\n'
+        "      when: \"('" + grp + "' in groups) and (groups['" + grp + "'] | length > 0)\"\n"
+        '\n'
+    )
 
 
 def _playbook_deploy(ca: str, middlewares: list, mode: str) -> str:
@@ -1649,13 +1673,17 @@ def generate_ansible_zip(
         dm = deploy_mode if deploy_mode in ('job', 'workflow') else 'job'
         pb = base + 'playbooks/'
         if dm == 'job':
-            zf.writestr(pb + 'stop.yml',   _playbook_mw_action(ca, mw, 'stop',   'job'))
-            zf.writestr(pb + 'start.yml',  _playbook_mw_action(ca, mw, 'start',  'job'))
-            zf.writestr(pb + 'status.yml', _playbook_mw_action(ca, mw, 'status', 'job'))
+            zf.writestr(pb + 'stop.yml',   _playbook_mw_action(ca, mw, 'stop'))
+            zf.writestr(pb + 'start.yml',  _playbook_mw_action(ca, mw, 'start'))
+            zf.writestr(pb + 'status.yml', _playbook_mw_action(ca, mw, 'status'))
         else:
-            zf.writestr(pb + 'stop_middleware.yml',   _playbook_mw_action(ca, mw, 'stop',   'workflow'))
-            zf.writestr(pb + 'start_middleware.yml',  _playbook_mw_action(ca, mw, 'start',  'workflow'))
-            zf.writestr(pb + 'status_middleware.yml', _playbook_mw_action(ca, mw, 'status', 'workflow'))
+            # Workflow : un playbook par middleware × 3 actions
+            for mw_name in mw:
+                for action in ('stop', 'start', 'status'):
+                    zf.writestr(
+                        pb + action + '_' + mw_name + '.yml',
+                        _playbook_single_mw_action(ca, mw_name, action),
+                    )
         zf.writestr(pb + 'deploy.yml', _playbook_deploy(ca, mw, dm))
 
     return buf.getvalue()
