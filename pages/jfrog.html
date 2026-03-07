@@ -781,7 +781,7 @@ async function saveInst() {
     const body = {
         name, url, description: document.getElementById('imDesc').value.trim(),
         color: _selColor, validate_certs: document.getElementById('imCerts').checked,
-        token: set(token) <= new Set(['•']) ? undefined : token
+        token: token && token.split('').every(c => c === '•') ? undefined : token
     };
     if (body.token === undefined) delete body.token;
     // always send token if not masked
