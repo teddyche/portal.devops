@@ -457,6 +457,7 @@ let currentTab = 'cockpit', _editInstId = null, _selectedColor = '#c62828';
 const sortState = {}, filterState = {};
 const tabReady    = new Set();
 const _tabRows    = {};
+const _tabSorted  = {};
 const colFilters  = {};
 const dateFilters = {};
 let _cfd = { tab: null, col: null, type: null };
@@ -665,10 +666,13 @@ function onSearchInput(tab) {
 }
 
 function applyAllFilters(rows, tab, searchCols) {
-    const search = (filterState[tab] || {}).search || '';
+    const f = filterState[tab] || {};
+    const search = f.search || '';
+    const ncOnly = !!f.ncOnly;
     const cf = colFilters[tab] || {};
     const df = dateFilters[tab] || {};
     return rows.filter(r => {
+        if (ncOnly && (!r._nc || r._nc === 'ok')) return false;
         if (search && !searchCols.some(c => (r[c] ?? '').toString().toLowerCase().includes(search))) return false;
         for (const [col, vals] of Object.entries(cf)) {
             if (!vals || vals.size === 0) continue;
@@ -716,9 +720,51 @@ function thF(tab, col, label, type) {
 
 function filterBar(tab) {
     const f = filterState[tab] || {};
+    const nc = getNc();
+    const ncOn = !!f.ncOnly;
+    const ncBtn = nc ? '<button id="nconly-' + tab + '" class="btn btn-sm" style="background:' + (ncOn ? '#ff8c00' : '#fff8e1') + ';color:' + (ncOn ? 'white' : '#e65100') + ';border:1px solid #ffcc80;font-weight:bold;" onclick="toggleNcOnly(\'' + tab + '\')">⚠ ! Norme</button>' : '';
     return '<div class="table-controls">' +
         '<input type="text" class="table-search" id="fs-' + tab + '" placeholder="🔍 Rechercher…" value="' + esc(f.search || '') + '" oninput="onSearchInput(\'' + tab + '\')">' +
+        ncBtn +
+        '<button class="btn btn-secondary btn-sm" onclick="exportTab(\'' + tab + '\')">📤 Export</button>' +
         '<span class="filter-count" id="fc-' + tab + '"></span></div>';
+}
+
+function toggleNcOnly(tab) {
+    if (!filterState[tab]) filterState[tab] = {};
+    filterState[tab].ncOnly = !filterState[tab].ncOnly;
+    const btn = document.getElementById('nconly-' + tab);
+    if (btn) {
+        const on = filterState[tab].ncOnly;
+        btn.style.background = on ? '#ff8c00' : '#fff8e1';
+        btn.style.color = on ? 'white' : '#e65100';
+    }
+    renderTableOnly(tab);
+}
+
+const TAB_COLS = {
+    jobs:        [{k:'name',l:'Template'},{k:'_org',l:'Organisation'},{k:'last_job_run',l:'Dernier run'},{k:'_total',l:'Runs'},{k:'_success',l:'Succès'},{k:'_failed',l:'Échecs'},{k:'_rate',l:'Taux%'},{k:'_status',l:'Statut'}],
+    workflows:   [{k:'name',l:'Workflow'},{k:'_org',l:'Organisation'},{k:'last_job_run',l:'Dernier run'},{k:'_total',l:'Runs'},{k:'_success',l:'Succès'},{k:'_failed',l:'Échecs'},{k:'_rate',l:'Taux%'},{k:'_status',l:'Statut'}],
+    projects:    [{k:'name',l:'Projet'},{k:'_org',l:'Organisation'},{k:'scm_type',l:'SCM'},{k:'scm_url',l:'URL SCM'},{k:'scm_branch',l:'Branch'},{k:'last_job_run',l:'Dernier sync'},{k:'_status',l:'Statut'}],
+    planning:    [{k:'name',l:'Nom'},{k:'_resource',l:'Ressource'},{k:'rrule',l:'Fréquence'},{k:'next_run',l:'Prochain run'},{k:'_status',l:'Statut'}],
+    tokens:      [{k:'description',l:'Description'},{k:'_user',l:'Utilisateur'},{k:'scope',l:'Scope'},{k:'expires',l:'Expiration'},{k:'_status',l:'Statut'}],
+    credentials: [{k:'name',l:'Nom'},{k:'_type',l:'Type'},{k:'_org',l:'Organisation'},{k:'_team',l:'Équipe'},{k:'description',l:'Description'},{k:'created',l:'Créé le'}],
+    inventories: [{k:'name',l:'Inventory'},{k:'_org',l:'Organisation'},{k:'kind',l:'Type'},{k:'total_hosts',l:'Hosts'},{k:'hosts_with_active_failures',l:'En échec'},{k:'_status',l:'Statut'},{k:'total_groups',l:'Groupes'}],
+    hosts:       [{k:'name',l:'Host'},{k:'_inv',l:'Inventory'},{k:'_status',l:'Statut'}],
+};
+
+function exportTab(tab) {
+    const rows = _tabSorted[tab] || [];
+    const cols = TAB_COLS[tab] || [];
+    if (!rows.length) { alert('Aucune donnée à exporter'); return; }
+    const csv = [
+        cols.map(c => '"' + c.l + '"').join(';'),
+        ...rows.map(r => cols.map(c => '"' + String(r[c.k] ?? '').replace(/"/g, '""') + '"').join(';'))
+    ].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+    a.download = (currentInst?.name || 'aap').replace(/\s+/g, '_') + '-' + tab + '.csv';
+    a.click();
 }
 
 function setFc(tab, shown, total) { const el = document.getElementById('fc-' + tab); if (el) el.textContent = shown < total ? shown + ' / ' + total : total + ' éléments'; }
@@ -927,10 +973,13 @@ function renderJobs(tableOnly) {
         const rate = (s + f) > 0 ? Math.round(s / (s + f) * 100) : null;
         totSucc += s; totFail += f;
         return { ...t, _success: s, _failed: f, _total: total, _rate: rate ?? -1,
-                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
+                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '',
+                 _nc: ncCheck(t.name, 'jt') };
     });
     _tabRows['jobs'] = rows;
     const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('jobs')) {
         tabReady.add('jobs');
         el.innerHTML =
@@ -938,6 +987,7 @@ function renderJobs(tableOnly) {
                 {label:'Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:jobs.length,color:'#607d8b'},
                 {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
                 {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
             ]) + '</div>' +
             '<div id="jobs-ctrl">' + filterBar('jobs') + '</div>' +
             '<div id="jobs-tbl"></div>';
@@ -946,6 +996,7 @@ function renderJobs(tableOnly) {
     if (!templates.length) { tblEl.innerHTML = noData(); setFc('jobs', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'jobs', ['name','description','_status','_org']);
     const sorted   = applySort(filtered, 'jobs', '_failed');
+    _tabSorted['jobs'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('jobs','name','Template') + thF('jobs','_org','Organisation','values') +
         thF('jobs','last_job_run','Dernier run','date') + th('jobs','_total','Runs') +
@@ -981,10 +1032,13 @@ function renderWorkflows(tableOnly) {
         const rate = (s + f) > 0 ? Math.round(s / (s + f) * 100) : null;
         totSucc += s; totFail += f;
         return { ...t, _success: s, _failed: f, _total: runs.length, _rate: rate ?? -1,
-                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
+                 _org: t.summary_fields?.organization?.name || '', _status: t.status || '',
+                 _nc: ncCheck(t.name, 'wf') };
     });
     _tabRows['workflows'] = rows;
     const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('workflows')) {
         tabReady.add('workflows');
         el.innerHTML =
@@ -992,6 +1046,7 @@ function renderWorkflows(tableOnly) {
                 {label:'WF Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:wfjobs.length,color:'#607d8b'},
                 {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
                 {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
             ]) + '</div>' +
             '<div id="workflows-ctrl">' + filterBar('workflows') + '</div>' +
             '<div id="workflows-tbl"></div>';
@@ -1000,6 +1055,7 @@ function renderWorkflows(tableOnly) {
     if (!templates.length) { tblEl.innerHTML = noData(); setFc('workflows', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'workflows', ['name','description','_org','_status']);
     const sorted   = applySort(filtered, 'workflows', '_failed');
+    _tabSorted['workflows'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('workflows','name','Workflow Template') + thF('workflows','_org','Organisation','values') +
         thF('workflows','last_job_run','Dernier run','date') + th('workflows','_total','Runs') +
@@ -1028,15 +1084,18 @@ function renderProjects(tableOnly) {
     const fail = projects.filter(p => p.status === 'failed').length;
     let rows = projects.map(p => ({
         ...p, _org: p.summary_fields?.organization?.name || '',
-        _status: p.status || ''
+        _status: p.status || '', _nc: ncCheck(p.name, 'proj')
     }));
     _tabRows['projects'] = rows;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('projects')) {
         tabReady.add('projects');
         el.innerHTML =
             '<div>' + statsCards([
                 {label:'Projets',value:projects.length,color:'#1a237e'},
                 {label:'OK',value:ok,color:'#2e7d32'},{label:'Échec',value:fail,color:fail>0?'#c62828':'#2e7d32'},
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
             ]) + '</div>' +
             '<div id="projects-ctrl">' + filterBar('projects') + '</div>' +
             '<div id="projects-tbl"></div>';
@@ -1045,6 +1104,7 @@ function renderProjects(tableOnly) {
     if (!projects.length) { tblEl.innerHTML = noData(); setFc('projects', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'projects', ['name','description','_org','scm_url','scm_branch','_status']);
     const sorted   = applySort(filtered, 'projects', 'name');
+    _tabSorted['projects'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('projects','name','Projet') + thF('projects','_org','Organisation','values') +
         thF('projects','scm_type','SCM','values') + th('projects','scm_url','URL SCM') +
@@ -1077,6 +1137,7 @@ function renderPlanning(tableOnly) {
     }));
     _tabRows['planning'] = rows;
     if (!tableOnly || !tabReady.has('planning')) {
+
         tabReady.add('planning');
         el.innerHTML =
             '<div>' + statsCards([
@@ -1090,6 +1151,7 @@ function renderPlanning(tableOnly) {
     if (!schedules.length) { tblEl.innerHTML = noData(); setFc('planning', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'planning', ['name','_resource','_status']);
     const sorted   = applySort(filtered, 'planning', 'name');
+    _tabSorted['planning'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('planning','name','Nom') + th('planning','_resource','Ressource') +
         th('planning','rrule','Fréquence') + thF('planning','next_run','Prochain run','date') + thF('planning','_status','Statut','values') +
@@ -1134,6 +1196,7 @@ function renderTokens(tableOnly) {
     if (!tokens.length) { tblEl.innerHTML = noData(); setFc('tokens', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'tokens', ['description','_user','scope','_status']);
     const sorted   = applySort(filtered, 'tokens', '_days');
+    _tabSorted['tokens'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('tokens','description','Description') + thF('tokens','_user','Utilisateur','values') +
         thF('tokens','scope','Scope','values') + thF('tokens','expires','Expiration','date') + thF('tokens','_status','Statut','values') +
@@ -1164,13 +1227,19 @@ function renderCredentials(tableOnly) {
         const type = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || 'Autre';
         byType[type] = (byType[type] || 0) + 1;
         return { ...c, _type: type, _org: c.summary_fields?.organization?.name || '',
-                 _team: c.summary_fields?.team?.name || '' };
+                 _team: c.summary_fields?.team?.name || '', _nc: ncCheck(c.name, 'cred') };
     });
     _tabRows['credentials'] = rows;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('credentials')) {
         tabReady.add('credentials');
         el.innerHTML =
-            '<div>' + statsCards([{label:'Total',value:creds.length,color:'#1a237e'}, ...Object.entries(byType).slice(0,4).map(([t,n])=>({label:t,value:n,color:'#607d8b'}))]) + '</div>' +
+            '<div>' + statsCards([
+                {label:'Total',value:creds.length,color:'#1a237e'},
+                ...Object.entries(byType).slice(0,3).map(([t,n])=>({label:t,value:n,color:'#607d8b'})),
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
+            ]) + '</div>' +
             '<div id="credentials-ctrl">' + filterBar('credentials') + '</div>' +
             '<div id="credentials-tbl"></div>';
     }
@@ -1178,6 +1247,7 @@ function renderCredentials(tableOnly) {
     if (!creds.length) { tblEl.innerHTML = noData(); setFc('credentials', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'credentials', ['name','description','_type','_org','_team']);
     const sorted   = applySort(filtered, 'credentials', 'name');
+    _tabSorted['credentials'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('credentials','name','Nom') + thF('credentials','_type','Type','values') +
         thF('credentials','_org','Organisation','values') + thF('credentials','_team','Équipe','values') +
@@ -1202,11 +1272,15 @@ function renderInventories(tableOnly) {
     const invs = snapData.inventories || [];
     const totalH = invs.reduce((s,i) => s + (i.total_hosts || 0), 0);
     const failH  = invs.reduce((s,i) => s + (i.hosts_with_active_failures || 0), 0);
-    let rows = invs.map(i => ({
-        ...i, _org: i.summary_fields?.organization?.name || '',
-        _status: i.hosts_with_active_failures > 0 ? 'fail' : 'ok'
-    }));
+    let rows = invs.map(i => {
+        const ncSt = ncCheck(i.name, 'inv');
+        return { ...i, _org: i.summary_fields?.organization?.name || '',
+            _status: i.status || (i.hosts_with_active_failures > 0 ? 'failed' : 'ok'),
+            _nc: ncSt };
+    });
     _tabRows['inventories'] = rows;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('inventories')) {
         tabReady.add('inventories');
         el.innerHTML =
@@ -1214,6 +1288,7 @@ function renderInventories(tableOnly) {
                 {label:'Inventories',value:invs.length,color:'#1a237e'},
                 {label:'Total hosts',value:totalH,color:'#607d8b'},
                 {label:'Hosts en échec',value:failH,color:failH>0?'#c62828':'#2e7d32'},
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
             ]) + '</div>' +
             '<div id="inventories-ctrl">' + filterBar('inventories') + '</div>' +
             '<div id="inventories-tbl"></div>';
@@ -1222,20 +1297,23 @@ function renderInventories(tableOnly) {
     if (!invs.length) { tblEl.innerHTML = noData(); setFc('inventories', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'inventories', ['name','description','_org','_status']);
     const sorted   = applySort(filtered, 'inventories', 'name');
+    _tabSorted['inventories'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('inventories','name','Inventory') + thF('inventories','_org','Organisation','values') +
         thF('inventories','kind','Type','values') + th('inventories','total_hosts','Hosts') +
+        th('inventories','hosts_with_active_failures','En échec') +
         thF('inventories','_status','Statut','values') + th('inventories','total_groups','Groupes') +
         '</tr></thead><tbody>';
     sorted.forEach(i => {
-        const nc = ncCheck(i.name, 'inv');
-        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
-            '<td><b>' + esc(i.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
+        const ncSt = i._nc;
+        tbl += '<tr' + (ncSt === 'warn' ? ' class="nc-warn"' : '') + '>' +
+            '<td><b>' + esc(i.name) + '</b>' + (ncSt !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
             (i.description ? '<br><small style="color:#888">' + esc(i.description) + '</small>' : '') + '</td>' +
             '<td>' + esc(i._org || '—') + '</td>' +
             '<td>' + (i.kind === 'smart' ? '<span class="badge-status badge-info">Smart</span>' : '<span class="badge-status badge-grey">Normal</span>') + '</td>' +
             '<td>' + (i.total_hosts || 0) + '</td>' +
             '<td' + (i.hosts_with_active_failures > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + (i.hosts_with_active_failures || 0) + '</td>' +
+            '<td>' + statusBadge(i._status) + '</td>' +
             '<td>' + (i.total_groups || 0) + '</td></tr>';
     });
     tbl += '</tbody></table></div>';
@@ -1256,16 +1334,19 @@ function renderHosts(tableOnly) {
         const invName = invMap[h.inventory] || ('Inv #' + h.inventory);
         const lj = h.last_job || h.summary_fields?.last_job;
         const ncSt = ncCheckHost(h.name);
-        return { ...h, _inv: invName, _lj: lj, _ncst: ncSt,
+        return { ...h, _inv: invName, _lj: lj, _ncst: ncSt, _nc: ncSt,
                  _status: h.has_active_failures ? 'fail' : (h.enabled ? 'ok' : 'disabled') };
     });
     _tabRows['hosts'] = rows;
+    const nc = getNc();
+    const ncViol = nc ? rows.filter(r => r._nc !== 'ok').length : null;
     if (!tableOnly || !tabReady.has('hosts')) {
         tabReady.add('hosts');
         el.innerHTML =
             '<div>' + statsCards([
                 {label:'Total hosts',value:hosts.length,color:'#1a237e'},{label:'Actifs',value:enabled,color:'#2e7d32'},
                 {label:'Désactivés',value:disabled,color:'#757575'},{label:'En échec',value:failed,color:failed>0?'#c62828':'#2e7d32'},
+                ...(ncViol !== null ? [{label:'⚠ Norme',value:ncViol,color:ncViol>0?'#e65100':'#2e7d32'}] : []),
             ]) + '</div>' +
             '<div id="hosts-ctrl">' + filterBar('hosts') + '</div>' +
             '<div id="hosts-tbl"></div>';
@@ -1274,6 +1355,7 @@ function renderHosts(tableOnly) {
     if (!hosts.length) { tblEl.innerHTML = noData(); setFc('hosts', 0, 0); return; }
     const filtered = applyAllFilters(rows, 'hosts', ['name','_inv','_status']);
     const sorted   = applySort(filtered, 'hosts', 'name');
+    _tabSorted['hosts'] = sorted;
     let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('hosts','name','Host') + thF('hosts','_inv','Inventory','values') +
         thF('hosts','_status','Statut','values') + '<th>Dernier job</th><th>Résultat</th>' +
