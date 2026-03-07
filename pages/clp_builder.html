@@ -52,12 +52,12 @@
         /* ── Environments grid ───────────────────────────────────── */
         .env-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
             gap: 8px;
         }
         .env-card {
-            display: flex; align-items: center; gap: 10px;
-            padding: 12px 12px 12px 16px; border-radius: 9px;
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 10px 12px 16px; border-radius: 9px;
             border: 1.5px solid #e8ecef; background: white;
             cursor: pointer; user-select: none;
             transition: border-color .15s, box-shadow .15s, background .15s;
@@ -79,13 +79,31 @@
         .env-card.active .env-card-type { color: var(--ec, #607d8b); opacity: .6; }
         .env-card.env-prod .env-card-type { color: #e57373; font-weight: bold; }
         .env-card.active.env-prod .env-card-type { color: #c62828; opacity: 1; }
-        .env-count {
-            font-size: 11px; font-weight: 700; min-width: 22px;
-            padding: 2px 6px; border-radius: 8px; text-align: center;
-            background: #f0f0f0; color: #c0c8d0;
-            opacity: 0; transition: opacity .15s, background .15s, color .15s;
+        /* contrôles instances */
+        .env-ctrl { display: none; align-items: center; gap: 3px; flex-shrink: 0; }
+        .env-card.active .env-ctrl { display: flex; }
+        .env-ctrl-btn {
+            width: 20px; height: 20px; border-radius: 5px;
+            border: 1.5px solid var(--ec, #607d8b);
+            background: transparent; color: var(--ec, #607d8b);
+            cursor: pointer; font-size: 14px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            line-height: 1; padding: 0; transition: all .12s;
         }
-        .env-card.active .env-count { opacity: 1; background: var(--ec, #607d8b); color: white; }
+        .env-ctrl-btn:hover { background: var(--ec, #607d8b); color: white; }
+        .env-ctrl-num {
+            font-size: 12px; font-weight: 800; min-width: 14px;
+            text-align: center; color: var(--ec, #607d8b);
+        }
+        /* compteur hôtes */
+        .env-hcount {
+            font-size: 10px; font-weight: 700; min-width: 20px;
+            padding: 2px 5px; border-radius: 7px; text-align: center;
+            background: #f0f0f0; color: #c0c8d0;
+            opacity: 0; transition: opacity .15s, background .15s;
+            flex-shrink: 0;
+        }
+        .env-card.active .env-hcount { opacity: 1; background: var(--ec, #607d8b); color: white; }
 
         /* ── Env sections ────────────────────────────────────────── */
         .env-sections { display: flex; flex-direction: column; gap: 14px; }
@@ -297,7 +315,7 @@
             <div class="fqdn-row">
                 <div class="fqdn-group">
                     <label>
-                        Pre-prod
+                        Hors-prod
                         <span class="fqdn-badge nonprod">dev rec qua int hom pre</span>
                     </label>
                     <input id="fqdn-nonprod" type="text" placeholder="ca-cedicam.fr"
@@ -453,32 +471,38 @@
 
 <script>
 /* ── Config ─────────────────────────────────────────────────────────────── */
+/* base envs — INT2/INT3 sont générés dynamiquement via le compteur */
 const ALL_ENVS = [
-    { name: 'dev',  label: 'DEV',  prod: false },
-    { name: 'rec',  label: 'REC',  prod: false },
-    { name: 'qua',  label: 'QUA',  prod: false },
-    { name: 'int',  label: 'INT',  prod: false },
-    { name: 'int2', label: 'INT2', prod: false },
-    { name: 'int3', label: 'INT3', prod: false },
-    { name: 'hom',  label: 'HOM',  prod: false },
-    { name: 'pre',  label: 'PRE',  prod: false },
-    { name: 'prd',  label: 'PRD',  prod: true  },
+    { name: 'dev', label: 'DEV', prod: false },
+    { name: 'rec', label: 'REC', prod: false },
+    { name: 'qua', label: 'QUA', prod: false },
+    { name: 'int', label: 'INT', prod: false },
+    { name: 'hom', label: 'HOM', prod: false },
+    { name: 'pre', label: 'PRE', prod: false },
+    { name: 'prd', label: 'PRD', prod: true  },
 ];
 
 const ENV_COLORS = {
     dev: '#43a047', rec: '#fb8c00', qua: '#8e24aa',
-    int: '#1e88e5', int2: '#1565c0', int3: '#0d47a1',
-    hom: '#00897b', pre: '#e53935', prd: '#b71c1c',
+    int: '#1e88e5', hom: '#00897b', pre: '#e53935', prd: '#b71c1c',
 };
 const ENV_LIGHT_BG = {
     dev: '#f1f8f1', rec: '#fff8f0', qua: '#faf0ff',
-    int: '#f0f4ff', int2: '#eef2ff', int3: '#e8edff',
-    hom: '#f0faf8', pre: '#fff5f5', prd: '#fff5f5',
+    int: '#f0f4ff', hom: '#f0faf8', pre: '#fff5f5', prd: '#fff5f5',
 };
 
-let selectedEnvs = new Set();
+/* selectedEnvs : Map<name, count> — count ≥ 1 = actif */
+let selectedEnvs = new Map();
 let selectedRepoType = 'generic';
 let selectedMiddlewares = new Set();
+
+/* clés d'instance : int×2 → ['int','int2'], hom×3 → ['hom','hom2','hom3'] */
+function envKeys(name) {
+    const n = selectedEnvs.get(name) || 0;
+    const keys = [];
+    for (let i = 1; i <= n; i++) keys.push(i === 1 ? name : `${name}${i}`);
+    return keys;
+}
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 function init() {
@@ -492,9 +516,15 @@ function init() {
         card.innerHTML = `
             <div class="env-card-info">
                 <span class="env-card-name">${env.label}</span>
-                <span class="env-card-type">${env.prod ? '⚠ production' : 'pre-prod'}</span>
+                <span class="env-card-type">${env.prod ? '⚠ production' : 'hors-prod'}</span>
             </div>
-            <span class="env-count" id="count-${env.name}">0</span>
+            ${!env.prod ? `
+            <div class="env-ctrl">
+                <button class="env-ctrl-btn" onclick="event.stopPropagation();changeCount('${env.name}',-1)">−</button>
+                <span class="env-ctrl-num" id="ic-${env.name}">1</span>
+                <button class="env-ctrl-btn" onclick="event.stopPropagation();changeCount('${env.name}',+1)">+</button>
+            </div>` : ''}
+            <span class="env-hcount" id="count-${env.name}">0</span>
         `;
         card.onclick = () => toggleEnv(env.name, card);
         grid.appendChild(card);
@@ -502,12 +532,30 @@ function init() {
 }
 
 function toggleEnv(name, card) {
-    if (selectedEnvs.has(name)) {
+    if ((selectedEnvs.get(name) || 0) > 0) {
         selectedEnvs.delete(name);
         card.classList.remove('active');
     } else {
-        selectedEnvs.add(name);
+        selectedEnvs.set(name, 1);
         card.classList.add('active');
+        const ic = document.getElementById(`ic-${name}`);
+        if (ic) ic.textContent = '1';
+    }
+    renderEnvSections();
+}
+
+function changeCount(name, delta) {
+    const cur = selectedEnvs.get(name) || 0;
+    const next = Math.max(0, cur + delta);
+    const card = document.getElementById(`chip-${name}`);
+    if (next === 0) {
+        selectedEnvs.delete(name);
+        card.classList.remove('active');
+    } else {
+        selectedEnvs.set(name, next);
+        card.classList.add('active');
+        const ic = document.getElementById(`ic-${name}`);
+        if (ic) ic.textContent = String(next);
     }
     renderEnvSections();
 }
@@ -516,8 +564,12 @@ function updateHostCounts() {
     ALL_ENVS.forEach(env => {
         const countEl = document.getElementById(`count-${env.name}`);
         if (!countEl) return;
-        const sec = document.querySelector(`.env-section[data-env="${env.name}"]`);
-        countEl.textContent = sec ? sec.querySelectorAll('.host-row').length : 0;
+        let total = 0;
+        envKeys(env.name).forEach(key => {
+            const sec = document.querySelector(`.env-section[data-env="${key}"]`);
+            if (sec) total += sec.querySelectorAll('.host-row').length;
+        });
+        countEl.textContent = total;
     });
 }
 
@@ -598,19 +650,30 @@ function getFqdn(envName) {
 
 function refreshEnvFqdns() {
     ALL_ENVS.forEach(env => {
-        if (!selectedEnvs.has(env.name)) return;
-        const label = document.getElementById(`fqdn-label-${env.name}`);
-        if (label) {
-            const fqdn = getFqdn(env.name);
-            label.textContent = fqdn ? `.${fqdn}` : '(pas de FQDN)';
-        }
+        envKeys(env.name).forEach(key => {
+            const label = document.getElementById(`fqdn-label-${key}`);
+            if (label) {
+                const fqdn = getFqdn(env.name);
+                label.textContent = fqdn ? `.${fqdn}` : '(pas de FQDN)';
+            }
+        });
     });
 }
 
 /* ── Env sections ────────────────────────────────────────────────────────── */
 function renderEnvSections() {
     const container = document.getElementById('env-sections');
-    if (selectedEnvs.size === 0) {
+
+    // Expand all active envs into instances
+    const instances = [];
+    ALL_ENVS.forEach(env => {
+        const count = selectedEnvs.get(env.name) || 0;
+        for (let i = 1; i <= count; i++) {
+            instances.push({ ...env, key: i === 1 ? env.name : `${env.name}${i}`, idx: i, total: count });
+        }
+    });
+
+    if (instances.length === 0) {
         container.innerHTML = '<div class="empty-envs">Sélectionnez au moins un environnement ci-dessus</div>';
         return;
     }
@@ -618,39 +681,37 @@ function renderEnvSections() {
     // Preserve existing host rows before re-render
     const existing = {};
     container.querySelectorAll('.env-section').forEach(sec => {
-        const env = sec.dataset.env;
-        existing[env] = collectHosts(sec);
+        existing[sec.dataset.env] = collectHosts(sec);
     });
 
     container.innerHTML = '';
-    ALL_ENVS
-        .filter(e => selectedEnvs.has(e.name))
-        .forEach(env => {
-            const fqdn = getFqdn(env.name);
-            const color = ENV_COLORS[env.name] || '#607d8b';
-            const sec = document.createElement('div');
-            sec.className = 'env-section';
-            sec.dataset.env = env.name;
-            sec.innerHTML = `
-                <div class="env-section-header">
-                    <div class="env-section-title">
-                        <span class="env-dot" style="background:${color}"></span>
-                        ${env.label}
-                    </div>
-                    <span class="env-fqdn-label" id="fqdn-label-${env.name}">${fqdn ? '.' + fqdn : '(pas de FQDN)'}</span>
+    instances.forEach(({ name, label, key, idx, total, prod }) => {
+        const fqdn  = getFqdn(name);
+        const color = ENV_COLORS[name] || '#607d8b';
+        const title = total > 1 ? `${label} ${idx}` : label;
+        const sec   = document.createElement('div');
+        sec.className    = 'env-section';
+        sec.dataset.env  = key;
+        sec.innerHTML = `
+            <div class="env-section-header">
+                <div class="env-section-title">
+                    <span class="env-dot" style="background:${color}"></span>
+                    ${title}
+                    ${prod ? '<span style="font-size:11px;color:#e53935;margin-left:6px;font-weight:normal">⚠ prod</span>' : ''}
                 </div>
-                <div class="env-hosts" id="hosts-${env.name}"></div>
-                <div style="padding: 4px 16px 12px">
-                    <button class="add-host-btn" onclick="addHostRow('${env.name}')">+ Ajouter un hôte</button>
-                </div>
-            `;
-            container.appendChild(sec);
+                <span class="env-fqdn-label" id="fqdn-label-${key}">${fqdn ? '.' + fqdn : '(pas de FQDN)'}</span>
+            </div>
+            <div class="env-hosts" id="hosts-${key}"></div>
+            <div style="padding: 4px 16px 12px">
+                <button class="add-host-btn" onclick="addHostRow('${key}')">+ Ajouter un hôte</button>
+            </div>
+        `;
+        container.appendChild(sec);
 
-            // Restore existing hosts
-            if (existing[env.name] && existing[env.name].length > 0) {
-                existing[env.name].forEach(h => addHostRow(env.name, h.hostname, h.os || 'linux', h.group));
-            }
-        });
+        if (existing[key]?.length) {
+            existing[key].forEach(h => addHostRow(key, h.hostname, h.os || 'linux', h.group));
+        }
+    });
     updateHostCounts();
 }
 
@@ -702,19 +763,17 @@ async function generate() {
     if (!nom_app) {
         return toast('Le nom appli est requis', 'err');
     }
-    if (selectedEnvs.size === 0) {
+    if (![...selectedEnvs.values()].some(v => v > 0)) {
         return toast('Sélectionnez au moins un environnement', 'err');
     }
 
-    // Build envs payload
+    // Build envs payload (avec instances multiples)
     const envs = [];
-    ALL_ENVS.filter(e => selectedEnvs.has(e.name)).forEach(env => {
-        const sec = document.querySelector(`.env-section[data-env="${env.name}"]`);
-        const hosts = sec ? collectHosts(sec) : [];
-        envs.push({
-            name: env.name,
-            fqdn: getFqdn(env.name),
-            hosts,
+    ALL_ENVS.forEach(env => {
+        envKeys(env.name).forEach(key => {
+            const sec  = document.querySelector(`.env-section[data-env="${key}"]`);
+            const hosts = sec ? collectHosts(sec) : [];
+            envs.push({ name: key, fqdn: getFqdn(env.name), hosts });
         });
     });
 

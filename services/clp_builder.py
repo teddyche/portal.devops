@@ -2,6 +2,7 @@
 Service CLP Ansible Builder — génération de packages Ansible en mémoire.
 """
 import io
+import re
 import zipfile
 
 # ── Constantes ──────────────────────────────────────────────────────────────
@@ -9,20 +10,23 @@ import zipfile
 ENV_LETTERS = {
     'dev': 'd', 'rec': 'r', 'qua': 'q', 'int': 'i',
     'hom': 'h', 'pre': 'o', 'prd': 'p',
-    'int2': 'i', 'int3': 'i',
 }
 
 ENV_ARTIFACTORY = {
-    'dev':  ('community', 'scratch'),
-    'rec':  ('community', 'scratch'),
-    'qua':  ('community', 'scratch'),
-    'int':  ('community', 'scratch'),
-    'int2': ('community', 'scratch'),
-    'int3': ('community', 'scratch'),
-    'hom':  ('3PG_HP',    'stable'),
-    'pre':  ('3PG_HP',    'stable'),
-    'prd':  ('3PG',       'stable'),
+    'dev': ('community', 'scratch'),
+    'rec': ('community', 'scratch'),
+    'qua': ('community', 'scratch'),
+    'int': ('community', 'scratch'),
+    'hom': ('3PG_HP',   'stable'),
+    'pre': ('3PG_HP',   'stable'),
+    'prd': ('3PG',      'stable'),
 }
+
+_RE_SUFFIX = re.compile(r'\d+$')
+
+def _env_base(name: str) -> str:
+    """int2 → int, hom3 → hom, prd → prd"""
+    return _RE_SUFFIX.sub('', name)
 
 # ── SSH args par type d'OS ───────────────────────────────────────────────────
 
@@ -111,8 +115,10 @@ def _root_group_vars(code_app: str, nom_app: str, entite: str) -> str:
 
 
 def _env_group_vars(env: str) -> str:
-    letter = ENV_LETTERS.get(env, env[0])
-    area, maturity = ENV_ARTIFACTORY.get(env, ('community', 'scratch'))
+    base   = _env_base(env)
+    letter = ENV_LETTERS.get(env) or ENV_LETTERS.get(base, env[0])
+    area, maturity = (ENV_ARTIFACTORY.get(env) or
+                      ENV_ARTIFACTORY.get(base, ('community', 'scratch')))
     return '\n'.join([
         f"# Variables pour l'environnement {env}",
         '---',
