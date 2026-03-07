@@ -117,6 +117,23 @@
         .table-filter-select { padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; }
         .filter-count { font-size: 12px; color: #888; }
 
+        /* ── Column filter ───────────────────────────────────── */
+        .data-table th.cth { cursor: default; padding: 6px 8px 6px 14px; }
+        .data-table th.cth:hover { background: #1a237e; }
+        .th-inner { display:inline-flex; align-items:center; gap:3px; cursor:pointer; }
+        .th-inner:hover { opacity:.85; }
+        .cth-btn { background:rgba(255,255,255,.15); border:none; color:rgba(255,255,255,.7); border-radius:3px; padding:1px 5px; font-size:10px; cursor:pointer; margin-left:5px; vertical-align:middle; line-height:1.4; }
+        .cth-btn:hover { background:rgba(255,255,255,.3); color:white; }
+        .cth-btn.cth-on { background:#e65100; color:white; }
+        #cfd { position:fixed; z-index:600; background:white; border:1px solid #c5cae9; border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,.2); min-width:190px; max-width:270px; font-size:13px; }
+        #cfd-inner { padding:10px 14px; max-height:240px; overflow-y:auto; }
+        #cfd-inner label { display:flex; align-items:center; gap:7px; padding:4px 0; cursor:pointer; user-select:none; }
+        #cfd-inner label:hover { color:#1a237e; }
+        .cfd-date-row { margin-bottom:10px; }
+        .cfd-date-lbl { font-size:11px; font-weight:bold; color:#555; margin-bottom:3px; }
+        .cfd-date-row input[type=date] { width:100%; padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px; }
+        #cfd-actions { display:flex; gap:6px; padding:8px 14px 10px; border-top:1px solid #eee; justify-content:flex-end; }
+
         /* ── Data table ──────────────────────────────────────── */
         .table-wrap { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
         .data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -307,6 +324,15 @@
 
 <input type="file" id="snapFileInput" accept=".enc" onchange="onSnapFileChange(event)">
 
+<!-- Column filter popup -->
+<div id="cfd" style="display:none;">
+    <div id="cfd-inner"></div>
+    <div id="cfd-actions">
+        <button class="btn btn-danger btn-sm" onclick="clearCfd()">✕ Effacer</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeCfd()">Fermer</button>
+    </div>
+</div>
+
 <!-- Modal Instance -->
 <div id="instModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeInstModal()">
     <div class="modal-box">
@@ -429,6 +455,11 @@
 let instances = [], currentInst = null, snapshots = [], currentSnapId = null, snapData = null;
 let currentTab = 'cockpit', _editInstId = null, _selectedColor = '#c62828';
 const sortState = {}, filterState = {};
+const tabReady    = new Set();
+const _tabRows    = {};
+const colFilters  = {};
+const dateFilters = {};
+let _cfd = { tab: null, col: null, type: null };
 
 const INST_COLORS = ['#c62828','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4527a0','#37474f'];
 const TABS = ['cockpit','jobs','workflows','projects','planning','tokens','credentials','inventories','hosts'];
@@ -478,6 +509,10 @@ async function init() {
         if (me.ok) { const u = await me.json(); window._csrf = u.csrf_token || ''; patchFetch(); }
     } catch {}
     await loadInstances();
+    document.addEventListener('click', e => {
+        const cfd = document.getElementById('cfd');
+        if (cfd.style.display !== 'none' && !cfd.contains(e.target) && !e.target.classList.contains('cth-btn')) closeCfd();
+    });
 }
 
 function patchFetch() {
@@ -568,6 +603,7 @@ async function loadSnapshot(sid) {
     const r = await fetch('/api/aap-checker/instances/' + currentInst.id + '/snapshots/' + sid);
     if (!r.ok) { alert('Erreur chargement snapshot'); return; }
     snapData = await r.json(); currentSnapId = sid;
+    tabReady.clear();
     document.getElementById('snapSelect').value = sid;
     document.getElementById('btnDelSnap').disabled = false;
     const m = snapData.manifest || {};
@@ -622,20 +658,31 @@ function onSort(tab, col) {
     renderCurrentTab();
 }
 
-function onFilterChange(tab) {
-    filterState[tab] = {
-        search: (document.getElementById('fs-' + tab)?.value || '').toLowerCase(),
-        status: document.getElementById('fst-' + tab)?.value || '',
-    };
-    renderCurrentTab();
+function onSearchInput(tab) {
+    if (!filterState[tab]) filterState[tab] = {};
+    filterState[tab].search = (document.getElementById('fs-' + tab)?.value || '').toLowerCase();
+    renderTableOnly(tab);
 }
 
-function applyFilter(rows, tab, cols) {
-    const { search, status } = getFilter(tab);
+function applyAllFilters(rows, tab, searchCols) {
+    const search = (filterState[tab] || {}).search || '';
+    const cf = colFilters[tab] || {};
+    const df = dateFilters[tab] || {};
     return rows.filter(r => {
-        if (status && r._status !== status) return false;
-        if (!search) return true;
-        return cols.some(c => (r[c] ?? '').toString().toLowerCase().includes(search));
+        if (search && !searchCols.some(c => (r[c] ?? '').toString().toLowerCase().includes(search))) return false;
+        for (const [col, vals] of Object.entries(cf)) {
+            if (!vals || vals.size === 0) continue;
+            if (!vals.has((r[col] ?? '').toString())) return false;
+        }
+        for (const [col, range] of Object.entries(df)) {
+            const { since, until } = range || {};
+            if (!since && !until) continue;
+            const v = r[col]; if (!v) { if (since || until) return false; continue; }
+            const d = new Date(v);
+            if (since && d < new Date(since)) return false;
+            if (until && d > new Date(until + 'T23:59:59')) return false;
+        }
+        return true;
     });
 }
 
@@ -655,18 +702,91 @@ function th(tab, col, label) {
     return '<th class="' + cls + '" onclick="onSort(\'' + tab + '\',\'' + col + '\')">' + label + '<span class="sa"></span></th>';
 }
 
-function filterBar(tab, statusOpts) {
-    const f = getFilter(tab);
+function thF(tab, col, label, type) {
+    const s = getSort(tab);
+    const cls = s.col === col ? (s.dir === 1 ? 'sa-asc' : 'sa-desc') : '';
+    const cf = (colFilters[tab] || {})[col];
+    const df = (dateFilters[tab] || {})[col];
+    const on = type === 'date' ? !!(df?.since || df?.until) : !!(cf && cf.size > 0);
+    return '<th class="' + cls + ' cth">' +
+        '<span class="th-inner" onclick="onSort(\'' + tab + '\',\'' + col + '\')">' + label + '<span class="sa"></span></span>' +
+        '<button class="cth-btn' + (on ? ' cth-on' : '') + '" onclick="event.stopPropagation();openCfd(event,\'' + tab + '\',\'' + col + '\',\'' + type + '\')">▼</button>' +
+        '</th>';
+}
+
+function filterBar(tab) {
+    const f = filterState[tab] || {};
     return '<div class="table-controls">' +
-        '<input type="text" class="table-search" id="fs-' + tab + '" placeholder="🔍 Rechercher…" value="' + esc(f.search) + '" oninput="onFilterChange(\'' + tab + '\')">' +
-        (statusOpts?.length ? '<select class="table-filter-select" id="fst-' + tab + '" onchange="onFilterChange(\'' + tab + '\')">' +
-            '<option value="">Tous statuts</option>' +
-            statusOpts.map(o => '<option value="' + o.v + '"' + (f.status === o.v ? ' selected' : '') + '>' + o.l + '</option>').join('') +
-            '</select>' : '') +
+        '<input type="text" class="table-search" id="fs-' + tab + '" placeholder="🔍 Rechercher…" value="' + esc(f.search || '') + '" oninput="onSearchInput(\'' + tab + '\')">' +
         '<span class="filter-count" id="fc-' + tab + '"></span></div>';
 }
 
 function setFc(tab, shown, total) { const el = document.getElementById('fc-' + tab); if (el) el.textContent = shown < total ? shown + ' / ' + total : total + ' éléments'; }
+
+// ── Column filter popup ─────────────────────────────────────────────────────────
+function openCfd(e, tab, col, type) {
+    _cfd = { tab, col, type };
+    const inner = document.getElementById('cfd-inner');
+    if (type === 'date') {
+        const df = (dateFilters[tab] || {})[col] || {};
+        inner.innerHTML =
+            '<div class="cfd-date-row"><div class="cfd-date-lbl">Depuis</div><input type="date" id="cfd-since" value="' + (df.since || '') + '"></div>' +
+            '<div class="cfd-date-row"><div class="cfd-date-lbl">Jusqu\'au</div><input type="date" id="cfd-until" value="' + (df.until || '') + '"></div>';
+    } else {
+        const rows = _tabRows[tab] || [];
+        const vals = [...new Set(rows.map(r => (r[col] ?? '').toString()))].sort();
+        const cf = (colFilters[tab] || {})[col] || new Set();
+        inner.innerHTML = vals.map(v =>
+            '<label><input type="checkbox"' + (cf.has(v) ? ' checked' : '') + ' value="' + esc(v) + '" onchange="onCfdCheck(\'' + tab + '\',\'' + col + '\',this)"> ' + esc(v || '(vide)') + '</label>'
+        ).join('');
+    }
+    const cfd = document.getElementById('cfd');
+    cfd.style.display = 'block';
+    const rect = e.target.getBoundingClientRect();
+    cfd.style.top  = (rect.bottom + 4) + 'px';
+    cfd.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+    e.stopPropagation();
+}
+
+function closeCfd() {
+    if (_cfd.type === 'date') applyCfdDate();
+    document.getElementById('cfd').style.display = 'none';
+    _cfd = { tab: null, col: null, type: null };
+}
+
+function clearCfd() {
+    const { tab, col, type } = _cfd;
+    document.getElementById('cfd').style.display = 'none';
+    _cfd = { tab: null, col: null, type: null };
+    if (!tab || !col) return;
+    if (type === 'date') { if (dateFilters[tab]) delete dateFilters[tab][col]; }
+    else { if (colFilters[tab]) delete colFilters[tab][col]; }
+    renderTableOnly(tab);
+}
+
+function onCfdCheck(tab, col, cb) {
+    if (!colFilters[tab]) colFilters[tab] = {};
+    if (!colFilters[tab][col]) colFilters[tab][col] = new Set();
+    if (cb.checked) colFilters[tab][col].add(cb.value);
+    else colFilters[tab][col].delete(cb.value);
+    renderTableOnly(tab);
+}
+
+function applyCfdDate() {
+    const { tab, col } = _cfd;
+    if (!tab || !col) return;
+    const since = document.getElementById('cfd-since')?.value || '';
+    const until = document.getElementById('cfd-until')?.value || '';
+    if (!dateFilters[tab]) dateFilters[tab] = {};
+    dateFilters[tab][col] = { since, until };
+    renderTableOnly(tab);
+}
+
+function renderTableOnly(tab) {
+    if (!tabReady.has(tab)) { renderCurrentTab(); return; }
+    const fns = { jobs: renderJobs, workflows: renderWorkflows, projects: renderProjects, planning: renderPlanning, tokens: renderTokens, credentials: renderCredentials, inventories: renderInventories, hosts: renderHosts };
+    if (fns[tab]) fns[tab](true);
+}
 
 // ── Cockpit ────────────────────────────────────────────────────────────────────
 function renderCockpit() {
@@ -792,7 +912,7 @@ function renderCockpit() {
 }
 
 // ── Jobs ───────────────────────────────────────────────────────────────────────
-function renderJobs() {
+function renderJobs(tableOnly) {
     const el = document.getElementById('tabJobs');
     const templates = snapData.job_templates || [];
     const jobs      = snapData.jobs || [];
@@ -809,39 +929,45 @@ function renderJobs() {
         return { ...t, _success: s, _failed: f, _total: total, _rate: rate ?? -1,
                  _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
     });
+    _tabRows['jobs'] = rows;
     const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
-    let html = statsCards([
-        {label:'Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:jobs.length,color:'#607d8b'},
-        {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
-        {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
-    ]);
-    const sos = [{v:'successful',l:'✓ Succès'},{v:'failed',l:'✗ Échec'},{v:'running',l:'▶ En cours'}];
-    html += filterBar('jobs', sos);
-    if (!templates.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'jobs', ['name','description','_status','_org']);
+    if (!tableOnly || !tabReady.has('jobs')) {
+        tabReady.add('jobs');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:jobs.length,color:'#607d8b'},
+                {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
+                {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
+            ]) + '</div>' +
+            '<div id="jobs-ctrl">' + filterBar('jobs') + '</div>' +
+            '<div id="jobs-tbl"></div>';
+    }
+    const tblEl = document.getElementById('jobs-tbl');
+    if (!templates.length) { tblEl.innerHTML = noData(); setFc('jobs', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'jobs', ['name','description','_status','_org']);
     const sorted   = applySort(filtered, 'jobs', '_failed');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('jobs','name','Template') + th('jobs','_org','Organisation') +
-        th('jobs','last_job_run','Dernier run') + th('jobs','_total','Runs') +
-        th('jobs','_success','✓') + th('jobs','_failed','✗') + th('jobs','_rate','Taux') + th('jobs','status','Statut') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('jobs','name','Template') + thF('jobs','_org','Organisation','values') +
+        thF('jobs','last_job_run','Dernier run','date') + th('jobs','_total','Runs') +
+        th('jobs','_success','✓') + th('jobs','_failed','✗') + th('jobs','_rate','Taux') + thF('jobs','_status','Statut','values') +
         '</tr></thead><tbody>';
     sorted.forEach(r => {
         const nc = ncCheck(r.name, 'jt');
-        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
             '<td><b>' + esc(r.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
             (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
             '<td>' + esc(r._org || '—') + '</td><td>' + fmtDate(r.last_job_run) + '</td>' +
             '<td>' + r._total + '</td><td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
             '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
-            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r.status) + '</td></tr>';
+            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r._status) + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('jobs', sorted.length, rows.length);
 }
 
 // ── Workflows ──────────────────────────────────────────────────────────────────
-function renderWorkflows() {
+function renderWorkflows(tableOnly) {
     const el = document.getElementById('tabWorkflows');
     const templates = snapData.workflow_job_templates || [];
     const wfjobs    = snapData.workflow_jobs || [];
@@ -857,38 +983,45 @@ function renderWorkflows() {
         return { ...t, _success: s, _failed: f, _total: runs.length, _rate: rate ?? -1,
                  _org: t.summary_fields?.organization?.name || '', _status: t.status || '' };
     });
+    _tabRows['workflows'] = rows;
     const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
-    let html = statsCards([
-        {label:'WF Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:wfjobs.length,color:'#607d8b'},
-        {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
-        {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
-    ]);
-    html += filterBar('workflows', [{v:'successful',l:'✓ Succès'},{v:'failed',l:'✗ Échec'}]);
-    if (!templates.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'workflows', ['name','description','_org','_status']);
+    if (!tableOnly || !tabReady.has('workflows')) {
+        tabReady.add('workflows');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'WF Templates',value:templates.length,color:'#1a237e'},{label:'Exécutions',value:wfjobs.length,color:'#607d8b'},
+                {label:'Succès',value:totSucc,color:'#2e7d32'},{label:'Échecs',value:totFail,color:'#c62828'},
+                {label:'Taux succès',value:gRate !== null ? gRate + '%' : 'N/A',color:rateColor(gRate)},
+            ]) + '</div>' +
+            '<div id="workflows-ctrl">' + filterBar('workflows') + '</div>' +
+            '<div id="workflows-tbl"></div>';
+    }
+    const tblEl = document.getElementById('workflows-tbl');
+    if (!templates.length) { tblEl.innerHTML = noData(); setFc('workflows', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'workflows', ['name','description','_org','_status']);
     const sorted   = applySort(filtered, 'workflows', '_failed');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('workflows','name','Workflow Template') + th('workflows','_org','Organisation') +
-        th('workflows','last_job_run','Dernier run') + th('workflows','_total','Runs') +
-        th('workflows','_success','✓') + th('workflows','_failed','✗') + th('workflows','_rate','Taux') + th('workflows','status','Statut') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('workflows','name','Workflow Template') + thF('workflows','_org','Organisation','values') +
+        thF('workflows','last_job_run','Dernier run','date') + th('workflows','_total','Runs') +
+        th('workflows','_success','✓') + th('workflows','_failed','✗') + th('workflows','_rate','Taux') + thF('workflows','_status','Statut','values') +
         '</tr></thead><tbody>';
     sorted.forEach(r => {
         const nc = ncCheck(r.name, 'wf');
-        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
             '<td><b>' + esc(r.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
             (r.description ? '<br><small style="color:#888">' + esc(r.description) + '</small>' : '') + '</td>' +
             '<td>' + esc(r._org || '—') + '</td><td>' + fmtDate(r.last_job_run) + '</td>' +
             '<td>' + r._total + '</td><td style="color:#2e7d32;font-weight:bold">' + r._success + '</td>' +
             '<td' + (r._failed > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + r._failed + '</td>' +
-            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r.status) + '</td></tr>';
+            '<td>' + rateBar(r._rate < 0 ? null : r._rate) + '</td><td>' + statusBadge(r._status) + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('workflows', sorted.length, rows.length);
 }
 
 // ── Projects ───────────────────────────────────────────────────────────────────
-function renderProjects() {
+function renderProjects(tableOnly) {
     const el = document.getElementById('tabProjects');
     const projects = snapData.projects || [];
     const ok  = projects.filter(p => p.status === 'successful').length;
@@ -897,37 +1030,44 @@ function renderProjects() {
         ...p, _org: p.summary_fields?.organization?.name || '',
         _status: p.status || ''
     }));
-    let html = statsCards([
-        {label:'Projets',value:projects.length,color:'#1a237e'},
-        {label:'OK',value:ok,color:'#2e7d32'},{label:'Échec',value:fail,color:fail>0?'#c62828':'#2e7d32'},
-    ]);
-    html += filterBar('projects', [{v:'successful',l:'✓ OK'},{v:'failed',l:'✗ Échec'},{v:'running',l:'▶ Running'}]);
-    if (!projects.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'projects', ['name','description','_org','scm_url','scm_branch','_status']);
+    _tabRows['projects'] = rows;
+    if (!tableOnly || !tabReady.has('projects')) {
+        tabReady.add('projects');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Projets',value:projects.length,color:'#1a237e'},
+                {label:'OK',value:ok,color:'#2e7d32'},{label:'Échec',value:fail,color:fail>0?'#c62828':'#2e7d32'},
+            ]) + '</div>' +
+            '<div id="projects-ctrl">' + filterBar('projects') + '</div>' +
+            '<div id="projects-tbl"></div>';
+    }
+    const tblEl = document.getElementById('projects-tbl');
+    if (!projects.length) { tblEl.innerHTML = noData(); setFc('projects', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'projects', ['name','description','_org','scm_url','scm_branch','_status']);
     const sorted   = applySort(filtered, 'projects', 'name');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('projects','name','Projet') + th('projects','_org','Organisation') +
-        th('projects','scm_type','SCM') + th('projects','scm_url','URL SCM') +
-        th('projects','scm_branch','Branch') + th('projects','last_job_run','Dernier sync') + th('projects','_status','Statut') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('projects','name','Projet') + thF('projects','_org','Organisation','values') +
+        thF('projects','scm_type','SCM','values') + th('projects','scm_url','URL SCM') +
+        th('projects','scm_branch','Branch') + thF('projects','last_job_run','Dernier sync','date') + thF('projects','_status','Statut','values') +
         '</tr></thead><tbody>';
     sorted.forEach(p => {
         const nc = ncCheck(p.name, 'proj');
-        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
             '<td><b>' + esc(p.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
             (p.description ? '<br><small style="color:#888">' + esc(p.description) + '</small>' : '') + '</td>' +
             '<td>' + esc(p._org || '—') + '</td>' +
             '<td><span class="badge-status badge-grey">' + esc(p.scm_type || 'manual') + '</span></td>' +
             '<td style="font-size:11px;max-width:180px;word-break:break-all">' + esc(p.scm_url || '—') + '</td>' +
             '<td><code style="font-size:11px">' + esc(p.scm_branch || '—') + '</code></td>' +
-            '<td>' + fmtDate(p.last_job_run) + '</td><td>' + statusBadge(p.status) + '</td></tr>';
+            '<td>' + fmtDate(p.last_job_run) + '</td><td>' + statusBadge(p._status) + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('projects', sorted.length, rows.length);
 }
 
 // ── Planning ───────────────────────────────────────────────────────────────────
-function renderPlanning() {
+function renderPlanning(tableOnly) {
     const el = document.getElementById('tabPlanning');
     const schedules = snapData.schedules || [];
     const active = schedules.filter(s => s.enabled).length;
@@ -935,30 +1075,37 @@ function renderPlanning() {
         ...s, _resource: s.summary_fields?.unified_job_template?.name || '—',
         _status: s.enabled ? 'active' : 'inactive'
     }));
-    let html = statsCards([
-        {label:'Total',value:schedules.length,color:'#1a237e'},
-        {label:'Actifs',value:active,color:'#2e7d32'},{label:'Inactifs',value:schedules.length-active,color:'#757575'},
-    ]);
-    html += filterBar('planning', [{v:'active',l:'✓ Actif'},{v:'inactive',l:'Inactif'}]);
-    if (!schedules.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'planning', ['name','_resource','_status']);
+    _tabRows['planning'] = rows;
+    if (!tableOnly || !tabReady.has('planning')) {
+        tabReady.add('planning');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Total',value:schedules.length,color:'#1a237e'},
+                {label:'Actifs',value:active,color:'#2e7d32'},{label:'Inactifs',value:schedules.length-active,color:'#757575'},
+            ]) + '</div>' +
+            '<div id="planning-ctrl">' + filterBar('planning') + '</div>' +
+            '<div id="planning-tbl"></div>';
+    }
+    const tblEl = document.getElementById('planning-tbl');
+    if (!schedules.length) { tblEl.innerHTML = noData(); setFc('planning', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'planning', ['name','_resource','_status']);
     const sorted   = applySort(filtered, 'planning', 'name');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
         th('planning','name','Nom') + th('planning','_resource','Ressource') +
-        th('planning','rrule','Fréquence') + th('planning','next_run','Prochain run') + th('planning','_status','Statut') +
+        th('planning','rrule','Fréquence') + thF('planning','next_run','Prochain run','date') + thF('planning','_status','Statut','values') +
         '</tr></thead><tbody>';
     sorted.forEach(s => {
-        html += '<tr><td><b>' + esc(s.name) + '</b></td><td>' + esc(s._resource) + '</td>' +
+        tbl += '<tr><td><b>' + esc(s.name) + '</b></td><td>' + esc(s._resource) + '</td>' +
             '<td>' + esc(parseRrule(s.rrule)) + '</td><td>' + fmtDate(s.next_run) + '</td>' +
             '<td>' + (s.enabled ? '<span class="badge-status badge-ok">Actif</span>' : '<span class="badge-status badge-grey">Inactif</span>') + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('planning', sorted.length, rows.length);
 }
 
 // ── Tokens ─────────────────────────────────────────────────────────────────────
-function renderTokens() {
+function renderTokens(tableOnly) {
     const el = document.getElementById('tabTokens');
     const tokens = snapData.tokens || [];
     const now = Date.now(), ms30 = 30 * 86400000;
@@ -971,18 +1118,25 @@ function renderTokens() {
         else if (days !== null && days < 30) { warn++; _status = 'expiring'; }
         return { ...t, _user: user, _days: days ?? 99999, _status };
     });
-    let html = statsCards([
-        {label:'Total',value:tokens.length,color:'#1a237e'},
-        {label:'OK',value:tokens.length-exp-warn,color:'#2e7d32'},
-        {label:'⚠ < 30j',value:warn,color:'#e65100'},{label:'✗ Expirés',value:exp,color:'#c62828'},
-    ]);
-    html += filterBar('tokens', [{v:'expired',l:'✗ Expirés'},{v:'expiring',l:'⚠ < 30j'},{v:'ok',l:'✓ OK'}]);
-    if (!tokens.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'tokens', ['description','_user','scope','_status']);
+    _tabRows['tokens'] = rows;
+    if (!tableOnly || !tabReady.has('tokens')) {
+        tabReady.add('tokens');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Total',value:tokens.length,color:'#1a237e'},
+                {label:'OK',value:tokens.length-exp-warn,color:'#2e7d32'},
+                {label:'⚠ < 30j',value:warn,color:'#e65100'},{label:'✗ Expirés',value:exp,color:'#c62828'},
+            ]) + '</div>' +
+            '<div id="tokens-ctrl">' + filterBar('tokens') + '</div>' +
+            '<div id="tokens-tbl"></div>';
+    }
+    const tblEl = document.getElementById('tokens-tbl');
+    if (!tokens.length) { tblEl.innerHTML = noData(); setFc('tokens', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'tokens', ['description','_user','scope','_status']);
     const sorted   = applySort(filtered, 'tokens', '_days');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('tokens','description','Description') + th('tokens','_user','Utilisateur') +
-        th('tokens','scope','Scope') + th('tokens','expires','Expiration') + th('tokens','_days','Statut') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('tokens','description','Description') + thF('tokens','_user','Utilisateur','values') +
+        thF('tokens','scope','Scope','values') + thF('tokens','expires','Expiration','date') + thF('tokens','_status','Statut','values') +
         '</tr></thead><tbody>';
     sorted.forEach(t => {
         const days = t._days === 99999 ? null : t._days;
@@ -992,17 +1146,17 @@ function renderTokens() {
         else if (days < 0) db = '<span class="days-badge" style="background:#ffebee;color:#c62828">Expiré il y a ' + Math.abs(days) + 'j</span>';
         else if (days < 30) db = '<span class="days-badge" style="background:#fff8e1;color:#e65100">⚠ ' + days + 'j</span>';
         else db = '<span class="days-badge" style="background:#e8f5e9;color:#2e7d32">✓ ' + days + 'j</span>';
-        html += '<tr' + rowCls + '><td><b>' + esc(t.description || '(sans nom)') + '</b></td>' +
+        tbl += '<tr' + rowCls + '><td><b>' + esc(t.description || '(sans nom)') + '</b></td>' +
             '<td>' + esc(t._user) + '</td><td><code>' + esc(t.scope || '—') + '</code></td>' +
             '<td>' + fmtDate(t.expires) + '</td><td>' + db + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('tokens', sorted.length, rows.length);
 }
 
 // ── Credentials ────────────────────────────────────────────────────────────────
-function renderCredentials() {
+function renderCredentials(tableOnly) {
     const el = document.getElementById('tabCredentials');
     const creds = snapData.credentials || [];
     const byType = {};
@@ -1010,33 +1164,40 @@ function renderCredentials() {
         const type = (typeof c.credential_type === 'object' ? c.credential_type?.name : null) || c.kind || 'Autre';
         byType[type] = (byType[type] || 0) + 1;
         return { ...c, _type: type, _org: c.summary_fields?.organization?.name || '',
-                 _team: c.summary_fields?.team?.name || '', _status: type };
+                 _team: c.summary_fields?.team?.name || '' };
     });
-    let html = statsCards([{label:'Total',value:creds.length,color:'#1a237e'}, ...Object.entries(byType).slice(0,4).map(([t,n])=>({label:t,value:n,color:'#607d8b'}))]);
-    html += filterBar('credentials', Object.keys(byType).map(t => ({v:t,l:t})));
-    if (!creds.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'credentials', ['name','description','_type','_org','_team']);
+    _tabRows['credentials'] = rows;
+    if (!tableOnly || !tabReady.has('credentials')) {
+        tabReady.add('credentials');
+        el.innerHTML =
+            '<div>' + statsCards([{label:'Total',value:creds.length,color:'#1a237e'}, ...Object.entries(byType).slice(0,4).map(([t,n])=>({label:t,value:n,color:'#607d8b'}))]) + '</div>' +
+            '<div id="credentials-ctrl">' + filterBar('credentials') + '</div>' +
+            '<div id="credentials-tbl"></div>';
+    }
+    const tblEl = document.getElementById('credentials-tbl');
+    if (!creds.length) { tblEl.innerHTML = noData(); setFc('credentials', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'credentials', ['name','description','_type','_org','_team']);
     const sorted   = applySort(filtered, 'credentials', 'name');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('credentials','name','Nom') + th('credentials','_type','Type') +
-        th('credentials','_org','Organisation') + th('credentials','_team','Équipe') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('credentials','name','Nom') + thF('credentials','_type','Type','values') +
+        thF('credentials','_org','Organisation','values') + thF('credentials','_team','Équipe','values') +
         th('credentials','description','Description') + th('credentials','created','Créé le') +
         '</tr></thead><tbody>';
     sorted.forEach(c => {
         const nc = ncCheck(c.name, 'cred');
-        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
             '<td><b>' + esc(c.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') + '</td>' +
             '<td><span class="badge-status badge-info">' + esc(c._type) + '</span></td>' +
             '<td>' + esc(c._org || '—') + '</td><td>' + esc(c._team || '—') + '</td>' +
             '<td style="color:#888">' + esc(c.description || '—') + '</td><td>' + fmtDateShort(c.created) + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('credentials', sorted.length, rows.length);
 }
 
 // ── Inventories ────────────────────────────────────────────────────────────────
-function renderInventories() {
+function renderInventories(tableOnly) {
     const el = document.getElementById('tabInventories');
     const invs = snapData.inventories || [];
     const totalH = invs.reduce((s,i) => s + (i.total_hosts || 0), 0);
@@ -1045,23 +1206,30 @@ function renderInventories() {
         ...i, _org: i.summary_fields?.organization?.name || '',
         _status: i.hosts_with_active_failures > 0 ? 'fail' : 'ok'
     }));
-    let html = statsCards([
-        {label:'Inventories',value:invs.length,color:'#1a237e'},
-        {label:'Total hosts',value:totalH,color:'#607d8b'},
-        {label:'Hosts en échec',value:failH,color:failH>0?'#c62828':'#2e7d32'},
-    ]);
-    html += filterBar('inventories', [{v:'fail',l:'✗ Hosts en échec'},{v:'ok',l:'✓ OK'}]);
-    if (!invs.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'inventories', ['name','description','_org','_status']);
+    _tabRows['inventories'] = rows;
+    if (!tableOnly || !tabReady.has('inventories')) {
+        tabReady.add('inventories');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Inventories',value:invs.length,color:'#1a237e'},
+                {label:'Total hosts',value:totalH,color:'#607d8b'},
+                {label:'Hosts en échec',value:failH,color:failH>0?'#c62828':'#2e7d32'},
+            ]) + '</div>' +
+            '<div id="inventories-ctrl">' + filterBar('inventories') + '</div>' +
+            '<div id="inventories-tbl"></div>';
+    }
+    const tblEl = document.getElementById('inventories-tbl');
+    if (!invs.length) { tblEl.innerHTML = noData(); setFc('inventories', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'inventories', ['name','description','_org','_status']);
     const sorted   = applySort(filtered, 'inventories', 'name');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('inventories','name','Inventory') + th('inventories','_org','Organisation') +
-        th('inventories','kind','Type') + th('inventories','total_hosts','Hosts') +
-        th('inventories','hosts_with_active_failures','En échec') + th('inventories','total_groups','Groupes') +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('inventories','name','Inventory') + thF('inventories','_org','Organisation','values') +
+        thF('inventories','kind','Type','values') + th('inventories','total_hosts','Hosts') +
+        thF('inventories','_status','Statut','values') + th('inventories','total_groups','Groupes') +
         '</tr></thead><tbody>';
     sorted.forEach(i => {
         const nc = ncCheck(i.name, 'inv');
-        html += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
+        tbl += '<tr' + (nc === 'warn' ? ' class="nc-warn"' : '') + '>' +
             '<td><b>' + esc(i.name) + '</b>' + (nc !== 'ok' ? '<span class="nc-bw">⚠ norme</span>' : '') +
             (i.description ? '<br><small style="color:#888">' + esc(i.description) + '</small>' : '') + '</td>' +
             '<td>' + esc(i._org || '—') + '</td>' +
@@ -1070,13 +1238,13 @@ function renderInventories() {
             '<td' + (i.hosts_with_active_failures > 0 ? ' style="color:#c62828;font-weight:bold"' : '') + '>' + (i.hosts_with_active_failures || 0) + '</td>' +
             '<td>' + (i.total_groups || 0) + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('inventories', sorted.length, rows.length);
 }
 
 // ── Hosts ──────────────────────────────────────────────────────────────────────
-function renderHosts() {
+function renderHosts(tableOnly) {
     const el = document.getElementById('tabHosts');
     const hosts = snapData.hosts || [];
     const invMap = {};
@@ -1091,30 +1259,37 @@ function renderHosts() {
         return { ...h, _inv: invName, _lj: lj, _ncst: ncSt,
                  _status: h.has_active_failures ? 'fail' : (h.enabled ? 'ok' : 'disabled') };
     });
-    let html = statsCards([
-        {label:'Total hosts',value:hosts.length,color:'#1a237e'},{label:'Actifs',value:enabled,color:'#2e7d32'},
-        {label:'Désactivés',value:disabled,color:'#757575'},{label:'En échec',value:failed,color:failed>0?'#c62828':'#2e7d32'},
-    ]);
-    html += filterBar('hosts', [{v:'fail',l:'✗ En échec'},{v:'ok',l:'✓ Actif'},{v:'disabled',l:'Désactivé'}]);
-    if (!hosts.length) { el.innerHTML = html + noData(); return; }
-    const filtered = applyFilter(rows, 'hosts', ['name','_inv','_status']);
+    _tabRows['hosts'] = rows;
+    if (!tableOnly || !tabReady.has('hosts')) {
+        tabReady.add('hosts');
+        el.innerHTML =
+            '<div>' + statsCards([
+                {label:'Total hosts',value:hosts.length,color:'#1a237e'},{label:'Actifs',value:enabled,color:'#2e7d32'},
+                {label:'Désactivés',value:disabled,color:'#757575'},{label:'En échec',value:failed,color:failed>0?'#c62828':'#2e7d32'},
+            ]) + '</div>' +
+            '<div id="hosts-ctrl">' + filterBar('hosts') + '</div>' +
+            '<div id="hosts-tbl"></div>';
+    }
+    const tblEl = document.getElementById('hosts-tbl');
+    if (!hosts.length) { tblEl.innerHTML = noData(); setFc('hosts', 0, 0); return; }
+    const filtered = applyAllFilters(rows, 'hosts', ['name','_inv','_status']);
     const sorted   = applySort(filtered, 'hosts', 'name');
-    html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-        th('hosts','name','Host') + th('hosts','_inv','Inventory') +
-        th('hosts','_status','Statut') + '<th>Dernier job</th><th>Résultat</th>' +
+    let tbl = '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+        th('hosts','name','Host') + thF('hosts','_inv','Inventory','values') +
+        thF('hosts','_status','Statut','values') + '<th>Dernier job</th><th>Résultat</th>' +
         '</tr></thead><tbody>';
     sorted.forEach(h => {
         const nc = h._ncst;
         const trCls = nc === 'error' ? ' class="nc-error"' : (nc === 'warn' ? ' class="nc-warn"' : '');
         const ncBadge = nc === 'error' ? '<span class="nc-be">⛔ interdit</span>' : (nc === 'warn' ? '<span class="nc-bw">⚠ domaine</span>' : '');
-        html += '<tr' + trCls + '><td><b>' + esc(h.name) + '</b>' + ncBadge + '</td>' +
+        tbl += '<tr' + trCls + '><td><b>' + esc(h.name) + '</b>' + ncBadge + '</td>' +
             '<td>' + esc(h._inv) + '</td>' +
             '<td>' + (h.enabled ? '<span class="badge-status badge-ok">Actif</span>' : '<span class="badge-status badge-grey">Désactivé</span>') + '</td>' +
             '<td>' + (h._lj ? esc(h._lj.name || '') + '<br><small>' + fmtDate(h._lj.finished) + '</small>' : '<span style="color:#bbb">—</span>') + '</td>' +
             '<td>' + (h._lj ? statusBadge(h._lj.status) : '<span style="color:#bbb">—</span>') + '</td></tr>';
     });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
+    tbl += '</tbody></table></div>';
+    tblEl.innerHTML = tbl;
     setFc('hosts', sorted.length, rows.length);
 }
 
@@ -1247,6 +1422,7 @@ function saveNamingConfig() {
         forbiddenHp: lines('nc-forbidden-hp'),
         forbiddenProd: lines('nc-forbidden-prod'),
     });
+    tabReady.clear();
     closeNamingModal();
     if (snapData) renderCurrentTab();
 }
@@ -1254,6 +1430,7 @@ function saveNamingConfig() {
 function resetNamingConfig() {
     if (!confirm('Supprimer la configuration de normes ?')) return;
     const k = ncKey(); if (k) localStorage.removeItem(k);
+    tabReady.clear();
     closeNamingModal();
     if (snapData) renderCurrentTab();
 }

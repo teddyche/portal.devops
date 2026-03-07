@@ -20,7 +20,7 @@ PAGES_DIR = os.path.join(BASE_DIR, 'pages')
 
 _SWAGGER_CONFIG = {
     'title': 'portal.devops API',
-    'version': '1.0.0',
+    'version': '0.0.2',
     'description': 'API interne de portal.devops — SRE, PSSIT, CAD',
     'uiversion': 3,
     'specs_route': '/api/docs/',
