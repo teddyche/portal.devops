@@ -24,22 +24,49 @@ ENV_ARTIFACTORY = {
     'prd':  ('3PG',       'stable'),
 }
 
-_SSH_ARGS = (
+# ── SSH args par type d'OS ───────────────────────────────────────────────────
+
+# AIX : paramiko obligatoire, GSSAPIAuthentication, tmp custom, world-readable temp
+# (ansible_command_warnings est déprécié en Ansible >= 2.12, mais inoffensif)
+_SSH_ARGS_AIX = (
     'ansible_ssh_args="-o GSSAPIAuthentication=yes '
     '-o UserKnownHostsFile=/home/ldap/ansible_tmp/known_hosts" '
-    'ansible_shell_allow_world_readable_temp=true '
+    'ansible_shell_allow_world_readable_temp=true '   # AIX : /tmp est world-readable
     'ansible_host_key_checking=false '
     'ansible_retry_files_enabled=false '
     'ansible_deprecation_warnings=false '
     'ansible_display_skipped_hosts=false '
-    'ansible_command_warnings=false '
-    'ansible_transport=paramiko '
-    'ansible_scp_if_ssh=true '
+    'ansible_transport=paramiko '                     # AIX ne supporte pas OpenSSH natif
+    'ansible_scp_if_ssh=true '                        # SCP via paramiko
     'ansible_pipelining=true '
     'ansible_become_ask_pass=false '
     'ansible_local_tmp=/home/ldap/ansible_tmp '
     'ansible_remote_tmp=/home/ldap/ansible_tmp'
 )
+
+# Linux : SSH natif OpenSSH, variables minimales
+_SSH_ARGS_LINUX = (
+    'ansible_host_key_checking=false '
+    'ansible_become_ask_pass=false'
+)
+
+# Windows : connexion WinRM (NTLM ou Kerberos selon env)
+_SSH_ARGS_WINDOWS = (
+    'ansible_connection=winrm '
+    'ansible_winrm_transport=ntlm '
+    'ansible_port=5985 '
+    'ansible_winrm_server_cert_validation=ignore'
+)
+
+_OS_SSH_ARGS = {
+    'linux':   _SSH_ARGS_LINUX,
+    'aix':     _SSH_ARGS_AIX,
+    'windows': _SSH_ARGS_WINDOWS,
+}
+
+_OS_PREFIX = {'linux': 'VM', 'aix': 'AIX', 'windows': 'WIN'}
+_OS_PARENT = {'linux': 'VM_LINUX', 'aix': 'VM_AIX', 'windows': 'WIN_WINDOWS'}
+_OS_ORDER  = ['linux', 'aix', 'windows']
 
 
 def _j(var: str) -> str:
@@ -91,55 +118,101 @@ def _env_group_vars(env: str) -> str:
 
 # ── Inventaire hosts ──────────────────────────────────────────────────────────
 
-def _hosts_content(code_app: str, hosts: list, fqdn: str) -> str:
+def _hosts_content(code_app: str, hosts: list, fqdn: str, middlewares: list | None = None) -> str:
+    """
+    Génère le fichier hosts Ansible avec une hiérarchie OS-based :
+
+      {ca}_platform
+        ├── VM_LINUX          (tous les hôtes Linux)
+        │     ├── VM_APP      (Linux + rôle APP)
+        │     └── VM_APACHE   (Linux + rôle APACHE, si MW sélectionné)
+        └── VM_AIX            (tous les hôtes AIX)
+              ├── AIX_APP
+              └── AIX_DB
+
+    Nommage des groupes : {OS_PREFIX}_{ROLE_UPPER}
+      - Linux   → VM_APP, VM_DB, VM_APACHE ...
+      - AIX     → AIX_APP, AIX_DB ...
+      - Windows → WIN_APP, WIN_DB ...
+    """
     ca = code_app.lower()
 
-    groups: dict[str, list[str]] = {}
+    # (os_type, role) → [hostname]
+    groups: dict[tuple, list[str]] = {}
     for h in hosts:
-        g  = h.get('group', f'{code_app.upper()}_APP').strip().upper().replace(' ', '_')
-        hn = h.get('hostname', '').strip()
+        os_type = h.get('os', 'linux').lower()
+        role    = h.get('group', 'APP').strip().upper().replace(' ', '_')
+        hn      = h.get('hostname', '').strip()
         if hn:
-            groups.setdefault(g, []).append(hn)
+            groups.setdefault((os_type, role), []).append(hn)
 
     if not groups:
+        eg = fqdn or 'fqdn.exemple'
         return '\n'.join([
             f'[{ca}_platform:vars]',
             'callbacks_enabled=timer,profile_tasks,profile_roles',
             '',
             f'[{ca}_platform:children]',
-            f'{ca}_app',
+            'VM_LINUX',
+            'VM_AIX',
             '',
-            f'[{ca}_app:children]',
-            '# TODO: définir les groupes de serveurs',
+            '[VM_LINUX:children]',
+            '# TODO: ex: VM_APP, VM_DB, VM_APACHE',
             '',
-            f'# [NOM_GROUPE]',
-            f'# hostname.{fqdn or "fqdn.exemple"} {_SSH_ARGS}',
+            '[VM_AIX:children]',
+            '# TODO: ex: AIX_APP, AIX_DB',
+            '',
+            '# [VM_APP]',
+            f'# server01.{eg} {_SSH_ARGS_LINUX}',
+            '',
+            '# [AIX_APP]',
+            f'# aix01.{eg} {_SSH_ARGS_AIX}',
             '',
         ])
 
-    app_groups = [g for g in groups if not any(k in g for k in ('DB', 'BDD', 'BASE'))]
-    db_groups  = [g for g in groups if     any(k in g for k in ('DB', 'BDD', 'BASE'))]
+    # OS présents, dans un ordre logique
+    os_present = [o for o in _OS_ORDER if o in {k[0] for k in groups}]
+
+    # os_type → [group_names] (triés)
+    os_to_groups: dict[str, list[str]] = {}
+    for (os_type, role) in groups:
+        g = f'{_OS_PREFIX.get(os_type, "VM")}_{role}'
+        os_to_groups.setdefault(os_type, []).append(g)
+    for k in os_to_groups:
+        os_to_groups[k] = sorted(set(os_to_groups[k]))
 
     lines = [
+        f'# Inventaire généré par CLP Ansible Builder',
+        '',
         f'[{ca}_platform:vars]',
         'callbacks_enabled=timer,profile_tasks,profile_roles',
         '',
+        f'# ── Groupes OS (ciblage patch management) ───────────────────────────────',
         f'[{ca}_platform:children]',
     ]
-    if app_groups: lines.append(f'{ca}_app')
-    if db_groups:  lines.append(f'{ca}_db')
+    for os_type in os_present:
+        lines.append(_OS_PARENT[os_type])
     lines.append('')
 
-    if app_groups:
-        lines += [f'[{ca}_app:children]'] + app_groups + ['']
-    if db_groups:
-        lines += [f'[{ca}_db:children]']  + db_groups  + ['']
+    # Groupes OS → sous-groupes par rôle
+    for os_type in os_present:
+        parent   = _OS_PARENT[os_type]
+        children = os_to_groups.get(os_type, [])
+        lines.append(f'# ── {parent} ────────────────────────────────────────────────────────────')
+        lines.append(f'[{parent}:children]')
+        lines += children
+        lines.append('')
 
-    for g, hostnames in groups.items():
-        lines.append(f'[{g}]')
+    # Groupes individuels avec hôtes + SSH args
+    lines.append('# ── Serveurs ─────────────────────────────────────────────────────────────')
+    lines.append('')
+    for (os_type, role), hostnames in groups.items():
+        group_name = f'{_OS_PREFIX.get(os_type, "VM")}_{role}'
+        ssh_args   = _OS_SSH_ARGS.get(os_type, _SSH_ARGS_LINUX)
+        lines.append(f'[{group_name}]')
         for hn in hostnames:
             host = f'{hn}.{fqdn}' if fqdn and '.' not in hn else hn
-            lines.append(f'{host} {_SSH_ARGS}')
+            lines.append(f'{host} {ssh_args}')
         lines.append('')
 
     return '\n'.join(lines)
@@ -619,7 +692,7 @@ def generate_ansible_zip(
             if not env:
                 continue
             inv = base + f'inventories/{env}/'
-            zf.writestr(inv + 'hosts',              _hosts_content(code_app, hosts, fqdn))
+            zf.writestr(inv + 'hosts',              _hosts_content(code_app, hosts, fqdn, mw))
             zf.writestr(inv + 'group_vars/all.yml', _env_group_vars(env))
 
         # Rôle get-from-artifactory

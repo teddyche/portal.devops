@@ -95,9 +95,10 @@
             padding: 7px 10px; border: 1.5px solid #ddd; border-radius: 6px;
             font-size: 13px; outline: none; transition: border-color .15s;
         }
-        .host-row input { flex: 2; font-family: monospace; }
-        .host-row select { flex: 1; }
         .host-row input:focus, .host-row select:focus { border-color: #607d8b; }
+        .host-hostname  { flex: 3; min-width: 120px; font-family: monospace; }
+        .host-os-select { flex: 0 0 120px; }
+        .host-grp-select{ flex: 1; min-width: 90px; }
         .host-del {
             background: none; border: none; cursor: pointer;
             color: #ccc; font-size: 16px; padding: 4px;
@@ -282,16 +283,14 @@
         <div class="card-header">⚙️ Middlewares <span style="font-size:12px;font-weight:normal;color:#aaa;margin-left:6px">— ajoute les rôles correspondants dans le package</span></div>
         <div class="card-body">
             <div class="mw-grid">
-                <label class="mw-chip" id="mw-apache" onclick="toggleMw('apache', this)">
-                    <input type="checkbox" value="apache">
+                <div class="mw-chip" id="mw-apache" onclick="toggleMw('apache', this)">
                     <span>🌐</span>
                     <span>Apache (httpd)<span class="mw-desc">rôle systemd + validation config + handler reload</span></span>
-                </label>
-                <label class="mw-chip" id="mw-tomcat" onclick="toggleMw('tomcat', this)">
-                    <input type="checkbox" value="tomcat">
+                </div>
+                <div class="mw-chip" id="mw-tomcat" onclick="toggleMw('tomcat', this)">
                     <span>🐱</span>
                     <span>Tomcat<span class="mw-desc">rôle systemd + wait_for port + lecture catalina.out</span></span>
-                </label>
+                </div>
             </div>
         </div>
     </div>
@@ -393,6 +392,25 @@ function toggleMw(name, chip) {
         selectedMiddlewares.add(name);
         chip.classList.add('checked');
     }
+    refreshGroupOptions();
+}
+
+function getGroupOptions() {
+    const base = ['APP', 'DB', 'WEB', 'BATCH', 'MQ'];
+    if (selectedMiddlewares.has('apache')) base.push('APACHE');
+    if (selectedMiddlewares.has('tomcat')) base.push('TOMCAT');
+    return base;
+}
+
+function refreshGroupOptions() {
+    const opts = getGroupOptions();
+    document.querySelectorAll('.host-grp-select').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = opts.map(g =>
+            `<option value="${g}"${g === cur ? ' selected' : ''}>${g}</option>`
+        ).join('');
+        if (!opts.includes(cur)) sel.value = opts[0];
+    });
 }
 
 /* ── FQDN helpers ────────────────────────────────────────────────────────── */
@@ -456,31 +474,30 @@ function renderEnvSections() {
 
             // Restore existing hosts
             if (existing[env.name] && existing[env.name].length > 0) {
-                existing[env.name].forEach(h => addHostRow(env.name, h.hostname, h.group));
+                existing[env.name].forEach(h => addHostRow(env.name, h.hostname, h.os || 'linux', h.group));
             }
         });
 }
 
 /* ── Host rows ───────────────────────────────────────────────────────────── */
-function addHostRow(envName, hostname = '', group = '') {
+function addHostRow(envName, hostname = '', os = 'linux', group = 'APP') {
     const container = document.getElementById(`hosts-${envName}`);
     const row = document.createElement('div');
     row.className = 'host-row';
 
-    const groupOpts = ['APP', 'DB', 'WEB', 'BATCH', 'MQ', 'OTHER']
-        .map(g => `<option value="${g}"${g === (group.toUpperCase() || 'APP') ? ' selected' : ''}>${g}</option>`)
+    const grpUp  = (group || 'APP').toUpperCase();
+    const grpOpts = getGroupOptions()
+        .map(g => `<option value="${g}"${g === grpUp ? ' selected' : ''}>${g}</option>`)
         .join('');
 
-    // Try to restore custom group
-    const groupVal = group.toUpperCase() || 'APP';
-    const isCustom = !['APP', 'DB', 'WEB', 'BATCH', 'MQ', 'OTHER'].includes(groupVal);
-
     row.innerHTML = `
-        <input type="text" placeholder="nom-serveur" value="${escHtml(hostname)}"
-               style="font-family:monospace">
-        <input type="text" placeholder="Groupe (ex: AIX_APP)" value="${escHtml(groupVal)}"
-               style="flex:1; font-family:monospace; text-transform:uppercase"
-               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9_]/g,'')">
+        <input type="text" class="host-hostname" placeholder="nom-serveur" value="${escHtml(hostname)}">
+        <select class="host-os-select">
+            <option value="linux"${os === 'linux' ? ' selected' : ''}>🐧 Linux</option>
+            <option value="aix"${os === 'aix' ? ' selected' : ''}>📦 AIX</option>
+            <option value="windows"${os === 'windows' ? ' selected' : ''}>🪟 Windows</option>
+        </select>
+        <select class="host-grp-select">${grpOpts}</select>
         <button class="host-del" onclick="this.parentElement.remove()" title="Supprimer">✕</button>
     `;
     container.appendChild(row);
@@ -489,10 +506,10 @@ function addHostRow(envName, hostname = '', group = '') {
 function collectHosts(section) {
     const hosts = [];
     section.querySelectorAll('.host-row').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const hn = inputs[0].value.trim();
-        const grp = inputs[1].value.trim();
-        if (hn) hosts.push({ hostname: hn, group: grp || 'APP' });
+        const hn  = row.querySelector('.host-hostname').value.trim();
+        const os  = row.querySelector('.host-os-select').value;
+        const grp = row.querySelector('.host-grp-select').value;
+        if (hn) hosts.push({ hostname: hn, os, group: grp });
     });
     return hosts;
 }
