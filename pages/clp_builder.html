@@ -285,11 +285,31 @@
             <div class="mw-grid">
                 <div class="mw-chip" id="mw-apache" onclick="toggleMw('apache', this)">
                     <span>🌐</span>
-                    <span>Apache (httpd)<span class="mw-desc">rôle systemd + validation config + handler reload</span></span>
+                    <span>Apache<span class="mw-desc">httpd · status + httpd -t + reload</span></span>
                 </div>
                 <div class="mw-chip" id="mw-tomcat" onclick="toggleMw('tomcat', this)">
                     <span>🐱</span>
-                    <span>Tomcat<span class="mw-desc">rôle systemd + wait_for port + lecture catalina.out</span></span>
+                    <span>Tomcat<span class="mw-desc">systemd · wait_for + catalina.out</span></span>
+                </div>
+                <div class="mw-chip" id="mw-mq" onclick="toggleMw('mq', this)">
+                    <span>📨</span>
+                    <span>IBM MQ<span class="mw-desc">dspmq · strmqm + listener port</span></span>
+                </div>
+                <div class="mw-chip" id="mw-websphere" onclick="toggleMw('websphere', this)">
+                    <span>🏢</span>
+                    <span>WebSphere<span class="mw-desc">serverStatus · startServer/stopServer</span></span>
+                </div>
+                <div class="mw-chip" id="mw-php" onclick="toggleMw('php', this)">
+                    <span>🐘</span>
+                    <span>PHP-FPM<span class="mw-desc">systemd · wait_for port 9000</span></span>
+                </div>
+                <div class="mw-chip" id="mw-jboss" onclick="toggleMw('jboss', this)">
+                    <span>🔥</span>
+                    <span>JBoss/WildFly<span class="mw-desc">systemd · wait_for port 8080 + admin</span></span>
+                </div>
+                <div class="mw-chip" id="mw-cft" onclick="toggleMw('cft', this)">
+                    <span>🔄</span>
+                    <span>Axway CFT<span class="mw-desc">cftping · cftstart/cftstop + retry</span></span>
                 </div>
             </div>
         </div>
@@ -396,9 +416,19 @@ function toggleMw(name, chip) {
 }
 
 function getGroupOptions() {
-    const base = ['APP', 'DB', 'WEB', 'BATCH', 'MQ'];
-    if (selectedMiddlewares.has('apache')) base.push('APACHE');
-    if (selectedMiddlewares.has('tomcat')) base.push('TOMCAT');
+    const base = ['APP', 'DB', 'WEB', 'BATCH'];
+    const mwOpts = [
+        ['apache',    'APACHE'],
+        ['tomcat',    'TOMCAT'],
+        ['mq',        'MQ'],
+        ['websphere', 'WEBSPHERE'],
+        ['php',       'PHP'],
+        ['jboss',     'JBOSS'],
+        ['cft',       'CFT'],
+    ];
+    mwOpts.forEach(([mw, label]) => {
+        if (selectedMiddlewares.has(mw)) base.push(label);
+    });
     return base;
 }
 

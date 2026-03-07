@@ -68,6 +68,18 @@ _OS_PREFIX = {'linux': 'VM', 'aix': 'AIX', 'windows': 'WIN'}
 _OS_PARENT = {'linux': 'VM_LINUX', 'aix': 'VM_AIX', 'windows': 'WIN_WINDOWS'}
 _OS_ORDER  = ['linux', 'aix', 'windows']
 
+# Mapping rôle (groupe hôte) → nom de middleware
+# Permet de construire les groupes cross-OS {ca}_{mw} dans le fichier hosts
+_ROLE_TO_MW = {
+    'APACHE':    'apache',
+    'TOMCAT':    'tomcat',
+    'MQ':        'mq',
+    'WEBSPHERE': 'websphere',
+    'PHP':       'php',
+    'JBOSS':     'jboss',
+    'CFT':       'cft',
+}
+
 
 def _j(var: str) -> str:
     """Retourne une expression Jinja2 {{ var }}."""
@@ -181,25 +193,54 @@ def _hosts_content(code_app: str, hosts: list, fqdn: str, middlewares: list | No
     for k in os_to_groups:
         os_to_groups[k] = sorted(set(os_to_groups[k]))
 
+    # MW présents : mw_name → [group_names cross-OS]
+    # ex: 'apache' → ['AIX_APACHE', 'VM_APACHE']
+    mw_to_groups: dict[str, list[str]] = {}
+    for (os_type, role) in groups:
+        mw = _ROLE_TO_MW.get(role)
+        if mw and mw in (middlewares or []):
+            g = f'{_OS_PREFIX.get(os_type, "VM")}_{role}'
+            mw_to_groups.setdefault(mw, []).append(g)
+    for k in mw_to_groups:
+        mw_to_groups[k] = sorted(set(mw_to_groups[k]))
+
     lines = [
-        f'# Inventaire généré par CLP Ansible Builder',
+        '# Inventaire généré par CLP Ansible Builder',
         '',
         f'[{ca}_platform:vars]',
         'callbacks_enabled=timer,profile_tasks,profile_roles',
         '',
-        f'# ── Groupes OS (ciblage patch management) ───────────────────────────────',
+        f'# ── {ca}_platform — hiérarchie complète ────────────────────────────────',
         f'[{ca}_platform:children]',
     ]
+
+    # Enfants OS
+    if os_present:
+        lines.append('# Groupes OS → ciblage patch management')
     for os_type in os_present:
         lines.append(_OS_PARENT[os_type])
+
+    # Enfants MW cross-OS
+    if mw_to_groups:
+        lines.append('# Groupes Middleware → ciblage applicatif')
+    for mw in mw_to_groups:
+        lines.append(f'{ca}_{mw}')
+
     lines.append('')
 
     # Groupes OS → sous-groupes par rôle
     for os_type in os_present:
         parent   = _OS_PARENT[os_type]
         children = os_to_groups.get(os_type, [])
-        lines.append(f'# ── {parent} ────────────────────────────────────────────────────────────')
+        lines.append(f'# ── {parent} ─────────────────────────────────────────────────────────')
         lines.append(f'[{parent}:children]')
+        lines += children
+        lines.append('')
+
+    # Groupes Middleware cross-OS (contiennent VM_APACHE, AIX_APACHE, etc.)
+    for mw, children in mw_to_groups.items():
+        lines.append(f'# ── {ca}_{mw} — tous les serveurs {mw.upper()} (Linux + AIX + ...) ──')
+        lines.append(f'[{ca}_{mw}:children]')
         lines += children
         lines.append('')
 
@@ -650,6 +691,578 @@ def _tomcat_handlers() -> str:
 """
 
 
+# ── Rôle : mq (IBM MQ) ───────────────────────────────────────────────────────
+
+def _mq_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : mq — Variables par défaut (IBM MQ)
+# =============================================================================
+
+# Nom du Queue Manager à gérer
+mq_qmgr: QMGR1
+
+# Utilisateur système IBM MQ
+mq_user: mqm
+
+# Répertoire d'installation IBM MQ
+mq_install_dir: /opt/mqm
+
+# Port d'écoute du listener MQ
+mq_port: 1414
+
+# Timeout d'attente du démarrage (secondes)
+mq_start_timeout: 60
+"""
+
+
+def _mq_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : mq
+#
+# Gestion du Queue Manager IBM MQ.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   mq_qmgr        : nom du Queue Manager         (défaut: QMGR1)
+#   mq_user        : utilisateur système MQ        (défaut: mqm)
+#   mq_install_dir : répertoire d'installation     (défaut: /opt/mqm)
+#   mq_port        : port du listener              (défaut: 1414)
+# =============================================================================
+
+# ── Vérification du statut du Queue Manager ───────────────────────────────────
+# dspmq affiche l'état de tous les Queue Managers ou d'un en particulier.
+- name: "MQ — Statut du Queue Manager {{ mq_qmgr }}"
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/dspmq -m {{ mq_qmgr }}"
+  register: mq_status
+  become: true
+  become_user: "{{ mq_user }}"
+  changed_when: false
+  failed_when: false
+
+- name: "MQ — Affichage du statut"
+  ansible.builtin.debug:
+    msg: "{{ mq_status.stdout }}"
+
+# ── Démarrage du Queue Manager si arrêté ─────────────────────────────────────
+# strmqm démarre le QM. Si déjà démarré, la commande retourne un avertissement
+# mais ne provoque pas d'erreur (idempotent en pratique).
+- name: "MQ — Démarrage du Queue Manager {{ mq_qmgr }} (si arrêté)"
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/strmqm {{ mq_qmgr }}"
+  become: true
+  become_user: "{{ mq_user }}"
+  when: "'Running' not in mq_status.stdout"
+  register: mq_start
+  changed_when: mq_start.rc == 0
+
+# ── Vérification de la disponibilité du port listener ────────────────────────
+- name: "MQ — Attente de la disponibilité du port {{ mq_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ mq_port }}"
+    timeout: "{{ mq_start_timeout }}"
+    state:   started
+  when: "'Running' not in mq_status.stdout"
+
+# ── Vérification finale ────────────────────────────────────────────────────────
+- name: "MQ — Statut final du Queue Manager"
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/dspmq -m {{ mq_qmgr }}"
+  register: mq_final
+  become: true
+  become_user: "{{ mq_user }}"
+  changed_when: false
+
+- name: "MQ — Résultat"
+  ansible.builtin.debug:
+    msg: "{{ mq_final.stdout }}"
+"""
+
+
+def _mq_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : mq — Handlers
+# =============================================================================
+
+# Arrêt propre du Queue Manager (attente des connexions en cours).
+- name: stop mq
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/endmqm {{ mq_qmgr }}"
+  become: true
+  become_user: "{{ mq_user }}"
+
+# Redémarrage : arrêt puis démarrage du Queue Manager.
+- name: restart mq
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/endmqm {{ mq_qmgr }}"
+  become: true
+  become_user: "{{ mq_user }}"
+  notify: start mq after stop
+
+- name: start mq after stop
+  ansible.builtin.command:
+    cmd: "{{ mq_install_dir }}/bin/strmqm {{ mq_qmgr }}"
+  become: true
+  become_user: "{{ mq_user }}"
+"""
+
+
+# ── Rôle : websphere (IBM WebSphere Application Server) ──────────────────────
+
+def _websphere_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : websphere — Variables par défaut (IBM WebSphere Application Server)
+# =============================================================================
+
+# Répertoire d'installation de WebSphere Application Server
+was_install_dir: /opt/IBM/WebSphere/AppServer
+
+# Nom du profil WebSphere à gérer
+was_profile: AppSrv01
+
+# Nom du serveur d'application dans le profil
+was_server: server1
+
+# Utilisateur système WebSphere
+was_user: wasadm
+
+# Port HTTP de l'application (pour vérification de disponibilité)
+was_port: 9080
+
+# Timeout de démarrage (secondes)
+was_start_timeout: 120
+"""
+
+
+def _websphere_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : websphere
+#
+# Gestion d'un serveur IBM WebSphere Application Server.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   was_install_dir : répertoire d'installation WAS   (défaut: /opt/IBM/WebSphere/AppServer)
+#   was_profile     : nom du profil WAS               (défaut: AppSrv01)
+#   was_server      : nom du serveur dans le profil   (défaut: server1)
+#   was_user        : utilisateur système             (défaut: wasadm)
+#   was_port        : port HTTP applicatif            (défaut: 9080)
+# =============================================================================
+
+# ── Vérification du statut du serveur ─────────────────────────────────────────
+# serverStatus.sh retourne l'état du serveur (STARTED / STOPPED).
+- name: "WebSphere — Statut du serveur {{ was_server }} (profil {{ was_profile }})"
+  ansible.builtin.command:
+    cmd: >
+      {{ was_install_dir }}/profiles/{{ was_profile }}/bin/serverStatus.sh
+      {{ was_server }}
+      -profileName {{ was_profile }}
+  register: was_status
+  become: true
+  become_user: "{{ was_user }}"
+  changed_when: false
+  failed_when: false
+
+- name: "WebSphere — Affichage du statut"
+  ansible.builtin.debug:
+    msg: "{{ was_status.stdout_lines }}"
+
+# ── Démarrage du serveur si arrêté ───────────────────────────────────────────
+- name: "WebSphere — Démarrage de {{ was_server }} (si arrêté)"
+  ansible.builtin.command:
+    cmd: >
+      {{ was_install_dir }}/profiles/{{ was_profile }}/bin/startServer.sh
+      {{ was_server }}
+      -profileName {{ was_profile }}
+  become: true
+  become_user: "{{ was_user }}"
+  when: "'STARTED' not in was_status.stdout"
+  register: was_start
+  changed_when: was_start.rc == 0
+
+# ── Attente de la disponibilité HTTP ──────────────────────────────────────────
+- name: "WebSphere — Attente de la disponibilité du port {{ was_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ was_port }}"
+    timeout: "{{ was_start_timeout }}"
+    state:   started
+  when: "'STARTED' not in was_status.stdout"
+"""
+
+
+def _websphere_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : websphere — Handlers
+# =============================================================================
+
+# Arrêt propre du serveur WebSphere.
+- name: stop websphere
+  ansible.builtin.command:
+    cmd: >
+      {{ was_install_dir }}/profiles/{{ was_profile }}/bin/stopServer.sh
+      {{ was_server }}
+      -profileName {{ was_profile }}
+  become: true
+  become_user: "{{ was_user }}"
+
+# Redémarrage du serveur WebSphere.
+- name: restart websphere
+  ansible.builtin.command:
+    cmd: >
+      {{ was_install_dir }}/profiles/{{ was_profile }}/bin/stopServer.sh
+      {{ was_server }}
+      -profileName {{ was_profile }}
+  become: true
+  become_user: "{{ was_user }}"
+  notify: start websphere after stop
+
+- name: start websphere after stop
+  ansible.builtin.command:
+    cmd: >
+      {{ was_install_dir }}/profiles/{{ was_profile }}/bin/startServer.sh
+      {{ was_server }}
+      -profileName {{ was_profile }}
+  become: true
+  become_user: "{{ was_user }}"
+"""
+
+
+# ── Rôle : php ────────────────────────────────────────────────────────────────
+
+def _php_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : php — Variables par défaut (PHP-FPM)
+# =============================================================================
+
+# Nom du service PHP-FPM (adapter selon la version installée)
+# Exemples : php-fpm, php7.4-fpm, php8.1-fpm
+php_fpm_service: php-fpm
+
+# Port d'écoute de PHP-FPM (si configuré en mode TCP, sinon Unix socket)
+php_fpm_port: 9000
+
+# Répertoire des pools PHP-FPM
+php_fpm_pool_dir: /etc/php-fpm.d
+
+# Timeout de démarrage (secondes)
+php_start_timeout: 30
+"""
+
+
+def _php_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : php
+#
+# Gestion du service PHP-FPM.
+# PHP-FPM (FastCGI Process Manager) est généralement associé à un serveur
+# web (Apache avec mod_proxy_fcgi ou Nginx) pour servir les applications PHP.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   php_fpm_service  : nom du service systemd     (défaut: php-fpm)
+#   php_fpm_port     : port TCP de PHP-FPM        (défaut: 9000)
+#   php_start_timeout: timeout démarrage (s)      (défaut: 30)
+# =============================================================================
+
+# ── Vérification du statut ────────────────────────────────────────────────────
+- name: "PHP-FPM — Vérification du statut du service {{ php_fpm_service }}"
+  ansible.builtin.systemd:
+    name: "{{ php_fpm_service }}"
+  register: phpfpm_status
+  become: true
+
+- name: "PHP-FPM — Statut : {{ phpfpm_status.status.ActiveState }}"
+  ansible.builtin.debug:
+    msg: "Le service {{ php_fpm_service }} est {{ phpfpm_status.status.ActiveState }}"
+
+# ── Démarrage si arrêté ───────────────────────────────────────────────────────
+- name: "PHP-FPM — Démarrage du service (si arrêté)"
+  ansible.builtin.systemd:
+    name:    "{{ php_fpm_service }}"
+    state:   started
+    enabled: true
+  become: true
+  when: phpfpm_status.status.ActiveState != 'active'
+
+# ── Vérification de la disponibilité du port ──────────────────────────────────
+# Applicable uniquement si PHP-FPM est configuré en mode TCP (pas Unix socket).
+- name: "PHP-FPM — Attente de la disponibilité du port {{ php_fpm_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ php_fpm_port }}"
+    timeout: "{{ php_start_timeout }}"
+    state:   started
+  # Commenter si PHP-FPM utilise un Unix socket plutôt qu'un port TCP
+"""
+
+
+def _php_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : php — Handlers
+# =============================================================================
+
+# Redémarrage complet de PHP-FPM (après changement de configuration).
+- name: restart php-fpm
+  ansible.builtin.systemd:
+    name:  "{{ php_fpm_service }}"
+    state: restarted
+  become: true
+
+# Rechargement à chaud de PHP-FPM (après ajout/modification de pool).
+- name: reload php-fpm
+  ansible.builtin.systemd:
+    name:  "{{ php_fpm_service }}"
+    state: reloaded
+  become: true
+"""
+
+
+# ── Rôle : jboss (WildFly / JBoss EAP) ──────────────────────────────────────
+
+def _jboss_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : jboss — Variables par défaut (WildFly / JBoss EAP)
+# =============================================================================
+
+# Nom du service systemd WildFly/JBoss
+jboss_service: wildfly
+
+# Répertoire d'installation de WildFly/JBoss
+jboss_home: /opt/wildfly
+
+# Port HTTP de l'application (pour vérification de disponibilité)
+jboss_port: 8080
+
+# Port de la console d'administration (HTTP)
+jboss_admin_port: 9990
+
+# Utilisateur système WildFly/JBoss
+jboss_user: wildfly
+
+# Timeout de démarrage (secondes)
+jboss_start_timeout: 120
+"""
+
+
+def _jboss_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : jboss
+#
+# Gestion du serveur d'application WildFly / JBoss EAP.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   jboss_service      : nom du service systemd        (défaut: wildfly)
+#   jboss_home         : répertoire d'installation     (défaut: /opt/wildfly)
+#   jboss_port         : port HTTP applicatif          (défaut: 8080)
+#   jboss_admin_port   : port console d'admin          (défaut: 9990)
+#   jboss_user         : utilisateur système           (défaut: wildfly)
+#   jboss_start_timeout: timeout démarrage (s)         (défaut: 120)
+# =============================================================================
+
+# ── Vérification du statut ────────────────────────────────────────────────────
+- name: "JBoss — Vérification du statut du service {{ jboss_service }}"
+  ansible.builtin.systemd:
+    name: "{{ jboss_service }}"
+  register: jboss_status
+  become: true
+
+- name: "JBoss — Statut : {{ jboss_status.status.ActiveState }}"
+  ansible.builtin.debug:
+    msg: "Le service {{ jboss_service }} est {{ jboss_status.status.ActiveState }}"
+
+# ── Démarrage si arrêté ───────────────────────────────────────────────────────
+- name: "JBoss — Démarrage du service (si arrêté)"
+  ansible.builtin.systemd:
+    name:    "{{ jboss_service }}"
+    state:   started
+    enabled: true
+  become: true
+  when: jboss_status.status.ActiveState != 'active'
+
+# ── Attente de la disponibilité HTTP ──────────────────────────────────────────
+# WildFly peut prendre du temps à démarrer (chargement des déploiements).
+- name: "JBoss — Attente de la disponibilité du port {{ jboss_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ jboss_port }}"
+    timeout: "{{ jboss_start_timeout }}"
+    state:   started
+
+# ── Vérification de la console d'administration ────────────────────────────────
+- name: "JBoss — Vérification de la disponibilité de la console d'admin (port {{ jboss_admin_port }})"
+  ansible.builtin.wait_for:
+    port:    "{{ jboss_admin_port }}"
+    timeout: 30
+    state:   started
+  failed_when: false   # Non bloquant : la console peut être désactivée
+"""
+
+
+def _jboss_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : jboss — Handlers
+# =============================================================================
+
+# Redémarrage complet de WildFly/JBoss (après déploiement ou changement de config).
+- name: restart jboss
+  ansible.builtin.systemd:
+    name:  "{{ jboss_service }}"
+    state: restarted
+  become: true
+
+# Arrêt propre du service.
+- name: stop jboss
+  ansible.builtin.systemd:
+    name:  "{{ jboss_service }}"
+    state: stopped
+  become: true
+"""
+
+
+# ── Rôle : cft (Axway Transfer CFT) ──────────────────────────────────────────
+
+def _cft_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : cft — Variables par défaut (Axway Transfer CFT)
+# =============================================================================
+
+# Répertoire d'installation de Transfer CFT
+cft_install_dir: /opt/cft
+
+# Utilisateur système CFT
+cft_user: cftuser
+
+# Nom de l'instance CFT (CFTENV ou équivalent)
+cft_instance: CFTPROD
+
+# Timeout de démarrage (secondes)
+cft_start_timeout: 60
+
+# Port de supervision CFT (si activé)
+# cft_port: 1761
+"""
+
+
+def _cft_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : cft
+#
+# Gestion du transfert de fichiers Axway Transfer CFT.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   cft_install_dir : répertoire d'installation    (défaut: /opt/cft)
+#   cft_user        : utilisateur système CFT      (défaut: cftuser)
+#   cft_instance    : nom de l'instance CFT        (défaut: CFTPROD)
+#   cft_start_timeout: timeout démarrage (s)       (défaut: 60)
+# =============================================================================
+
+# ── Vérification du statut via cftping ────────────────────────────────────────
+# cftping retourne 0 si CFT est actif, non-zero sinon.
+- name: "CFT — Vérification du statut (cftping)"
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftping"
+    chdir: "{{ cft_install_dir }}"
+  register: cft_status
+  become: true
+  become_user: "{{ cft_user }}"
+  changed_when: false
+  failed_when: false
+  environment:
+    CFTENV: "{{ cft_instance }}"
+
+- name: "CFT — Statut : {{ 'actif' if cft_status.rc == 0 else 'inactif' }}"
+  ansible.builtin.debug:
+    msg: "CFT {{ cft_instance }} : {{ cft_status.stdout | default('pas de réponse') }}"
+
+# ── Démarrage si inactif ──────────────────────────────────────────────────────
+# cftstart initialise et démarre le moteur de transfert.
+- name: "CFT — Démarrage de l'instance {{ cft_instance }} (si inactif)"
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftstart"
+    chdir: "{{ cft_install_dir }}"
+  become: true
+  become_user: "{{ cft_user }}"
+  when: cft_status.rc != 0
+  environment:
+    CFTENV: "{{ cft_instance }}"
+  register: cft_start
+  changed_when: cft_start.rc == 0
+
+# ── Vérification post-démarrage ───────────────────────────────────────────────
+- name: "CFT — Attente de la disponibilité après démarrage"
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftping"
+    chdir: "{{ cft_install_dir }}"
+  register: cft_ready
+  become: true
+  become_user: "{{ cft_user }}"
+  changed_when: false
+  retries: 6
+  delay: 10
+  until: cft_ready.rc == 0
+  when: cft_status.rc != 0
+  environment:
+    CFTENV: "{{ cft_instance }}"
+"""
+
+
+def _cft_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : cft — Handlers
+# =============================================================================
+
+# Arrêt propre de Transfer CFT (attend la fin des transferts en cours).
+- name: stop cft
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftstop"
+    chdir: "{{ cft_install_dir }}"
+  become: true
+  become_user: "{{ cft_user }}"
+  environment:
+    CFTENV: "{{ cft_instance }}"
+
+# Redémarrage : arrêt puis démarrage de Transfer CFT.
+- name: restart cft
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftstop"
+    chdir: "{{ cft_install_dir }}"
+  become: true
+  become_user: "{{ cft_user }}"
+  environment:
+    CFTENV: "{{ cft_instance }}"
+  notify: start cft after stop
+
+- name: start cft after stop
+  ansible.builtin.command:
+    cmd:  "{{ cft_install_dir }}/bin/cftstart"
+    chdir: "{{ cft_install_dir }}"
+  become: true
+  become_user: "{{ cft_user }}"
+  environment:
+    CFTENV: "{{ cft_instance }}"
+"""
+
+
 # ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def generate_ansible_zip(
@@ -700,18 +1313,21 @@ def generate_ansible_zip(
         zf.writestr(role + 'defaults/main.yml', _get_from_artifactory_defaults(repo_type))
         zf.writestr(role + 'tasks/main.yml',    _get_from_artifactory_tasks(repo_type))
 
-        # Rôle apache (optionnel)
-        if 'apache' in mw:
-            r = base + 'playbooks/roles/apache/'
-            zf.writestr(r + 'defaults/main.yml',  _apache_defaults())
-            zf.writestr(r + 'tasks/main.yml',     _apache_tasks())
-            zf.writestr(r + 'handlers/main.yml',  _apache_handlers())
-
-        # Rôle tomcat (optionnel)
-        if 'tomcat' in mw:
-            r = base + 'playbooks/roles/tomcat/'
-            zf.writestr(r + 'defaults/main.yml',  _tomcat_defaults())
-            zf.writestr(r + 'tasks/main.yml',     _tomcat_tasks())
-            zf.writestr(r + 'handlers/main.yml',  _tomcat_handlers())
+        # Rôles middleware optionnels
+        _MW_ROLES = {
+            'apache':    (_apache_defaults,    _apache_tasks,    _apache_handlers),
+            'tomcat':    (_tomcat_defaults,    _tomcat_tasks,    _tomcat_handlers),
+            'mq':        (_mq_defaults,        _mq_tasks,        _mq_handlers),
+            'websphere': (_websphere_defaults, _websphere_tasks, _websphere_handlers),
+            'php':       (_php_defaults,       _php_tasks,       _php_handlers),
+            'jboss':     (_jboss_defaults,     _jboss_tasks,     _jboss_handlers),
+            'cft':       (_cft_defaults,       _cft_tasks,       _cft_handlers),
+        }
+        for mw_name, (fn_def, fn_tasks, fn_handlers) in _MW_ROLES.items():
+            if mw_name in mw:
+                r = base + f'playbooks/roles/{mw_name}/'
+                zf.writestr(r + 'defaults/main.yml',  fn_def())
+                zf.writestr(r + 'tasks/main.yml',     fn_tasks())
+                zf.writestr(r + 'handlers/main.yml',  fn_handlers())
 
     return buf.getvalue()
