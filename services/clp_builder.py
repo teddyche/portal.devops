@@ -40,7 +40,8 @@ _SSH_ARGS_AIX = (
     'ansible_retry_files_enabled=false '
     'ansible_deprecation_warnings=false '
     'ansible_display_skipped_hosts=false '
-    'ansible_transport=paramiko '                     # AIX ne supporte pas OpenSSH natif
+    'ansible_transport=paramiko '                     # AIX ne supporte pas Ope
+    # nSSH natif
     'ansible_scp_if_ssh=true '                        # SCP via paramiko
     'ansible_pipelining=true '
     'ansible_become_ask_pass=false '
@@ -1600,6 +1601,30 @@ def _playbook_deploy(ca: str, middlewares: list, mode: str) -> str:
     return out + '\n'
 
 
+_MW_ROLES = {
+    'apache':    (_apache_defaults,    _apache_tasks,    _apache_handlers,    _APACHE_STOP, _APACHE_START, _APACHE_STATUS),
+    'tomcat':    (_tomcat_defaults,    _tomcat_tasks,    _tomcat_handlers,    _TOMCAT_STOP, _TOMCAT_START, _TOMCAT_STATUS),
+    'mq':        (_mq_defaults,        _mq_tasks,        _mq_handlers,        _MQ_STOP,     _MQ_START,     _MQ_STATUS),
+    'websphere': (_websphere_defaults, _websphere_tasks, _websphere_handlers, _WAS_STOP,    _WAS_START,    _WAS_STATUS),
+    'php':       (_php_defaults,       _php_tasks,       _php_handlers,       _PHP_STOP,    _PHP_START,    _PHP_STATUS),
+    'jboss':     (_jboss_defaults,     _jboss_tasks,     _jboss_handlers,     _JBOSS_STOP,  _JBOSS_START,  _JBOSS_STATUS),
+    'cft':       (_cft_defaults,       _cft_tasks,       _cft_handlers,       _CFT_STOP,    _CFT_START,    _CFT_STATUS),
+}
+
+
+def _write_role(zf, base: str, mw_name: str, ovr: dict,
+                fn_def=None, fn_tasks=None, fn_handlers=None,
+                stop_t='', start_t='', status_t='') -> None:
+    """Écrit les fichiers d'un rôle dans le ZIP, avec surcharge optionnelle."""
+    r = base + f'playbooks/roles/{mw_name}/'
+    zf.writestr(r + 'defaults/main.yml',  ovr.get('defaults',     fn_def()    if callable(fn_def)     else fn_def     or f'# {mw_name} defaults\n'))
+    zf.writestr(r + 'tasks/main.yml',     ovr.get('tasks_main',   fn_tasks()  if callable(fn_tasks)   else fn_tasks   or f'---\n# {mw_name} tasks\n'))
+    zf.writestr(r + 'handlers/main.yml',  ovr.get('handlers',     fn_handlers() if callable(fn_handlers) else fn_handlers or f'---\n# {mw_name} handlers\n'))
+    zf.writestr(r + 'tasks/stop.yml',     ovr.get('tasks_stop',   stop_t   or f'---\n# {mw_name} stop\n'))
+    zf.writestr(r + 'tasks/start.yml',    ovr.get('tasks_start',  start_t  or f'---\n# {mw_name} start\n'))
+    zf.writestr(r + 'tasks/status.yml',   ovr.get('tasks_status', status_t or f'---\n# {mw_name} status\n'))
+
+
 def generate_ansible_zip(
     code_app: str,
     nom_app: str,
@@ -1608,23 +1633,19 @@ def generate_ansible_zip(
     repo_type: str = 'generic',
     middlewares: list | None = None,
     deploy_mode: str = 'job',
+    template_overrides: dict | None = None,
+    extra_roles: list | None = None,
 ) -> bytes:
     """
     Génère un package Ansible (ZIP) en mémoire.
 
-    envs = [
-        {
-            "name": "dev",
-            "fqdn": "ca-cedicam.fr",
-            "hosts": [{"hostname": "server01", "group": "AIX_APP"}]
-        },
-        ...
-    ]
-    middlewares = ["apache", "tomcat"]  # optionnel
+    template_overrides = {role_id: {file_key: content}}
+    extra_roles = ["gigascape"]  — rôles inclus dans le ZIP mais jamais appelés en playbook
     """
-    ca = code_app.lower()
+    ca   = code_app.lower()
     base = f'{ca}_deploy/'
-    mw = [m.lower() for m in (middlewares or [])]
+    mw   = [m.lower() for m in (middlewares or [])]
+    ovrs = template_overrides or {}
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -1645,29 +1666,24 @@ def generate_ansible_zip(
             zf.writestr(inv + 'group_vars/all.yml', _env_group_vars(env))
 
         # Rôle get-from-artifactory
-        role = base + 'playbooks/roles/get-from-artifactory/'
-        zf.writestr(role + 'defaults/main.yml', _get_from_artifactory_defaults(repo_type))
-        zf.writestr(role + 'tasks/main.yml',    _get_from_artifactory_tasks(repo_type))
+        gfa = base + 'playbooks/roles/get-from-artifactory/'
+        zf.writestr(gfa + 'defaults/main.yml', _get_from_artifactory_defaults(repo_type))
+        zf.writestr(gfa + 'tasks/main.yml',    _get_from_artifactory_tasks(repo_type))
 
-        # Rôles middleware optionnels + lifecycle tasks
-        _MW_ROLES = {
-            'apache':    (_apache_defaults,    _apache_tasks,    _apache_handlers,    _APACHE_STOP, _APACHE_START, _APACHE_STATUS),
-            'tomcat':    (_tomcat_defaults,    _tomcat_tasks,    _tomcat_handlers,    _TOMCAT_STOP, _TOMCAT_START, _TOMCAT_STATUS),
-            'mq':        (_mq_defaults,        _mq_tasks,        _mq_handlers,        _MQ_STOP,     _MQ_START,     _MQ_STATUS),
-            'websphere': (_websphere_defaults, _websphere_tasks, _websphere_handlers, _WAS_STOP,    _WAS_START,    _WAS_STATUS),
-            'php':       (_php_defaults,       _php_tasks,       _php_handlers,       _PHP_STOP,    _PHP_START,    _PHP_STATUS),
-            'jboss':     (_jboss_defaults,     _jboss_tasks,     _jboss_handlers,     _JBOSS_STOP,  _JBOSS_START,  _JBOSS_STATUS),
-            'cft':       (_cft_defaults,       _cft_tasks,       _cft_handlers,       _CFT_STOP,    _CFT_START,    _CFT_STATUS),
-        }
-        for mw_name, (fn_def, fn_tasks, fn_handlers, stop_t, start_t, status_t) in _MW_ROLES.items():
-            if mw_name in mw:
-                r = base + f'playbooks/roles/{mw_name}/'
-                zf.writestr(r + 'defaults/main.yml',  fn_def())
-                zf.writestr(r + 'tasks/main.yml',     fn_tasks())
-                zf.writestr(r + 'handlers/main.yml',  fn_handlers())
-                zf.writestr(r + 'tasks/stop.yml',     stop_t)
-                zf.writestr(r + 'tasks/start.yml',    start_t)
-                zf.writestr(r + 'tasks/status.yml',   status_t)
+        # Rôles middleware (builtin ou custom) avec surcharges éventuelles
+        for mw_name in mw:
+            ovr = ovrs.get(mw_name, {})
+            if mw_name in _MW_ROLES:
+                fn_def, fn_tasks, fn_handlers, stop_t, start_t, status_t = _MW_ROLES[mw_name]
+                _write_role(zf, base, mw_name, ovr,
+                            fn_def, fn_tasks, fn_handlers, stop_t, start_t, status_t)
+            else:
+                # MW custom : squelettes + overrides
+                _write_role(zf, base, mw_name, ovr)
+
+        # Rôles supplémentaires (jamais appelés en playbook)
+        for role_id in (extra_roles or []):
+            _write_role(zf, base, role_id, ovrs.get(role_id, {}))
 
         # Playbooks selon le mode de déploiement
         dm = deploy_mode if deploy_mode in ('job', 'workflow') else 'job'

@@ -214,6 +214,11 @@ def clp_builder_page():
     return _page('clp_builder.html')
 
 
+@pages_bp.route('/clp')
+def clp_page():
+    return _page('clp.html')
+
+
 # === Auth ===
 
 @pages_bp.route('/change-password')

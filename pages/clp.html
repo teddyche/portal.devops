@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLP Ansible Builder</title>
+<style>
+/* ── Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a2332;min-height:100vh}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+
+/* ── Layout ── */
+.page{max-width:1200px;margin:0 auto;padding:24px 20px}
+.view{display:none}.view.active{display:block}
+
+/* ── Topbar ── */
+.topbar{background:#fff;border-bottom:1px solid #e2e6ea;padding:0 24px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:100}
+.topbar-brand{font-weight:700;font-size:15px;color:#607d8b;display:flex;align-items:center;gap:8px}
+.topbar-brand span{font-size:20px}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:13px;color:#6c757d}
+.breadcrumb .sep{opacity:.4}
+.breadcrumb .cur{color:#1a2332;font-weight:600}
+.topbar-actions{margin-left:auto;display:flex;gap:8px}
+
+/* ── Boutons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:500;border:none;transition:.15s}
+.btn-primary{background:#607d8b;color:#fff}.btn-primary:hover{background:#546e7a}
+.btn-ghost{background:transparent;color:#607d8b;border:1.5px solid #cfd8dc}.btn-ghost:hover{background:#eceff1}
+.btn-danger{background:#fff;color:#d32f2f;border:1.5px solid #ef9a9a}.btn-danger:hover{background:#ffebee}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{width:32px;height:32px;padding:0;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1.5px solid #cfd8dc;color:#607d8b;font-size:15px}.btn-icon:hover{background:#eceff1}
+
+/* ── Instance cards ── */
+.instances-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:24px}
+.inst-card{background:#fff;border-radius:12px;border:1.5px solid #e2e6ea;padding:20px;position:relative;cursor:pointer;transition:.15s}
+.inst-card:hover{border-color:#b0bec5;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.inst-card-bar{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px}
+.inst-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.inst-card-name{font-weight:700;font-size:15px}
+.inst-card-desc{font-size:12px;color:#78909c;margin-top:4px;min-height:18px}
+.inst-card-date{font-size:11px;color:#b0bec5;margin-top:12px}
+.inst-card-actions{display:flex;gap:4px;opacity:0;transition:.15s}
+.inst-card:hover .inst-card-actions{opacity:1}
+.add-inst-card{background:#fff;border-radius:12px;border:2px dashed #cfd8dc;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#90a4ae;font-size:13px;padding:20px;cursor:pointer;transition:.15s;min-height:130px}
+.add-inst-card:hover{border-color:#607d8b;color:#607d8b;background:#f5f7f9}
+.add-inst-icon{font-size:28px}
+
+/* ── Section title ── */
+.section-title{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#90a4ae;margin-bottom:12px}
+
+/* ── Builder form ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:12px;font-weight:600;color:#546e7a;text-transform:uppercase;letter-spacing:.05em}
+.form-group input,.form-group select{padding:9px 12px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:14px;transition:.15s;background:#fff}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#607d8b;box-shadow:0 0 0 3px rgba(96,125,139,.12)}
+.card-block{background:#fff;border-radius:12px;border:1px solid #e2e6ea;padding:20px;margin-bottom:16px}
+.card-block-title{font-size:13px;font-weight:700;color:#455a64;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+
+/* ── MW chips ── */
+.mw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.mw-chip{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px 10px;border-radius:10px;border:2px solid #e0e0e0;background:#fafafa;cursor:pointer;transition:.15s;position:relative;user-select:none;min-height:90px;justify-content:center}
+.mw-chip:hover{border-color:#b0bec5;background:#f5f5f5}
+.mw-chip.checked{background:#eceff1}
+.mw-chip.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.mw-chip.soon{opacity:.55;cursor:not-allowed;pointer-events:none}
+.mw-icon{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.mw-name{font-size:11px;font-weight:600;text-align:center;color:#546e7a}
+.mw-desc{font-size:10px;color:#90a4ae;text-align:center;display:none}
+.mw-check{width:18px;height:18px;border-radius:50%;position:absolute;top:6px;right:6px;display:none;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.mw-chip.checked .mw-check{display:flex}
+.mw-badge{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;padding:1px 5px;border-radius:9px;letter-spacing:.04em;white-space:nowrap}
+.badge-new{background:#43a047;color:#fff}
+.badge-soon{background:#f57c00;color:#fff}
+
+/* ── MW SVG icons ── */
+.mw-svg{width:32px;height:32px}
+
+/* ── Env cards ── */
+.env-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+.env-card{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px;border-radius:9px;border:1.5px solid #e8ecef;position:relative;overflow:hidden;background:#fff;transition:.15s;cursor:pointer;user-select:none}
+.env-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ec,#ddd)}
+.env-card:hover{border-color:#b0bec5}
+.env-card.active{border-color:var(--ec,#607d8b);background:var(--eb,#f5f5f5)}
+.env-card-info{flex:1;min-width:0}
+.env-card-name{font-size:13px;font-weight:700;color:#37474f}
+.env-card-sub{font-size:10px;color:#ff5252;font-weight:600;display:none}
+.env-card.prd .env-card-sub{display:block}
+.env-ctrl{display:none;align-items:center;gap:3px}
+.env-card.active .env-ctrl{display:flex}
+.env-ctrl-btn{width:22px;height:22px;border:1.5px solid var(--ec);border-radius:5px;color:var(--ec);background:transparent;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.env-ctrl-btn:hover{background:var(--eb)}
+.env-ic{font-size:11px;font-weight:700;color:var(--ec);min-width:16px;text-align:center}
+.env-hcount{font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;background:var(--ec,#607d8b);color:#fff;opacity:0;transition:.2s}
+.env-card.active .env-hcount{opacity:1}
+
+/* ── FQDN zones ── */
+.fqdn-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:700px){.fqdn-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+
+/* ── Deploy opts ── */
+.deploy-opts{display:flex;gap:12px;flex-wrap:wrap}
+.deploy-opt{display:flex;align-items:flex-start;gap:12px;flex:1;min-width:240px;padding:14px;border-radius:10px;border:2px solid #e0e0e0;background:#fafafa;cursor:pointer;transition:.15s}
+.deploy-opt:hover{border-color:#b0bec5}
+.deploy-opt.checked{border-color:#607d8b;background:#eceff1}
+.deploy-opt input[type=radio]{display:none}
+.deploy-opt-icon{font-size:26px;line-height:1}
+.deploy-opt-title{font-size:13px;font-weight:700;color:#37474f;margin-bottom:4px}
+.deploy-opt-files{font-size:11px;color:#78909c;line-height:1.7}
+.deploy-opt-files code{background:#e8ecef;padding:1px 5px;border-radius:4px;font-size:10px;color:#455a64}
+.deploy-opt-desc{font-size:11px;color:#90a4ae;margin-top:4px}
+
+/* ── Host builder ── */
+.host-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.host-row input,.host-row select{flex:1;padding:7px 10px;border:1.5px solid #cfd8dc;border-radius:7px;font-size:13px}
+.env-section{margin-bottom:16px}
+.env-section-header{font-size:12px;font-weight:700;color:#607d8b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.env-section-header .prd-warn{font-size:10px;background:#fff3e0;color:#e65100;padding:2px 6px;border-radius:4px;font-weight:600}
+
+/* ── Config view ── */
+.config-layout{display:grid;grid-template-columns:200px 1fr;gap:20px;margin-top:24px}
+.config-nav{display:flex;flex-direction:column;gap:4px}
+.config-nav-item{padding:9px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:#546e7a;transition:.15s;display:flex;align-items:center;gap:8px}
+.config-nav-item:hover{background:#eceff1}
+.config-nav-item.active{background:#607d8b;color:#fff}
+.config-panel{display:none}.config-panel.active{display:block}
+
+/* ── MW config cards ── */
+.mw-cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px}
+.mw-cfg-card{background:#fff;border:1.5px solid #e2e6ea;border-radius:10px;padding:14px;position:relative}
+.mw-cfg-card.disabled-card{opacity:.6}
+.mw-cfg-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.mw-cfg-icon{font-size:22px;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.mw-cfg-name{font-size:13px;font-weight:700;flex:1}
+.mw-cfg-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:9px;letter-spacing:.04em}
+.mw-cfg-status{display:flex;gap:6px;flex-wrap:wrap}
+.status-btn{flex:1;min-width:60px;padding:5px 8px;border-radius:6px;font-size:11px;font-weight:600;border:1.5px solid transparent;cursor:pointer;text-align:center;transition:.12s}
+.status-btn.s-enabled{border-color:#43a047;color:#43a047;background:#f1f8e9}
+.status-btn.s-enabled.active{background:#43a047;color:#fff}
+.status-btn.s-disabled{border-color:#e0e0e0;color:#9e9e9e;background:#fafafa}
+.status-btn.s-disabled.active{background:#9e9e9e;color:#fff;border-color:#9e9e9e}
+.status-btn.s-soon{border-color:#f57c00;color:#f57c00;background:#fff8f0}
+.status-btn.s-soon.active{background:#f57c00;color:#fff}
+.mw-cfg-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}
+
+/* ── Extra roles ── */
+.roles-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.role-row{background:#fff;border:1.5px solid #e2e6ea;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.role-row-icon{font-size:18px;color:#78909c}
+.role-row-info{flex:1}
+.role-row-name{font-size:13px;font-weight:700}
+.role-row-desc{font-size:11px;color:#90a4ae}
+
+/* ── Template editor ── */
+.editor-wrap{background:#fff;border-radius:10px;border:1px solid #e2e6ea;overflow:hidden;margin-top:12px}
+.editor-toolbar{display:flex;align-items:center;gap:0;border-bottom:1px solid #e2e6ea;background:#f8f9fa;overflow-x:auto}
+.editor-tab{padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;color:#78909c;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:.12s}
+.editor-tab:hover{color:#455a64;background:#eceff1}
+.editor-tab.active{color:#607d8b;border-bottom-color:#607d8b;background:#fff}
+.editor-tab .custom-dot{width:6px;height:6px;border-radius:50%;background:#f57c00;display:inline-block}
+.editor-selector{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e2e6ea}
+.editor-selector select{padding:6px 10px;border:1.5px solid #cfd8dc;border-radius:7px;font-size:13px;background:#fff}
+.editor-textarea{width:100%;min-height:400px;padding:14px;font-family:'JetBrains Mono','Fira Code','Courier New',monospace;font-size:13px;line-height:1.6;border:none;outline:none;resize:vertical;background:#1e1e2e;color:#cdd6f4;tab-size:2}
+.editor-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #e2e6ea;background:#f8f9fa}
+.custom-indicator{font-size:11px;color:#f57c00;display:flex;align-items:center;gap:4px;font-weight:600}
+.no-custom{color:#90a4ae;font-size:11px}
+
+/* ── Modal ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:24px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:12px;font-weight:600;color:#546e7a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.modal-field input,.modal-field textarea,.modal-field select{width:100%;padding:9px 12px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:14px}
+.modal-field input:focus,.modal-field textarea:focus,.modal-field select:focus{outline:none;border-color:#607d8b;box-shadow:0 0 0 3px rgba(96,125,139,.12)}
+.modal-field textarea{resize:vertical;min-height:70px}
+.color-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.12s}
+.color-swatch.active,.color-swatch:hover{border-color:#1a2332;transform:scale(1.15)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a2332;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.err{background:#c62828}
+
+/* ── Generate btn ── */
+.generate-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:20px}
+.generate-summary{font-size:12px;color:#78909c}
+
+/* ── Empty state ── */
+.empty-state{text-align:center;padding:60px 20px;color:#b0bec5}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-brand"><span>🏗️</span> CLP Ansible Builder</div>
+  <div class="breadcrumb" id="breadcrumb"></div>
+  <div class="topbar-actions" id="topbar-actions"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ VUE LISTE ═══ -->
+<div id="v-list" class="view page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <h1 style="font-size:20px;font-weight:700">Instances</h1>
+    <button class="btn btn-primary" onclick="openCreateModal()">＋ Nouvelle instance</button>
+  </div>
+  <p style="color:#78909c;font-size:13px">Chaque instance dispose de sa propre configuration de middlewares, FQDN et templates de rôles.</p>
+  <div class="instances-grid" id="instances-grid"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════ VUE BUILDER ═══ -->
+<div id="v-builder" class="view page">
+
+  <!-- Infos appli -->
+  <div class="card-block">
+    <div class="card-block-title">📋 Informations application</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Code appli <span style="color:#e53935">*</span></label>
+        <input id="code_app" placeholder="ya" maxlength="20" oninput="this.value=this.value.toLowerCase()">
+      </div>
+      <div class="form-group">
+        <label>Nom appli <span style="color:#e53935">*</span></label>
+        <input id="nom_app" placeholder="MyApplication">
+      </div>
+      <div class="form-group">
+        <label>Entité</label>
+        <input id="entite" value="caps" placeholder="caps">
+      </div>
+      <div class="form-group">
+        <label>Type dépôt Artifactory</label>
+        <select id="repo_type" onchange="selectedRepoType=this.value">
+          <option value="generic">Generic</option>
+          <option value="maven">Maven</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middlewares -->
+  <div class="card-block">
+    <div class="card-block-title">🧩 Middlewares</div>
+    <div class="mw-grid" id="mw-grid"></div>
+  </div>
+
+  <!-- Environnements -->
+  <div class="card-block">
+    <div class="card-block-title">🌍 Environnements</div>
+    <div class="env-grid" id="env-grid"></div>
+  </div>
+
+  <!-- FQDN -->
+  <div class="card-block">
+    <div class="card-block-title">🌐 Domaines FQDN</div>
+    <div class="fqdn-grid">
+      <div class="form-group">
+        <label>Basse qualif <span style="color:#78909c;font-weight:400">(DEV / REC / QUA)</span></label>
+        <input id="fqdn-low" placeholder="dev.ca-cedicam.fr">
+      </div>
+      <div class="form-group">
+        <label>Hors-Prod <span style="color:#78909c;font-weight:400">(INT / HOM / PRE)</span></label>
+        <input id="fqdn-mid" placeholder="preprod.ca-cedicam.fr">
+      </div>
+      <div class="form-group">
+        <label>Production <span style="color:#e53935;font-weight:600">⚠ PRD</span></label>
+        <input id="fqdn-prod" placeholder="sec-prod1.lan">
+      </div>
+    </div>
+  </div>
+
+  <!-- Hôtes -->
+  <div class="card-block">
+    <div class="card-block-title">🖥️ Hôtes par environnement</div>
+    <div id="env-sections"></div>
+  </div>
+
+  <!-- Mode déploiement -->
+  <div class="card-block">
+    <div class="card-block-title">🚀 Mode de déploiement</div>
+    <div class="deploy-opts">
+      <label class="deploy-opt checked" id="dopt-job" onclick="setDeployMode('job')">
+        <input type="radio" name="deploy-mode" value="job" checked>
+        <div class="deploy-opt-icon">📋</div>
+        <div>
+          <div class="deploy-opt-title">Job Template</div>
+          <div class="deploy-opt-files"><code>stop.yml</code> · <code>start.yml</code> · <code>status.yml</code> · <code>deploy.yml</code></div>
+          <div class="deploy-opt-desc">4 playbooks — chacun cible tous les MWs sélectionnés</div>
+        </div>
+      </label>
+      <label class="deploy-opt" id="dopt-workflow" onclick="setDeployMode('workflow')">
+        <input type="radio" name="deploy-mode" value="workflow">
+        <div class="deploy-opt-icon">🔗</div>
+        <div>
+          <div class="deploy-opt-title">Workflow Template</div>
+          <div class="deploy-opt-files" id="workflow-files-desc">
+            <code>stop_{mw}.yml</code> · <code>start_{mw}.yml</code> · <code>status_{mw}.yml</code> · <code>deploy.yml</code>
+          </div>
+          <div class="deploy-opt-desc">1 playbook par MW × 3 actions + deploy artefact</div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Générer -->
+  <div class="generate-bar">
+    <div class="generate-summary" id="gen-summary"></div>
+    <button class="btn btn-primary" onclick="generateZip()" style="font-size:14px;padding:10px 20px">⬇️ Générer le package ZIP</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ VUE CONFIG ═══ -->
+<div id="v-config" class="view page">
+  <div class="config-layout">
+
+    <!-- Sidebar nav -->
+    <div class="config-nav">
+      <div class="config-nav-item active" onclick="showConfigTab('fqdns')">🌐 FQDN par défaut</div>
+      <div class="config-nav-item" onclick="showConfigTab('mws')">🧩 Middlewares</div>
+      <div class="config-nav-item" onclick="showConfigTab('roles')">📦 Autres rôles</div>
+      <div class="config-nav-item" onclick="showConfigTab('editor')">✏️ Éditeur de rôles</div>
+    </div>
+
+    <!-- Panels -->
+    <div>
+
+      <!-- ── FQDN panel ── -->
+      <div id="cfg-fqdns" class="config-panel active">
+        <div class="section-title">Valeurs FQDN par défaut</div>
+        <p style="font-size:12px;color:#90a4ae;margin-bottom:16px">Ces valeurs pré-remplissent les champs FQDN dans le builder. L'utilisateur peut les modifier avant de générer.</p>
+        <div class="card-block">
+          <div class="fqdn-grid">
+            <div class="form-group">
+              <label>Basse qualif (DEV/REC/QUA)</label>
+              <input id="cfg-fqdn-low" placeholder="dev.ca-cedicam.fr">
+            </div>
+            <div class="form-group">
+              <label>Hors-Prod (INT/HOM/PRE)</label>
+              <input id="cfg-fqdn-mid" placeholder="preprod.ca-cedicam.fr">
+            </div>
+            <div class="form-group">
+              <label>Production (PRD)</label>
+              <input id="cfg-fqdn-prod" placeholder="sec-prod1.lan">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveFqdns()" style="margin-top:14px">💾 Sauvegarder les FQDN</button>
+        </div>
+      </div>
+
+      <!-- ── MW panel ── -->
+      <div id="cfg-mws" class="config-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="section-title" style="margin:0">Middlewares</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddMwModal()">＋ Ajouter</button>
+        </div>
+        <p style="font-size:12px;color:#90a4ae;margin-bottom:14px">Gérez les middlewares disponibles dans le builder. <b>Activé</b> = visible et sélectionnable. <b>Bientôt</b> = affiché mais non cliquable. <b>Désactivé</b> = masqué.</p>
+        <div class="mw-cfg-grid" id="mw-cfg-grid"></div>
+      </div>
+
+      <!-- ── Extra roles panel ── -->
+      <div id="cfg-roles" class="config-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="section-title" style="margin:0">Autres rôles</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddRoleModal()">＋ Ajouter</button>
+        </div>
+        <p style="font-size:12px;color:#90a4ae;margin-bottom:14px">Ces rôles sont inclus dans le ZIP comme squelettes Ansible mais <b>ne sont jamais appelés dans les playbooks générés</b>. Utiles pour fournir des exemples ou des utilitaires.</p>
+        <div class="roles-list" id="roles-list"></div>
+      </div>
+
+      <!-- ── Editor panel ── -->
+      <div id="cfg-editor" class="config-panel">
+        <div class="section-title" style="margin-bottom:8px">Éditeur de templates de rôles</div>
+        <p style="font-size:12px;color:#90a4ae;margin-bottom:14px">Modifiez les fichiers générés pour chaque rôle. Les modifications remplacent le template par défaut pour cette instance uniquement. <span style="color:#f57c00;font-weight:600">● Surcharge custom</span></p>
+        <div class="editor-wrap">
+          <div class="editor-selector">
+            <label style="font-size:12px;font-weight:600;color:#546e7a">Rôle :</label>
+            <select id="editor-role-select" onchange="onEditorRoleChange(this.value)">
+              <option value="">— Choisir un rôle —</option>
+            </select>
+          </div>
+          <div class="editor-toolbar" id="editor-tabs"></div>
+          <textarea class="editor-textarea" id="editor-ta" placeholder="Sélectionnez un rôle pour commencer l'édition..." spellcheck="false"></textarea>
+          <div class="editor-footer">
+            <div id="editor-custom-info" class="no-custom">Aucun rôle sélectionné</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" onclick="resetEditorFile()">↺ Remettre par défaut</button>
+              <button class="btn btn-primary btn-sm" onclick="saveEditorFile()">💾 Sauvegarder</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MODALS ═══ -->
+
+<!-- Create/Edit Instance -->
+<div class="modal-backdrop" id="modal-inst">
+  <div class="modal">
+    <div class="modal-title" id="modal-inst-title">Nouvelle instance</div>
+    <div class="modal-field">
+      <label>Nom <span style="color:#e53935">*</span></label>
+      <input id="mi-name" placeholder="Équipe Backend">
+    </div>
+    <div class="modal-field">
+      <label>Description</label>
+      <textarea id="mi-desc" placeholder="Instance CLP pour l'équipe..."></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Couleur</label>
+      <div class="color-row" id="color-row"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-inst')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveInstance()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add MW -->
+<div class="modal-backdrop" id="modal-mw">
+  <div class="modal">
+    <div class="modal-title">Ajouter un middleware</div>
+    <div class="modal-field">
+      <label>ID (alphanumérique, tirets, underscores) <span style="color:#e53935">*</span></label>
+      <input id="mm-id" placeholder="gigascape" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'')">
+    </div>
+    <div class="modal-field">
+      <label>Label affiché <span style="color:#e53935">*</span></label>
+      <input id="mm-label" placeholder="Gigascape">
+    </div>
+    <div class="modal-field">
+      <label>Icône (emoji)</label>
+      <input id="mm-icon" placeholder="🔧" maxlength="4">
+    </div>
+    <div class="modal-field">
+      <label>Description</label>
+      <input id="mm-desc" placeholder="Description du middleware">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-mw')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveMw()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Extra Role -->
+<div class="modal-backdrop" id="modal-role">
+  <div class="modal">
+    <div class="modal-title">Ajouter un rôle</div>
+    <div class="modal-field">
+      <label>ID <span style="color:#e53935">*</span></label>
+      <input id="mr-id" placeholder="monrole" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'')">
+    </div>
+    <div class="modal-field">
+      <label>Label <span style="color:#e53935">*</span></label>
+      <input id="mr-label" placeholder="Mon Rôle">
+    </div>
+    <div class="modal-field">
+      <label>Description</label>
+      <input id="mr-desc" placeholder="Description du rôle">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-role')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveExtraRole()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════ STATE ═══════════════════════════════════ */
+let currentIid    = null;
+let currentConfig = {};
+let editingInstId = null;
+let selectedColor = '#607d8b';
+let selectedEnvs  = new Map();
+let selectedMws   = new Set();
+let selectedRepoType  = 'generic';
+let selectedDeployMode = 'job';
+let editorRole    = null;
+let editorFileKey = 'defaults';
+let editorData    = {};  // {file_key: {content, custom}}
+
+/* ═══════════════════════════════════ NAV ════════════════════════════════════ */
+const VIEWS = ['v-list', 'v-builder', 'v-config'];
+function showView(v) {
+    VIEWS.forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById(v).classList.add('active');
+}
+
+function showList() {
+    currentIid = null;
+    setBreadcrumb([]);
+    setTopActions([]);
+    loadInstances();
+    showView('v-list');
+}
+
+function showBuilder(iid) {
+    currentIid = iid;
+    setBreadcrumb([
+        {label: 'Instances', fn: 'showList()'},
+        {label: currentConfig.instName || '…', cur: true},
+    ]);
+    setTopActions([
+        {label: '⚙️ Configurer', fn: `showConfig('${iid}')`, cls: 'btn-ghost'},
+    ]);
+    applyInstanceDefaults();
+    showView('v-builder');
+}
+
+function showConfig(iid) {
+    currentIid = iid;
+    const inst = (window._instances || []).find(i => i.id === iid) || {};
+    setBreadcrumb([
+        {label: 'Instances', fn: 'showList()'},
+        {label: inst.name || '…', fn: `openBuilder('${iid}')`},
+        {label: 'Configuration', cur: true},
+    ]);
+    setTopActions([
+        {label: '🏗️ Builder', fn: `openBuilder('${iid}')`, cls: 'btn-ghost'},
+    ]);
+    loadConfig(iid, true);
+    showConfigTab('fqdns');
+    showView('v-config');
+}
+
+function setBreadcrumb(items) {
+    const el = document.getElementById('breadcrumb');
+    if (!items.length) { el.innerHTML = ''; return; }
+    el.innerHTML = items.map((it, i) => {
+        const sep = i > 0 ? '<span class="sep">›</span>' : '';
+        if (it.cur) return sep + `<span class="cur">${it.label}</span>`;
+        return sep + `<span style="cursor:pointer;color:#6c757d" onclick="${it.fn}">${it.label}</span>`;
+    }).join('');
+}
+
+function setTopActions(items) {
+    const el = document.getElementById('topbar-actions');
+    el.innerHTML = items.map(it =>
+        `<button class="btn ${it.cls||'btn-ghost'} btn-sm" onclick="${it.fn}">${it.label}</button>`
+    ).join('');
+}
+
+function showConfigTab(tab) {
+    document.querySelectorAll('.config-nav-item').forEach((el,i) => {
+        const tabs = ['fqdns','mws','roles','editor'];
+        el.classList.toggle('active', tabs[i] === tab);
+    });
+    document.querySelectorAll('.config-panel').forEach(el => el.classList.remove('active'));
+    document.getElementById('cfg-' + tab).classList.add('active');
+}
+
+/* ═══════════════════════════════════ INSTANCES ══════════════════════════════ */
+window._instances = [];
+
+async function loadInstances() {
+    try {
+        const r = await fetch('/api/clp/instances');
+        const d = await r.json();
+        window._instances = d.instances || [];
+        renderInstances();
+    } catch(e) { toast('Erreur chargement instances', true); }
+}
+
+function renderInstances() {
+    const grid = document.getElementById('instances-grid');
+    const insts = window._instances;
+    if (!insts.length) {
+        grid.innerHTML = `<div class="add-inst-card" onclick="openCreateModal()">
+            <div class="add-inst-icon">＋</div>
+            <div>Créer la première instance</div>
+        </div>`;
+        return;
+    }
+    grid.innerHTML = insts.map(inst => {
+        const date = inst.created_at ? new Date(inst.created_at).toLocaleDateString('fr-FR') : '';
+        return `<div class="inst-card" onclick="openBuilder('${inst.id}')">
+            <div class="inst-card-bar" style="background:${inst.color}"></div>
+            <div class="inst-card-head">
+                <div>
+                    <div class="inst-card-name">${esc(inst.name)}</div>
+                    <div class="inst-card-desc">${esc(inst.description||'')}</div>
+                </div>
+                <div class="inst-card-actions" onclick="event.stopPropagation()">
+                    <button class="btn-icon" onclick="openEditModal('${inst.id}')" title="Modifier">✏️</button>
+                    <button class="btn-icon" onclick="showConfig('${inst.id}')" title="Configurer">⚙️</button>
+                    <button class="btn-icon" style="color:#d32f2f" onclick="confirmDeleteInst('${inst.id}','${esc(inst.name)}')" title="Supprimer">🗑️</button>
+                </div>
+            </div>
+            <div class="inst-card-date">Créée le ${date}</div>
+        </div>`;
+    }).join('') + `<div class="add-inst-card" onclick="openCreateModal()">
+        <div class="add-inst-icon">＋</div>
+        <div>Nouvelle instance</div>
+    </div>`;
+}
+
+async function openBuilder(iid) {
+    try {
+        const r = await fetch(`/api/clp/instances/${iid}/config`);
+        const cfg = await r.json();
+        currentConfig = cfg;
+        const inst = window._instances.find(i => i.id === iid) || {};
+        currentConfig.instName = inst.name;
+        initBuilder(cfg);
+        showBuilder(iid);
+    } catch(e) { toast('Erreur chargement configuration', true); }
+}
+
+/* ═══════════════════════════════════ BUILDER ═══════════════════════════════ */
+const ALL_ENVS = [
+    {name:'dev', label:'DEV', color:'#26a69a', bg:'#e0f2f1', prod:false},
+    {name:'rec', label:'REC', color:'#42a5f5', bg:'#e3f2fd', prod:false},
+    {name:'qua', label:'QUA', color:'#ab47bc', bg:'#f3e5f5', prod:false},
+    {name:'int', label:'INT', color:'#26c6da', bg:'#e0f7fa', prod:false},
+    {name:'hom', label:'HOM', color:'#ff7043', bg:'#fbe9e7', prod:false},
+    {name:'pre', label:'PRE', color:'#ffa726', bg:'#fff3e0', prod:false},
+    {name:'prd', label:'PRD', color:'#ef5350', bg:'#ffebee', prod:true},
+];
+const ENV_COLORS = Object.fromEntries(ALL_ENVS.map(e=>[e.name,e]));
+
+const FQDN_GROUP = {dev:'low',rec:'low',qua:'low',int:'mid',hom:'mid',pre:'mid',prd:'prod'};
+const FQDN_INPUT = {low:'fqdn-low',mid:'fqdn-mid',prod:'fqdn-prod'};
+function getFqdn(envName) {
+    const base = envName.replace(/\d+$/,'');
+    const grp  = FQDN_GROUP[base] || 'low';
+    return document.getElementById(FQDN_INPUT[grp]).value.trim();
+}
+
+const GROUP_OPTIONS = ['APP','DB','WEB','BATCH'];
+
+function initBuilder(cfg) {
+    // Reset
+    selectedEnvs = new Map();
+    selectedMws  = new Set();
+    selectedRepoType   = 'generic';
+    selectedDeployMode = 'job';
+    document.getElementById('code_app').value = '';
+    document.getElementById('nom_app').value  = '';
+    document.getElementById('entite').value   = 'caps';
+    document.getElementById('repo_type').value = 'generic';
+    document.getElementById('fqdn-low').value  = cfg.fqdns?.low  || '';
+    document.getElementById('fqdn-mid').value  = cfg.fqdns?.mid  || '';
+    document.getElementById('fqdn-prod').value = cfg.fqdns?.prod || '';
+    document.getElementById('dopt-job').classList.add('checked');
+    document.getElementById('dopt-workflow').classList.remove('checked');
+
+    // MW chips from config (enabled + soon)
+    const mws = (cfg.middlewares || []).filter(m => m.status !== 'disabled');
+    renderMwChips(mws);
+
+    // Env grid
+    renderEnvGrid();
+    renderEnvSections();
+}
+
+function applyInstanceDefaults() {
+    if (currentConfig.fqdns) {
+        document.getElementById('fqdn-low').value  = currentConfig.fqdns.low  || '';
+        document.getElementById('fqdn-mid').value  = currentConfig.fqdns.mid  || '';
+        document.getElementById('fqdn-prod').value = currentConfig.fqdns.prod || '';
+    }
+}
+
+/* MW icons (SVG builtin) */
+const MW_SVGS = {
+    apache: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#cc2233" d="M24 4C13 4 4 13 4 24s9 20 20 20 20-9 20-20S35 4 24 4z"/><path fill="#fff" d="M14 32c1-4 3-8 6-11l3 3c-2 2-4 5-5 8H14zm6-14c2-3 5-6 9-8v4c-3 1-5 3-7 6l-2-2zm8-8c4 1 8 4 10 8h-4c-1-2-3-4-6-5V10zm2 22h4c-2 4-6 7-10 8v-4c3-1 5-3 6-4zm-8 4v4c-4-1-7-4-9-8h4c1 2 3 3 5 4z"/></svg>`,
+    tomcat: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#f57c00" d="M24 6c-10 0-18 8-18 18s8 18 18 18 18-8 18-18S34 6 24 6z"/><circle fill="#fff" cx="18" cy="20" r="3"/><circle fill="#fff" cx="30" cy="20" r="3"/><path fill="#fff" d="M16 28c2 3 5 5 8 5s6-2 8-5H16z"/></svg>`,
+    mq: `<svg class="mw-svg" viewBox="0 0 48 48"><path fill="#1a237e" d="M24 4l18 10v20L24 44 6 34V14z"/><rect fill="#fff" x="16" y="20" width="16" height="8" rx="2"/><path fill="#f57c00" d="M20 22v4h8v-4z"/></svg>`,
+    websphere: `<svg class="mw-svg" viewBox="0 0 48 48"><circle fill="#1565c0" cx="24" cy="24" r="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="12" ry="20"/><ellipse fill="none" stroke="#fff" stroke-width="2" cx="24" cy="24" rx="20" ry="8"/><line stroke="#fff" stroke-width="2" x1="4" y1="24" x2="44" y2="24"/></svg>`,
+    php: `<svg class="mw-svg" viewBox="0 0 48 48"><ellipse fill="#7b1fa2" cx="24" cy="24" rx="20" ry="12"/><text fill="#fff" font-family="monospace" font-size="14" font-weight="bold" x="12" y="28">PHP</text></svg>`,
+    jboss: `<svg class="mw-svg" viewBox="0 0 48 48"><circle fill="#c62828" cx="24" cy="24" r="20"/><text fill="#fff" font-family="monospace" font-size="11" font-weight="bold" x="8" y="28">JBoss</text></svg>`,
+    cft: `<svg class="mw-svg" viewBox="0 0 48 48"><rect fill="#00695c" x="4" y="4" width="40" height="40" rx="8"/><path fill="#fff" d="M14 24l8-8 4 4 8-10" stroke="#fff" stroke-width="2" fill="none"/><path fill="#fff" d="M32 24l-8 8-4-4-8 10" stroke="#80cbc4" stroke-width="2" fill="none"/></svg>`,
+};
+const MW_COLORS = {
+    apache:'#cc2233',tomcat:'#f57c00',mq:'#1a237e',websphere:'#1565c0',
+    php:'#7b1fa2',jboss:'#c62828',cft:'#00695c',
+};
+
+function getMwIcon(mw) {
+    if (MW_SVGS[mw.id]) return MW_SVGS[mw.id];
+    return `<span style="font-size:22px">${mw.icon || '🔧'}</span>`;
+}
+
+function getMwColor(mw) {
+    return MW_COLORS[mw.id] || '#607d8b';
+}
+
+function renderMwChips(mws) {
+    const grid = document.getElementById('mw-grid');
+    if (!mws.length) {
+        grid.innerHTML = '<p style="color:#90a4ae;font-size:13px">Aucun middleware configuré pour cette instance.</p>';
+        return;
+    }
+    grid.innerHTML = mws.map(mw => {
+        const isSoon = mw.status === 'soon';
+        const isNew  = mw.is_new;
+        const cls    = ['mw-chip', isSoon?'soon':''].join(' ').trim();
+        const badge  = isSoon  ? `<span class="mw-badge badge-soon">BIENTÔT</span>` :
+                       isNew   ? `<span class="mw-badge badge-new">NOUVEAU</span>` : '';
+        const color  = getMwColor(mw);
+        return `<div class="${cls}" id="mwchip-${mw.id}" onclick="toggleMw('${mw.id}',this,'${color}')" data-color="${color}">
+            ${badge}
+            <div class="mw-icon">${getMwIcon(mw)}</div>
+            <div class="mw-name">${esc(mw.label)}</div>
+            <div class="mw-check" id="mwcheck-${mw.id}">✓</div>
+        </div>`;
+    }).join('');
+}
+
+function toggleMw(id, chip, color) {
+    if (selectedMws.has(id)) {
+        selectedMws.delete(id);
+        chip.classList.remove('checked');
+        chip.style.borderColor = '';
+        chip.style.background  = '';
+        const chk = document.getElementById('mwcheck-'+id);
+        if (chk) chk.style.background = '';
+    } else {
+        selectedMws.add(id);
+        chip.classList.add('checked');
+        chip.style.borderColor = color;
+        chip.style.background  = color + '18';
+        const chk = document.getElementById('mwcheck-'+id);
+        if (chk) chk.style.background = color;
+    }
+    refreshWorkflowDesc();
+}
+
+function refreshWorkflowDesc() {
+    const el = document.getElementById('workflow-files-desc');
+    if (!el) return;
+    const mws = [...selectedMws];
+    if (!mws.length) {
+        el.innerHTML = `<code>stop_{mw}.yml</code> · <code>start_{mw}.yml</code> · <code>status_{mw}.yml</code> · <code>deploy.yml</code>`;
+        return;
+    }
+    const parts = mws.flatMap(m => [`stop_${m}.yml`, `start_${m}.yml`, `status_${m}.yml`]);
+    parts.push('deploy.yml');
+    el.innerHTML = parts.map(f => `<code>${f}</code>`).join(' · ');
+}
+
+/* Env grid */
+function renderEnvGrid() {
+    const grid = document.getElementById('env-grid');
+    grid.innerHTML = ALL_ENVS.map(env => {
+        const cnt = selectedEnvs.get(env.name) || 0;
+        return `<div class="env-card${env.prod?' prd':''}" id="envcard-${env.name}"
+            style="--ec:${env.color};--eb:${env.bg}"
+            onclick="toggleEnv('${env.name}')">
+            <div class="env-card-info">
+                <div class="env-card-name">${env.label}</div>
+                <div class="env-card-sub">⚠ production</div>
+            </div>
+            <div class="env-ctrl" onclick="event.stopPropagation()">
+                <button class="env-ctrl-btn" onclick="changeCount('${env.name}',-1)">−</button>
+                <span class="env-ic" id="envic-${env.name}">${cnt||1}</span>
+                <button class="env-ctrl-btn" onclick="changeCount('${env.name}',1)">＋</button>
+            </div>
+            <span class="env-hcount" id="envhc-${env.name}">0</span>
+        </div>`;
+    }).join('');
+}
+
+function toggleEnv(name) {
+    const card = document.getElementById('envcard-'+name);
+    if (selectedEnvs.has(name)) {
+        selectedEnvs.delete(name);
+        card.classList.remove('active');
+    } else {
+        selectedEnvs.set(name, 1);
+        card.classList.add('active');
+    }
+    renderEnvSections();
+    updateHostCounts();
+}
+
+function changeCount(name, delta) {
+    if (!selectedEnvs.has(name)) return;
+    const env = ALL_ENVS.find(e => e.name === name);
+    if (env.prod && delta > 0) return; // PRD toujours = 1
+    const cur  = selectedEnvs.get(name);
+    const next = Math.max(1, cur + delta);
+    selectedEnvs.set(name, next);
+    document.getElementById('envic-'+name).textContent = next;
+    renderEnvSections();
+    updateHostCounts();
+}
+
+function envKeys(name) {
+    const n = selectedEnvs.get(name) || 1;
+    const keys = [];
+    for (let i = 1; i <= n; i++) keys.push(i === 1 ? name : `${name}${i}`);
+    return keys;
+}
+
+function renderEnvSections() {
+    const cont = document.getElementById('env-sections');
+    if (!selectedEnvs.size) {
+        cont.innerHTML = '<p style="color:#90a4ae;font-size:13px;padding:8px 0">Sélectionnez des environnements ci-dessus.</p>';
+        return;
+    }
+    const mwOpts = [...selectedMws];
+    const grpOpts = ['APP','DB','WEB','BATCH', ...mwOpts.map(m=>m.toUpperCase())];
+    let html = '';
+    for (const [envName] of selectedEnvs) {
+        for (const key of envKeys(envName)) {
+            const isPrd = envName === 'prd';
+            html += `<div class="env-section">
+                <div class="env-section-header">
+                    ${key.toUpperCase()} ${isPrd ? '<span class="prd-warn">⚠ Production</span>' : ''}
+                    <button class="btn btn-ghost btn-sm" onclick="addHost('${key}')">＋ Hôte</button>
+                </div>
+                <div id="hosts-${key}"></div>
+            </div>`;
+        }
+    }
+    cont.innerHTML = html;
+    updateHostCounts();
+}
+
+function addHost(envKey) {
+    const cont = document.getElementById('hosts-' + envKey);
+    if (!cont) return;
+    const mwOpts = [...selectedMws].map(m => m.toUpperCase());
+    const grpOpts = ['APP','DB','WEB','BATCH', ...mwOpts];
+    const osOpts = ['linux','aix','windows'].map(o => `<option value="${o}">${o.toUpperCase()}</option>`).join('');
+    const grpHtml = grpOpts.map(g => `<option value="${g}">${g}</option>`).join('');
+    const row = document.createElement('div');
+    row.className = 'host-row';
+    row.innerHTML = `<input placeholder="hostname" oninput="updateHostCounts()">
+        <select>${osOpts}</select>
+        <select>${grpHtml}</select>
+        <button class="btn-icon" style="color:#d32f2f;border-color:#ef9a9a" onclick="this.parentElement.remove();updateHostCounts()">✕</button>`;
+    cont.appendChild(row);
+    updateHostCounts();
+}
+
+function updateHostCounts() {
+    for (const [envName] of selectedEnvs) {
+        let total = 0;
+        for (const key of envKeys(envName)) {
+            const cont = document.getElementById('hosts-' + key);
+            if (cont) total += cont.querySelectorAll('.host-row').length;
+        }
+        const el = document.getElementById('envhc-' + envName);
+        if (el) { el.textContent = total; }
+    }
+    updateGenSummary();
+}
+
+function updateGenSummary() {
+    const envCount = [...selectedEnvs.keys()].flatMap(n => envKeys(n)).length;
+    const mwCount  = selectedMws.size;
+    document.getElementById('gen-summary').textContent =
+        `${envCount} env · ${mwCount} middleware${mwCount!==1?'s':''} · mode ${selectedDeployMode}`;
+}
+
+function setDeployMode(mode) {
+    selectedDeployMode = mode;
+    document.querySelectorAll('.deploy-opt').forEach(el => el.classList.remove('checked'));
+    document.getElementById('dopt-' + mode).classList.add('checked');
+    refreshWorkflowDesc();
+}
+
+/* ═══════════════════════════════════ GENERATE ═══════════════════════════════ */
+async function generateZip() {
+    const code_app = document.getElementById('code_app').value.trim().toLowerCase();
+    const nom_app  = document.getElementById('nom_app').value.trim();
+    const entite   = document.getElementById('entite').value.trim() || 'caps';
+    const repo_type = document.getElementById('repo_type').value;
+
+    if (code_app.length < 2 || !/^[a-z]/.test(code_app)) {
+        return toast('Le code appli doit commencer par 2 lettres', true);
+    }
+    if (!nom_app) return toast('Le nom appli est requis', true);
+
+    const envs = [];
+    for (const [envName] of selectedEnvs) {
+        for (const key of envKeys(envName)) {
+            const cont = document.getElementById('hosts-' + key);
+            const hosts = [];
+            if (cont) {
+                cont.querySelectorAll('.host-row').forEach(row => {
+                    const inputs = row.querySelectorAll('input,select');
+                    const hn = inputs[0].value.trim();
+                    if (hn) hosts.push({hostname: hn, os: inputs[1].value, group: inputs[2].value});
+                });
+            }
+            envs.push({name: key, fqdn: getFqdn(key), hosts});
+        }
+    }
+
+    if (!envs.length) return toast('Sélectionnez au moins un environnement', true);
+
+    try {
+        const resp = await fetch(`/api/clp/instances/${currentIid}/generate`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
+            body: JSON.stringify({
+                code_app, nom_app, entite, envs,
+                repo_type,
+                middlewares: [...selectedMws],
+                deploy_mode: selectedDeployMode,
+            }),
+        });
+        if (!resp.ok) {
+            const e = await resp.json();
+            return toast(e.error || 'Erreur génération', true);
+        }
+        const blob = await resp.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `${code_app}_deploy.zip`; a.click();
+        URL.revokeObjectURL(url);
+        toast('Package généré !');
+    } catch(e) { toast('Erreur réseau', true); }
+}
+
+
+/* ═══════════════════════════════════ CONFIG ════════════════════════════════ */
+async function loadConfig(iid, renderAll) {
+    try {
+        const r = await fetch(`/api/clp/instances/${iid}/config`);
+        const cfg = await r.json();
+        currentConfig = cfg;
+        if (renderAll) {
+            document.getElementById('cfg-fqdn-low').value  = cfg.fqdns?.low  || '';
+            document.getElementById('cfg-fqdn-mid').value  = cfg.fqdns?.mid  || '';
+            document.getElementById('cfg-fqdn-prod').value = cfg.fqdns?.prod || '';
+            renderMwCfgGrid(cfg.middlewares || []);
+            renderRolesList(cfg.extra_roles || []);
+            populateEditorSelect(cfg.middlewares || [], cfg.extra_roles || []);
+        }
+    } catch(e) { toast('Erreur chargement config', true); }
+}
+
+async function saveFqdns() {
+    const low  = document.getElementById('cfg-fqdn-low').value.trim();
+    const mid  = document.getElementById('cfg-fqdn-mid').value.trim();
+    const prod = document.getElementById('cfg-fqdn-prod').value.trim();
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/fqdns`, {
+            method:'PUT', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({low,mid,prod}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        toast('FQDN sauvegardés');
+    } catch(e) { toast('Erreur', true); }
+}
+
+/* ── MW config grid ── */
+function renderMwCfgGrid(mws) {
+    const grid = document.getElementById('mw-cfg-grid');
+    if (!mws.length) { grid.innerHTML = '<p style="color:#90a4ae;font-size:13px">Aucun middleware configuré.</p>'; return; }
+    grid.innerHTML = mws.map(mw => {
+        const color = getMwColor(mw);
+        const isBuiltin = mw.builtin;
+        const badge = mw.is_new ? `<span class="mw-cfg-badge badge-new" style="background:#43a047;color:#fff">NOUVEAU</span>` : '';
+        return `<div class="mw-cfg-card">
+            <div class="mw-cfg-head">
+                <div class="mw-cfg-icon">${getMwIconSmall(mw)}</div>
+                <div class="mw-cfg-name">${esc(mw.label)}</div>
+                ${badge}
+            </div>
+            <div class="mw-cfg-status">
+                ${['enabled','soon','disabled'].map(s => `<button class="status-btn s-${s}${mw.status===s?' active':''}" onclick="setMwStatus('${mw.id}','${s}')">${s==='enabled'?'Activé':s==='soon'?'Bientôt':'Désactivé'}</button>`).join('')}
+            </div>
+            <div class="mw-cfg-actions">
+                ${!isBuiltin ? `<button class="btn btn-danger btn-sm" onclick="deleteMw('${mw.id}','${esc(mw.label)}')">🗑️ Supprimer</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function getMwIconSmall(mw) {
+    if (MW_SVGS[mw.id]) return `<span style="font-size:18px">${mw.icon||''}</span>`;
+    return `<span style="font-size:22px">${mw.icon||'🔧'}</span>`;
+}
+
+async function setMwStatus(mid, status) {
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/middlewares/${mid}`, {
+            method:'PUT', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({status}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        await loadConfig(currentIid, true);
+        toast('Statut mis à jour');
+    } catch(e) { toast('Erreur', true); }
+}
+
+async function deleteMw(mid, label) {
+    if (!confirm(`Supprimer le middleware "${label}" et ses templates custom ?`)) return;
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/middlewares/${mid}`, {
+            method:'DELETE', headers:{'X-CSRFToken':getCsrf()},
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        await loadConfig(currentIid, true);
+        toast(`Middleware "${label}" supprimé`);
+    } catch(e) { toast('Erreur', true); }
+}
+
+/* ── Extra roles ── */
+function renderRolesList(roles) {
+    const list = document.getElementById('roles-list');
+    if (!roles.length) {
+        list.innerHTML = '<p style="color:#90a4ae;font-size:13px">Aucun rôle supplémentaire.</p>';
+        return;
+    }
+    list.innerHTML = roles.map(r => `<div class="role-row">
+        <div class="role-row-icon">📦</div>
+        <div class="role-row-info">
+            <div class="role-row-name">${esc(r.label)} <code style="font-size:10px;background:#e8ecef;padding:1px 5px;border-radius:4px">${esc(r.id)}</code> ${r.is_new?'<span class="mw-cfg-badge badge-new" style="background:#43a047;color:#fff;font-size:9px;padding:1px 5px;border-radius:9px">NOUVEAU</span>':''}</div>
+            <div class="role-row-desc">${esc(r.description||'')}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteExtraRole('${r.id}','${esc(r.label)}')">🗑️</button>
+    </div>`).join('');
+}
+
+async function deleteExtraRole(rid, label) {
+    if (!confirm(`Supprimer le rôle "${label}" ?`)) return;
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/extra-roles/${rid}`, {
+            method:'DELETE', headers:{'X-CSRFToken':getCsrf()},
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        await loadConfig(currentIid, true);
+        toast(`Rôle "${label}" supprimé`);
+    } catch(e) { toast('Erreur', true); }
+}
+
+/* ═══════════════════════════════════ EDITOR ════════════════════════════════ */
+const FILE_TABS = [
+    {key:'defaults',     label:'defaults/main.yml'},
+    {key:'tasks_main',   label:'tasks/main.yml'},
+    {key:'tasks_stop',   label:'tasks/stop.yml'},
+    {key:'tasks_start',  label:'tasks/start.yml'},
+    {key:'tasks_status', label:'tasks/status.yml'},
+    {key:'handlers',     label:'handlers/main.yml'},
+];
+
+function populateEditorSelect(mws, extraRoles) {
+    const sel = document.getElementById('editor-role-select');
+    const activeMws = mws.filter(m => m.status !== 'disabled');
+    let html = '<option value="">— Choisir un rôle —</option>';
+    if (activeMws.length) {
+        html += '<optgroup label="Middlewares">' +
+            activeMws.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('') +
+            '</optgroup>';
+    }
+    if (extraRoles.length) {
+        html += '<optgroup label="Autres rôles">' +
+            extraRoles.map(r => `<option value="${esc(r.id)}">${esc(r.label)}</option>`).join('') +
+            '</optgroup>';
+    }
+    sel.innerHTML = html;
+    if (editorRole) sel.value = editorRole;
+}
+
+async function onEditorRoleChange(roleId) {
+    if (!roleId) { editorRole = null; renderEditorTabs(); return; }
+    editorRole = roleId;
+    editorFileKey = 'defaults';
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/templates/${roleId}`);
+        editorData = await r.json();
+        renderEditorTabs();
+        showEditorFile('defaults');
+    } catch(e) { toast('Erreur chargement templates', true); }
+}
+
+function renderEditorTabs() {
+    const toolbar = document.getElementById('editor-tabs');
+    if (!editorRole) { toolbar.innerHTML = ''; document.getElementById('editor-ta').value = ''; return; }
+    toolbar.innerHTML = FILE_TABS.map(t => {
+        const d = editorData[t.key] || {};
+        const dot = d.custom ? '<span class="custom-dot"></span>' : '';
+        return `<div class="editor-tab${t.key===editorFileKey?' active':''}" onclick="showEditorFile('${t.key}')">${dot} ${t.label}</div>`;
+    }).join('');
+}
+
+function showEditorFile(fk) {
+    editorFileKey = fk;
+    renderEditorTabs();
+    const d = editorData[fk] || {content:'', custom:false};
+    document.getElementById('editor-ta').value = d.content || '';
+    const info = document.getElementById('editor-custom-info');
+    if (d.custom) {
+        info.className = 'custom-indicator';
+        info.innerHTML = '● Template personnalisé pour cette instance';
+    } else {
+        info.className = 'no-custom';
+        info.textContent = 'Template par défaut (non modifié)';
+    }
+}
+
+async function saveEditorFile() {
+    if (!editorRole) return toast('Sélectionnez un rôle', true);
+    const content = document.getElementById('editor-ta').value;
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/templates/${editorRole}/${editorFileKey}`, {
+            method:'PUT', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({content}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        editorData[editorFileKey] = {content, custom: true};
+        renderEditorTabs();
+        showEditorFile(editorFileKey);
+        toast('Template sauvegardé');
+    } catch(e) { toast('Erreur', true); }
+}
+
+async function resetEditorFile() {
+    if (!editorRole) return;
+    if (!confirm('Remettre le template par défaut ? Les modifications custom seront perdues.')) return;
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/templates/${editorRole}/${editorFileKey}`, {
+            method:'DELETE', headers:{'X-CSRFToken':getCsrf()},
+        });
+        const d = await r.json();
+        editorData[editorFileKey] = {content: d.content, custom: false};
+        renderEditorTabs();
+        showEditorFile(editorFileKey);
+        toast('Template remis par défaut');
+    } catch(e) { toast('Erreur', true); }
+}
+
+/* ═══════════════════════════════════ MODALS ════════════════════════════════ */
+const PALETTE = ['#607d8b','#1565c0','#2e7d32','#6a1b9a','#e65100','#c62828','#00695c','#37474f','#f57c00','#1a237e'];
+
+function openCreateModal() {
+    editingInstId = null;
+    selectedColor = '#607d8b';
+    document.getElementById('mi-name').value = '';
+    document.getElementById('mi-desc').value = '';
+    document.getElementById('modal-inst-title').textContent = 'Nouvelle instance';
+    renderColorRow();
+    openModal('modal-inst');
+}
+
+function openEditModal(iid) {
+    const inst = window._instances.find(i => i.id === iid);
+    if (!inst) return;
+    editingInstId = iid;
+    selectedColor = inst.color || '#607d8b';
+    document.getElementById('mi-name').value = inst.name;
+    document.getElementById('mi-desc').value = inst.description || '';
+    document.getElementById('modal-inst-title').textContent = 'Modifier l\'instance';
+    renderColorRow();
+    openModal('modal-inst');
+}
+
+function renderColorRow() {
+    document.getElementById('color-row').innerHTML = PALETTE.map(c =>
+        `<div class="color-swatch${c===selectedColor?' active':''}" style="background:${c}"
+             onclick="selectedColor='${c}';renderColorRow()"></div>`
+    ).join('');
+}
+
+async function saveInstance() {
+    const name = document.getElementById('mi-name').value.trim();
+    const desc = document.getElementById('mi-desc').value.trim();
+    if (!name) return toast('Nom requis', true);
+    try {
+        const method = editingInstId ? 'PUT' : 'POST';
+        const url    = editingInstId ? `/api/clp/instances/${editingInstId}` : '/api/clp/instances';
+        const r = await fetch(url, {
+            method, headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({name, description:desc, color:selectedColor}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        closeModal('modal-inst');
+        await loadInstances();
+        toast(editingInstId ? 'Instance modifiée' : 'Instance créée');
+    } catch(e) { toast('Erreur', true); }
+}
+
+async function confirmDeleteInst(iid, name) {
+    if (!confirm(`Supprimer l'instance "${name}" et toute sa configuration ?`)) return;
+    try {
+        const r = await fetch(`/api/clp/instances/${iid}`, {
+            method:'DELETE', headers:{'X-CSRFToken':getCsrf()},
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        await loadInstances();
+        toast(`Instance "${name}" supprimée`);
+    } catch(e) { toast('Erreur', true); }
+}
+
+function openAddMwModal() {
+    document.getElementById('mm-id').value    = '';
+    document.getElementById('mm-label').value = '';
+    document.getElementById('mm-icon').value  = '🔧';
+    document.getElementById('mm-desc').value  = '';
+    openModal('modal-mw');
+}
+
+async function saveMw() {
+    const id    = document.getElementById('mm-id').value.trim();
+    const label = document.getElementById('mm-label').value.trim();
+    const icon  = document.getElementById('mm-icon').value.trim() || '🔧';
+    const desc  = document.getElementById('mm-desc').value.trim();
+    if (!id || !label) return toast('ID et label requis', true);
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/middlewares`, {
+            method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({id, label, icon, description:desc}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        closeModal('modal-mw');
+        await loadConfig(currentIid, true);
+        toast(`Middleware "${label}" ajouté`);
+    } catch(e) { toast('Erreur', true); }
+}
+
+function openAddRoleModal() {
+    document.getElementById('mr-id').value    = '';
+    document.getElementById('mr-label').value = '';
+    document.getElementById('mr-desc').value  = '';
+    openModal('modal-role');
+}
+
+async function saveExtraRole() {
+    const id    = document.getElementById('mr-id').value.trim();
+    const label = document.getElementById('mr-label').value.trim();
+    const desc  = document.getElementById('mr-desc').value.trim();
+    if (!id || !label) return toast('ID et label requis', true);
+    try {
+        const r = await fetch(`/api/clp/instances/${currentIid}/config/extra-roles`, {
+            method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({id, label, description:desc}),
+        });
+        if (!r.ok) { const e = await r.json(); return toast(e.error, true); }
+        closeModal('modal-role');
+        await loadConfig(currentIid, true);
+        toast(`Rôle "${label}" ajouté`);
+    } catch(e) { toast('Erreur', true); }
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+/* ═══════════════════════════════════ TOAST ════════════════════════════════ */
+let _toastTimer = null;
+function toast(msg, err) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (err ? ' err' : '');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ═══════════════════════════════════ UTILS ════════════════════════════════ */
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getCsrf() { return window._csrf || ''; }
+
+/* ═══════════════════════════════════ INIT ══════════════════════════════════ */
+(async () => {
+    const me = await fetch('/api/auth/me');
+    if (me.ok) { const u = await me.json(); window._csrf = u.csrf_token || ''; }
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+        if (!opts.headers) opts.headers = {};
+        if (window._csrf) opts.headers['X-CSRF-Token'] = window._csrf;
+        return _origFetch(url, opts);
+    };
+    showList();
+})();
+</script>
+</body>
+</html>
