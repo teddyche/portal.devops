@@ -155,6 +155,35 @@
         .fqdn-badge.nonprod { background: #e8f5e9; color: #2e7d32; }
         .fqdn-badge.prod    { background: #fce4ec; color: #c62828; }
 
+        /* ── Repo type radios ────────────────────────────────────── */
+        .repo-opts { display: flex; gap: 10px; flex-wrap: wrap; }
+        .radio-opt {
+            display: flex; align-items: center; gap: 7px;
+            padding: 8px 14px; border-radius: 7px;
+            border: 1.5px solid #ddd; cursor: pointer;
+            font-size: 13px; color: #555; transition: all .15s;
+            user-select: none;
+        }
+        .radio-opt input[type=radio] { display: none; }
+        .radio-opt.checked { border-color: #607d8b; background: #eceff1; color: #37474f; font-weight: bold; }
+        .radio-opt:hover { border-color: #90a4ae; }
+        .radio-opt .repo-icon { font-size: 16px; }
+        .radio-opt .repo-hint { font-size: 11px; color: #90a4ae; display: block; margin-top: 1px; }
+
+        /* ── Middleware chips ─────────────────────────────────────── */
+        .mw-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+        .mw-chip {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-radius: 8px;
+            border: 2px solid #ddd; background: white;
+            cursor: pointer; font-size: 14px; color: #555;
+            transition: all .15s; user-select: none;
+        }
+        .mw-chip input[type=checkbox] { display: none; }
+        .mw-chip:hover { border-color: #607d8b; color: #607d8b; }
+        .mw-chip.checked { border-color: #607d8b; background: #607d8b; color: white; }
+        .mw-chip .mw-desc { font-size: 11px; opacity: .7; display: block; }
+
         /* ── Empty state ─────────────────────────────────────────── */
         .empty-envs {
             text-align: center; padding: 32px 20px;
@@ -202,6 +231,21 @@
                     <label>Entité</label>
                     <input id="inp-entite" type="text" placeholder="caps" value="caps" autocomplete="off">
                 </div>
+                <div class="form-group" style="min-width:220px">
+                    <label>Type dépôt JFrog</label>
+                    <div class="repo-opts" id="repo-opts">
+                        <label class="radio-opt checked" id="ropt-generic" onclick="setRepoType('generic')">
+                            <input type="radio" name="repo-type" value="generic" checked>
+                            <span class="repo-icon">📦</span>
+                            <span>Generic<span class="repo-hint">chemin libre (DCA/app/1.0.zip)</span></span>
+                        </label>
+                        <label class="radio-opt" id="ropt-maven" onclick="setRepoType('maven')">
+                            <input type="radio" name="repo-type" value="maven">
+                            <span class="repo-icon">☕</span>
+                            <span>Maven<span class="repo-hint">com.example → com/example</span></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -229,6 +273,25 @@
                     <input id="fqdn-prod" type="text" placeholder="sec-prod1.lan"
                            oninput="refreshEnvFqdns()">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Middlewares -->
+    <div class="card">
+        <div class="card-header">⚙️ Middlewares <span style="font-size:12px;font-weight:normal;color:#aaa;margin-left:6px">— ajoute les rôles correspondants dans le package</span></div>
+        <div class="card-body">
+            <div class="mw-grid">
+                <label class="mw-chip" id="mw-apache" onclick="toggleMw('apache', this)">
+                    <input type="checkbox" value="apache">
+                    <span>🌐</span>
+                    <span>Apache (httpd)<span class="mw-desc">rôle systemd + validation config + handler reload</span></span>
+                </label>
+                <label class="mw-chip" id="mw-tomcat" onclick="toggleMw('tomcat', this)">
+                    <input type="checkbox" value="tomcat">
+                    <span>🐱</span>
+                    <span>Tomcat<span class="mw-desc">rôle systemd + wait_for port + lecture catalina.out</span></span>
+                </label>
             </div>
         </div>
     </div>
@@ -283,8 +346,9 @@ const ENV_COLORS = {
     hom: '#00897b', pre: '#e53935', prd: '#b71c1c',
 };
 
-const DEFAULT_GROUPS = ['APP', 'DB', 'WEB', 'BATCH', 'MQ'];
 let selectedEnvs = new Set();
+let selectedRepoType = 'generic';
+let selectedMiddlewares = new Set();
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 function init() {
@@ -311,6 +375,24 @@ function toggleEnv(name, chip) {
         chip.classList.add('active');
     }
     renderEnvSections();
+}
+
+/* ── Repo type ───────────────────────────────────────────────────────────── */
+function setRepoType(type) {
+    selectedRepoType = type;
+    document.querySelectorAll('.radio-opt').forEach(el => el.classList.remove('checked'));
+    document.getElementById(`ropt-${type}`).classList.add('checked');
+}
+
+/* ── Middlewares ─────────────────────────────────────────────────────────── */
+function toggleMw(name, chip) {
+    if (selectedMiddlewares.has(name)) {
+        selectedMiddlewares.delete(name);
+        chip.classList.remove('checked');
+    } else {
+        selectedMiddlewares.add(name);
+        chip.classList.add('checked');
+    }
 }
 
 /* ── FQDN helpers ────────────────────────────────────────────────────────── */
@@ -451,7 +533,11 @@ async function generate() {
         const resp = await fetch('/api/clp-builder/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code_app, nom_app, entite, envs }),
+            body: JSON.stringify({
+                code_app, nom_app, entite, envs,
+                repo_type: selectedRepoType,
+                middlewares: [...selectedMiddlewares],
+            }),
         });
 
         if (!resp.ok) {

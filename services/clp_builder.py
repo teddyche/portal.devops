@@ -24,8 +24,6 @@ ENV_ARTIFACTORY = {
     'prd':  ('3PG',       'stable'),
 }
 
-PROD_ENVS = {'prd'}
-
 _SSH_ARGS = (
     'ansible_ssh_args="-o GSSAPIAuthentication=yes '
     '-o UserKnownHostsFile=/home/ldap/ansible_tmp/known_hosts" '
@@ -49,7 +47,7 @@ def _j(var: str) -> str:
     return '{{ ' + var + ' }}'
 
 
-# ── Générateurs de contenu ───────────────────────────────────────────────────
+# ── group_vars ────────────────────────────────────────────────────────────────
 
 def _root_group_vars(code_app: str, nom_app: str, entite: str) -> str:
     ca = code_app.lower()
@@ -77,7 +75,7 @@ def _env_group_vars(env: str) -> str:
     letter = ENV_LETTERS.get(env, env[0])
     area, maturity = ENV_ARTIFACTORY.get(env, ('community', 'scratch'))
     return '\n'.join([
-        f'# Variables pour l\'environnement {env}',
+        f"# Variables pour l'environnement {env}",
         '---',
         f'env: "{env}"',
         f'env_letter: "{letter}"',
@@ -91,19 +89,19 @@ def _env_group_vars(env: str) -> str:
     ])
 
 
+# ── Inventaire hosts ──────────────────────────────────────────────────────────
+
 def _hosts_content(code_app: str, hosts: list, fqdn: str) -> str:
     ca = code_app.lower()
 
-    # Collect groups: group_name → [hostname]
     groups: dict[str, list[str]] = {}
     for h in hosts:
-        g = h.get('group', f'{code_app.upper()}_APP').strip().upper().replace(' ', '_')
+        g  = h.get('group', f'{code_app.upper()}_APP').strip().upper().replace(' ', '_')
         hn = h.get('hostname', '').strip()
         if hn:
             groups.setdefault(g, []).append(hn)
 
     if not groups:
-        # Fichier vide avec commentaire guide
         return '\n'.join([
             f'[{ca}_platform:vars]',
             'callbacks_enabled=timer,profile_tasks,profile_roles',
@@ -112,16 +110,15 @@ def _hosts_content(code_app: str, hosts: list, fqdn: str) -> str:
             f'{ca}_app',
             '',
             f'[{ca}_app:children]',
-            f'# TODO: définir les groupes de serveurs',
+            '# TODO: définir les groupes de serveurs',
             '',
             f'# [NOM_GROUPE]',
             f'# hostname.{fqdn or "fqdn.exemple"} {_SSH_ARGS}',
             '',
         ])
 
-    # Séparer app / db
     app_groups = [g for g in groups if not any(k in g for k in ('DB', 'BDD', 'BASE'))]
-    db_groups  = [g for g in groups if any(k in g for k in ('DB', 'BDD', 'BASE'))]
+    db_groups  = [g for g in groups if     any(k in g for k in ('DB', 'BDD', 'BASE'))]
 
     lines = [
         f'[{ca}_platform:vars]',
@@ -129,23 +126,14 @@ def _hosts_content(code_app: str, hosts: list, fqdn: str) -> str:
         '',
         f'[{ca}_platform:children]',
     ]
-    if app_groups:
-        lines.append(f'{ca}_app')
-    if db_groups:
-        lines.append(f'{ca}_db')
+    if app_groups: lines.append(f'{ca}_app')
+    if db_groups:  lines.append(f'{ca}_db')
     lines.append('')
 
     if app_groups:
-        lines.append(f'[{ca}_app:children]')
-        for g in app_groups:
-            lines.append(g)
-        lines.append('')
-
+        lines += [f'[{ca}_app:children]'] + app_groups + ['']
     if db_groups:
-        lines.append(f'[{ca}_db:children]')
-        for g in db_groups:
-            lines.append(g)
-        lines.append('')
+        lines += [f'[{ca}_db:children]']  + db_groups  + ['']
 
     for g, hostnames in groups.items():
         lines.append(f'[{g}]')
@@ -157,97 +145,447 @@ def _hosts_content(code_app: str, hosts: list, fqdn: str) -> str:
     return '\n'.join(lines)
 
 
-def _get_from_artifactory_defaults() -> str:
-    return """\
-# Répertoire temporaire
-tmp_dir: "{{ hostvars[inventory_hostname]['ansible_remote_tmp'] | default('/tmp') }}"
+# ── Rôle : get-from-artifactory ───────────────────────────────────────────────
 
-# Code entité
-entity: caps
+def _get_from_artifactory_defaults(repo_type: str = 'generic') -> str:
+    return f"""\
+# =============================================================================
+# Rôle : get-from-artifactory — Variables par défaut
+#
+# Ces valeurs sont des DÉFAUTS et peuvent être surchargées depuis :
+#   - les group_vars/all.yml de chaque environnement
+#   - les vars du playbook appelant
+# =============================================================================
 
-# Type de repo : maven, generic, docker
-artifactory_repo_type: generic
+# ── Répertoire de travail temporaire ─────────────────────────────────────────
+# Chemin local sur le nœud Ansible où l'artefact sera téléchargé avant copie.
+tmp_dir: "{{{{ hostvars[inventory_hostname]['ansible_remote_tmp'] | default('/tmp') }}}}"
 
-# Maturité : scratch (dev/int/rec), staging (qua/rec), stable (hom/pre/prd)
-maturity: stable
+# ── Type de dépôt Artifactory ─────────────────────────────────────────────────
+#   generic → chemin libre  : GroupId/ArtifactId/fichier.ext
+#             (le GroupId est utilisé TEL QUEL, pas de conversion points → slashes)
+#   maven   → arborescence Maven : com/example/app/1.0/app-1.0.jar
+#             (les points du GroupId sont convertis en slashes)
+artifactory_repo_type: {repo_type}
 
-# Zone d'exposition : intranet ou internet
+# ── Zone d'exposition ─────────────────────────────────────────────────────────
+#   intranet → réseau privé d'entreprise (cas standard)
+#   internet → accès public (rare, nécessite autorisation)
 zone: intranet
 
-# Zone infrastructure : community, 3PG_HP ou 3PG
+# ── Maturité du dépôt ─────────────────────────────────────────────────────────
+#   scratch  → Dev, Intégration, Recette usine (binaires bruts non validés)
+#   staging  → Qualification, Recette (en cours de validation)
+#   stable   → Homologation, Pré-PROD, PROD (binaires validés et promus)
+maturity: stable
+
+# ── Zone d'infrastructure Artifactory ────────────────────────────────────────
+#   community → Environnements Cloud / usine logicielle
+#   3PG_HP    → Pré-production et Homologation (pre-registry-pda)
+#   3PG       → Production (registry-pda)
 artifactory_area: community
 
-artifactory_repo_name: "{{ entite }}-{{ code_app }}-{{ artifactory_repo_type }}-{{ maturity }}-{{ zone }}"
+# ── Nom du dépôt construit automatiquement ───────────────────────────────────
+# Format : {{entite}}-{{code_app}}-{{type}}-{{maturity}}-{{zone}}
+# Exemple : caps-ya-generic-scratch-intranet
+artifactory_repo_name: "{{{{ entite }}}}-{{{{ code_app }}}}-{{{{ artifactory_repo_type }}}}-{{{{ maturity }}}}-{{{{ zone }}}}"
 
-artifact_title: "[{{ artifactory_repo_name }}] maven:{{ maven.groupId }}:{{ maven.artifactId }}:{{ maven.version }}"
+# ── Titre affiché dans les logs Ansible ──────────────────────────────────────
+artifact_title: "[{{{{ artifactory_repo_name }}}}] {{{{ maven.groupId }}}}:{{{{ maven.artifactId }}}}:{{{{ maven.version }}}}"
 
+# ── URLs Artifactory par zone d'infrastructure ────────────────────────────────
 artifactory_url_target:
   community: "https://registry.saas.cagip.group.gca:443/artifactory"
-  3PG_HP: "https://pre-registry-pda.ca-cedicam.fr:443/artifactory"
-  3PG: "https://registry-pda.sec-prod1.lan:443/artifactory"
+  3PG_HP:    "https://pre-registry-pda.ca-cedicam.fr:443/artifactory"
+  3PG:       "https://registry-pda.sec-prod1.lan:443/artifactory"
 
-artifactory_url: "{{ artifactory_url_target[artifactory_area] }}"
+# URL résolue automatiquement selon la zone choisie
+artifactory_url: "{{{{ artifactory_url_target[artifactory_area] }}}}"
+
+# ── Validation des certificats SSL ────────────────────────────────────────────
+# Mettre à false uniquement si l'environnement utilise des certificats auto-signés.
+# Ne JAMAIS désactiver en production.
+validate_certs: true
 """
 
 
-def _get_from_artifactory_tasks() -> str:
+def _get_from_artifactory_tasks(repo_type: str = 'generic') -> str:
+    # Jinja2 ternaire pour le chemin selon le type de repo
+    group_path = (
+        "{{ (artifactory_repo_type == 'maven') "
+        "| ternary(maven.groupId | replace('.', '/'), maven.groupId) }}"
+    )
+    return f"""\
+---
+# =============================================================================
+# Rôle : get-from-artifactory
+#
+# Télécharge un artefact depuis Artifactory et le dépose localement.
+# Vérifie l'intégrité via checksum SHA256 avant de considérer le téléchargement
+# comme réussi.
+#
+# Variables requises (à passer depuis le playbook appelant) :
+#   login            : identifiant de service Artifactory
+#   password         : mot de passe / token Artifactory
+#   artifactory_area : zone infra  (community | 3PG_HP | 3PG)
+#   maturity         : maturité    (scratch | staging | stable)
+#   maven            : dict avec :
+#     groupId        : groupe de l'artefact
+#                      → generic : chemin tel quel      ex: DCA
+#                      → maven   : notation pointée     ex: com.example.app
+#     artifactId     : nom de l'artefact                ex: mon-app
+#     version        : version + extension              ex: 1.2.3.zip
+#
+# Variable de sortie :
+#   artifact_dest    : chemin absolu du fichier téléchargé localement
+# =============================================================================
+
+# ── Calcul du chemin dans le dépôt ───────────────────────────────────────────
+# Pour les dépôts Maven  : les points du groupId sont convertis en slashes
+#                          ex: com.example.app → com/example/app
+# Pour les dépôts Generic: le groupId est utilisé tel quel
+#                          ex: DCA → DCA
+- name: "{{{{ artifact_title }}}} — Calcul du chemin de l'artefact"
+  ansible.builtin.set_fact:
+    _artifact_group_path: "{group_path}"
+
+# ── Récupération des métadonnées de version ───────────────────────────────────
+# L'API de stockage Artifactory retourne les informations sur le fichier
+# (chemin réel, checksums, dates...) avant le téléchargement effectif.
+- name: "{{{{ artifact_title }}}} — Récupération des métadonnées"
+  ansible.builtin.uri:
+    url:              "{{{{ artifactory_url }}}}/api/storage/{{{{ artifactory_repo_name }}}}/{{{{ _artifact_group_path }}}}/{{{{ maven.artifactId }}}}/{{{{ maven.version }}}}"
+    return_content:   true
+    force_basic_auth: true
+    url_username:     "{{{{ login }}}}"
+    url_password:     "{{{{ password }}}}"
+    validate_certs:   "{{{{ validate_certs }}}}"
+  register: artifact_info
+
+# ── Extraction du nom de fichier réel ─────────────────────────────────────────
+# Le chemin retourné par l'API peut différer de la version demandée
+# (ex: snapshot avec timestamp). On extrait le basename pour la suite.
+- name: "{{{{ artifact_title }}}} — Extraction du nom de fichier"
+  ansible.builtin.set_fact:
+    _artifact_filename: "{{{{ artifact_info.json.path | basename }}}}"
+
+# ── Récupération du checksum SHA256 ───────────────────────────────────────────
+# Le checksum sera utilisé pour vérifier l'intégrité après téléchargement.
+# Ansible rejette automatiquement le fichier si le checksum ne correspond pas.
+- name: "{{{{ artifact_title }}}} — Récupération du checksum SHA256"
+  ansible.builtin.uri:
+    url:              "{{{{ artifactory_url }}}}/api/storage/{{{{ artifactory_repo_name }}}}/{{{{ _artifact_group_path }}}}/{{{{ maven.artifactId }}}}/{{{{ _artifact_filename }}}}"
+    return_content:   true
+    force_basic_auth: true
+    url_username:     "{{{{ login }}}}"
+    url_password:     "{{{{ password }}}}"
+    validate_certs:   "{{{{ validate_certs }}}}"
+  register: artifact_meta
+
+- name: "{{{{ artifact_title }}}} — Définition du checksum"
+  ansible.builtin.set_fact:
+    _artifact_checksum: "sha256:{{{{ artifact_meta.json.checksums.sha256 }}}}"
+
+# ── Chemin de destination local ───────────────────────────────────────────────
+# Par défaut dans tmp_dir (ansible_remote_tmp). Peut être surchargé
+# en passant la variable 'dest' depuis le playbook appelant.
+- name: "{{{{ artifact_title }}}} — Définition du chemin de destination"
+  ansible.builtin.set_fact:
+    artifact_dest: "{{{{ dest | default(tmp_dir + '/' + _artifact_filename) }}}}"
+
+# ── Création du répertoire de destination ────────────────────────────────────
+- name: "{{{{ artifact_title }}}} — Création du répertoire de destination"
+  ansible.builtin.file:
+    path:  "{{{{ artifact_dest | dirname }}}}"
+    state: directory
+    mode:  '0755'
+
+# ── Téléchargement de l'artefact ─────────────────────────────────────────────
+# Le module get_url vérifie automatiquement le checksum après téléchargement.
+# Si le fichier existe déjà avec le bon checksum, il n'est pas retéléchargé
+# (idempotence).
+- name: "{{{{ artifact_title }}}} — Téléchargement vers {{{{ artifact_dest }}}}"
+  ansible.builtin.get_url:
+    url:           "{{{{ artifactory_url }}}}/{{{{ artifactory_repo_name }}}}/{{{{ _artifact_group_path }}}}/{{{{ maven.artifactId }}}}/{{{{ _artifact_filename }}}}"
+    dest:          "{{{{ artifact_dest }}}}"
+    url_username:  "{{{{ login }}}}"
+    url_password:  "{{{{ password }}}}"
+    checksum:      "{{{{ _artifact_checksum }}}}"
+    validate_certs: "{{{{ validate_certs }}}}"
+    force:         false
+  register: download_result
+
+# ── Vérification finale ────────────────────────────────────────────────────────
+- name: "{{{{ artifact_title }}}} — Vérification du fichier téléchargé"
+  ansible.builtin.stat:
+    path: "{{{{ artifact_dest }}}}"
+  register: artifact_stat
+
+- name: "{{{{ artifact_title }}}} — Résumé du téléchargement"
+  ansible.builtin.debug:
+    msg: >-
+      Artefact disponible : {{{{ artifact_dest }}}}
+      ({{{{ (artifact_stat.stat.size / 1024 / 1024) | round(2) }}}} Mo)
+  when: artifact_stat.stat.exists
+"""
+
+
+# ── Rôle : apache ─────────────────────────────────────────────────────────────
+
+def _apache_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : apache — Variables par défaut
+# =============================================================================
+
+# Nom du service systemd Apache (httpd sur RHEL/CentOS, apache2 sur Debian/Ubuntu)
+apache_service: httpd
+
+# Port HTTP d'écoute
+apache_port: 80
+
+# Port HTTPS d'écoute
+apache_port_ssl: 443
+
+# Répertoire principal de configuration Apache
+apache_conf_dir: /etc/httpd/conf
+
+# Répertoire des virtual hosts et configurations complémentaires
+apache_vhosts_dir: /etc/httpd/conf.d
+
+# Racine web par défaut
+apache_webroot: /var/www/html
+
+# Timeout maximum d'attente pour le démarrage du service (secondes)
+apache_start_timeout: 30
+"""
+
+
+def _apache_tasks() -> str:
     return """\
 ---
-# Rôle : get-from-artifactory
-# Récupère un artefact depuis Artifactory et le place localement
+# =============================================================================
+# Rôle : apache
+#
+# Gestion du service Apache HTTP Server (httpd) sur RHEL/CentOS.
+# Vérifie le statut, démarre si nécessaire et valide la configuration.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   apache_service  : nom du service systemd      (défaut: httpd)
+#   apache_port     : port HTTP                   (défaut: 80)
+#   apache_port_ssl : port HTTPS                  (défaut: 443)
+#   apache_webroot  : racine web                  (défaut: /var/www/html)
+# =============================================================================
 
-- name: "{{ artifact_title }} - Récupération des informations sur la version"
-  ansible.builtin.uri:
-    url: "{{ artifactory_url }}/api/storage/{{ artifactory_repo_name }}/{{ maven.groupId | replace('.', '/') }}/{{ maven.artifactId }}/{{ maven.version }}"
-    return_content: yes
-    force_basic_auth: true
-    url_username: "{{ login }}"
-    url_password: "{{ password }}"
-  register: artifact_info
+# ── Vérification du statut actuel ────────────────────────────────────────────
+- name: "Apache — Vérification du statut du service {{ apache_service }}"
+  ansible.builtin.systemd:
+    name: "{{ apache_service }}"
+  register: apache_status
+  become: true
 
-- name: "{{ artifact_title }} - Détermination du nom de fichier"
-  ansible.builtin.set_fact:
-    filename: "{{ artifact_info.json.path | basename }}"
+- name: "Apache — Statut : {{ apache_status.status.ActiveState }}"
+  ansible.builtin.debug:
+    msg: "Le service {{ apache_service }} est {{ apache_status.status.ActiveState }}"
 
-- name: "{{ artifact_title }} - Récupération des informations sur le livrable"
-  ansible.builtin.uri:
-    url: "{{ artifactory_url }}/api/storage/{{ artifactory_repo_name }}/{{ maven.groupId | replace('.', '/') }}/{{ maven.artifactId }}/{{ filename }}"
-    return_content: yes
-    force_basic_auth: true
-    url_username: "{{ login }}"
-    url_password: "{{ password }}"
-  register: artifact_info
+# ── Démarrage du service si arrêté ───────────────────────────────────────────
+# Active également le démarrage automatique au boot (enabled: true).
+- name: "Apache — Démarrage du service (si arrêté)"
+  ansible.builtin.systemd:
+    name:    "{{ apache_service }}"
+    state:   started
+    enabled: true
+  become: true
+  when: apache_status.status.ActiveState != 'active'
 
-- name: "{{ artifact_title }} - Détermination de la somme de contrôle SHA256"
-  ansible.builtin.set_fact:
-    artifact_checksum: "sha256:{{ artifact_info.json.checksums.sha256 }}"
+# ── Validation de la configuration ───────────────────────────────────────────
+# Équivalent de `httpd -t` — vérifie la syntaxe avant tout rechargement.
+# La tâche échoue si la configuration est invalide (rc != 0).
+- name: "Apache — Validation de la configuration (httpd -t)"
+  ansible.builtin.command: httpd -t
+  changed_when: false
+  become: true
+  register: apache_config_test
+  failed_when: apache_config_test.rc != 0
 
-- name: "{{ artifact_title }} - Détermination du chemin de destination"
-  ansible.builtin.set_fact:
-    artifact_dest: "{{ dest | default(tmp_dir + '/' + filename) }}"
+- name: "Apache — Résultat de la validation"
+  ansible.builtin.debug:
+    msg: "{{ apache_config_test.stderr_lines }}"
 
-- name: "{{ artifact_title }} - Création du répertoire de destination si nécessaire"
-  ansible.builtin.file:
-    path: "{{ artifact_dest | dirname }}"
-    state: directory
-
-- name: "{{ artifact_title }} - Téléchargement de l'artefact dans {{ artifact_dest }}"
-  ansible.builtin.get_url:
-    url: "{{ artifactory_url }}/{{ artifactory_repo_name }}/{{ maven.groupId | replace('.', '/') }}/{{ maven.artifactId }}/{{ filename }}"
-    dest: "{{ artifact_dest }}"
-    url_username: "{{ login }}"
-    url_password: "{{ password }}"
-    checksum: "{{ artifact_checksum }}"
+# ── Vérification de la disponibilité du port ─────────────────────────────────
+# Attend que le port HTTP soit ouvert avant de continuer.
+- name: "Apache — Vérification de la disponibilité du port {{ apache_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ apache_port }}"
+    timeout: "{{ apache_start_timeout }}"
+    state:   started
 """
 
 
-# ── Point d'entrée ───────────────────────────────────────────────────────────
+def _apache_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : apache — Handlers
+#
+# Déclenchés via `notify: restart apache` ou `notify: reload apache`
+# depuis les tâches du rôle ou d'un playbook dépendant.
+# =============================================================================
+
+# Redémarrage complet du service (à utiliser après changement de configuration
+# qui nécessite un rechargement complet du processus, ex: modules).
+- name: restart apache
+  ansible.builtin.systemd:
+    name:  "{{ apache_service }}"
+    state: restarted
+  become: true
+
+# Rechargement à chaud (graceful) — les connexions en cours ne sont pas coupées.
+# Préférer reload pour les changements de virtual hosts ou de configuration mineurs.
+- name: reload apache
+  ansible.builtin.systemd:
+    name:  "{{ apache_service }}"
+    state: reloaded
+  become: true
+"""
+
+
+# ── Rôle : tomcat ─────────────────────────────────────────────────────────────
+
+def _tomcat_defaults() -> str:
+    return """\
+# =============================================================================
+# Rôle : tomcat — Variables par défaut
+# =============================================================================
+
+# Nom du service systemd Tomcat
+tomcat_service: tomcat
+
+# Port HTTP d'écoute de Tomcat (connecteur HTTP/1.1)
+tomcat_port: 8080
+
+# Port AJP (si utilisé avec Apache en frontal, sinon laisser commenté)
+# tomcat_port_ajp: 8009
+
+# Répertoire d'installation de Tomcat
+tomcat_home: /opt/tomcat
+
+# Répertoire de déploiement des applications (WAR/répertoires)
+tomcat_webapps: "{{ tomcat_home }}/webapps"
+
+# Répertoire des journaux Tomcat
+tomcat_logs: "{{ tomcat_home }}/logs"
+
+# Utilisateur système sous lequel tourne Tomcat
+tomcat_user: tomcat
+
+# Timeout maximum d'attente pour le démarrage du service (secondes)
+tomcat_start_timeout: 60
+"""
+
+
+def _tomcat_tasks() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : tomcat
+#
+# Gestion du service Tomcat sur RHEL/CentOS.
+# Vérifie le statut, démarre si nécessaire et attend la disponibilité du port.
+#
+# Variables configurables (voir defaults/main.yml) :
+#   tomcat_service       : nom du service systemd   (défaut: tomcat)
+#   tomcat_port          : port HTTP Tomcat          (défaut: 8080)
+#   tomcat_home          : répertoire d'installation (défaut: /opt/tomcat)
+#   tomcat_webapps       : répertoire des webapps    (défaut: {{ tomcat_home }}/webapps)
+#   tomcat_user          : utilisateur système       (défaut: tomcat)
+#   tomcat_start_timeout : timeout de démarrage (s)  (défaut: 60)
+# =============================================================================
+
+# ── Vérification du statut actuel ────────────────────────────────────────────
+- name: "Tomcat — Vérification du statut du service {{ tomcat_service }}"
+  ansible.builtin.systemd:
+    name: "{{ tomcat_service }}"
+  register: tomcat_status
+  become: true
+
+- name: "Tomcat — Statut : {{ tomcat_status.status.ActiveState }}"
+  ansible.builtin.debug:
+    msg: "Le service {{ tomcat_service }} est {{ tomcat_status.status.ActiveState }}"
+
+# ── Démarrage du service si arrêté ───────────────────────────────────────────
+# Active également le démarrage automatique au boot (enabled: true).
+- name: "Tomcat — Démarrage du service (si arrêté)"
+  ansible.builtin.systemd:
+    name:    "{{ tomcat_service }}"
+    state:   started
+    enabled: true
+  become: true
+  when: tomcat_status.status.ActiveState != 'active'
+
+# ── Vérification de la disponibilité du port ─────────────────────────────────
+# Attend que Tomcat soit prêt à accepter des connexions sur son port HTTP.
+# Échoue si le port n'est pas disponible après tomcat_start_timeout secondes.
+- name: "Tomcat — Attente de la disponibilité du port {{ tomcat_port }}"
+  ansible.builtin.wait_for:
+    port:    "{{ tomcat_port }}"
+    timeout: "{{ tomcat_start_timeout }}"
+    state:   started
+
+# ── Affichage des derniers logs au démarrage ─────────────────────────────────
+# Utile pour diagnostiquer un démarrage lent ou une erreur d'initialisation.
+- name: "Tomcat — Lecture des dernières lignes de catalina.out"
+  ansible.builtin.command:
+    cmd: "tail -n 20 {{ tomcat_logs }}/catalina.out"
+  changed_when: false
+  become: true
+  become_user: "{{ tomcat_user }}"
+  register: tomcat_log_tail
+  failed_when: false
+
+- name: "Tomcat — Derniers logs de démarrage"
+  ansible.builtin.debug:
+    msg: "{{ tomcat_log_tail.stdout_lines }}"
+  when: tomcat_log_tail.stdout_lines is defined
+"""
+
+
+def _tomcat_handlers() -> str:
+    return """\
+---
+# =============================================================================
+# Rôle : tomcat — Handlers
+#
+# Déclenchés via `notify: restart tomcat` ou `notify: stop tomcat`
+# depuis les tâches du rôle ou d'un playbook dépendant.
+# =============================================================================
+
+# Redémarrage complet de Tomcat (à utiliser après déploiement d'une webapp
+# ou modification de la configuration server.xml / context.xml).
+- name: restart tomcat
+  ansible.builtin.systemd:
+    name:  "{{ tomcat_service }}"
+    state: restarted
+  become: true
+
+# Arrêt propre du service Tomcat.
+- name: stop tomcat
+  ansible.builtin.systemd:
+    name:  "{{ tomcat_service }}"
+    state: stopped
+  become: true
+"""
+
+
+# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def generate_ansible_zip(
     code_app: str,
     nom_app: str,
     entite: str,
     envs: list,
+    repo_type: str = 'generic',
+    middlewares: list | None = None,
 ) -> bytes:
     """
     Génère un package Ansible (ZIP) en mémoire.
@@ -260,13 +598,14 @@ def generate_ansible_zip(
         },
         ...
     ]
+    middlewares = ["apache", "tomcat"]  # optionnel
     """
     ca = code_app.lower()
-    project_name = f'{ca}_deploy'
+    base = f'{ca}_deploy/'
+    mw = [m.lower() for m in (middlewares or [])]
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        base = project_name + '/'
 
         # group_vars racine
         zf.writestr(base + 'group_vars/all.yml',
@@ -280,12 +619,26 @@ def generate_ansible_zip(
             if not env:
                 continue
             inv = base + f'inventories/{env}/'
-            zf.writestr(inv + 'hosts', _hosts_content(code_app, hosts, fqdn))
+            zf.writestr(inv + 'hosts',              _hosts_content(code_app, hosts, fqdn))
             zf.writestr(inv + 'group_vars/all.yml', _env_group_vars(env))
 
         # Rôle get-from-artifactory
         role = base + 'playbooks/roles/get-from-artifactory/'
-        zf.writestr(role + 'defaults/main.yml', _get_from_artifactory_defaults())
-        zf.writestr(role + 'tasks/main.yml',    _get_from_artifactory_tasks())
+        zf.writestr(role + 'defaults/main.yml', _get_from_artifactory_defaults(repo_type))
+        zf.writestr(role + 'tasks/main.yml',    _get_from_artifactory_tasks(repo_type))
+
+        # Rôle apache (optionnel)
+        if 'apache' in mw:
+            r = base + 'playbooks/roles/apache/'
+            zf.writestr(r + 'defaults/main.yml',  _apache_defaults())
+            zf.writestr(r + 'tasks/main.yml',     _apache_tasks())
+            zf.writestr(r + 'handlers/main.yml',  _apache_handlers())
+
+        # Rôle tomcat (optionnel)
+        if 'tomcat' in mw:
+            r = base + 'playbooks/roles/tomcat/'
+            zf.writestr(r + 'defaults/main.yml',  _tomcat_defaults())
+            zf.writestr(r + 'tasks/main.yml',     _tomcat_tasks())
+            zf.writestr(r + 'handlers/main.yml',  _tomcat_handlers())
 
     return buf.getvalue()

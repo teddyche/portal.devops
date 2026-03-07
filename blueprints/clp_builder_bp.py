@@ -32,10 +32,12 @@ def api_clp_generate():
     """
     try:
         body = _require_json()
-        code_app = body.get('code_app', '').strip().lower()
-        nom_app  = body.get('nom_app', '').strip()
-        entite   = body.get('entite', 'caps').strip() or 'caps'
-        envs     = body.get('envs', [])
+        code_app    = body.get('code_app', '').strip().lower()
+        nom_app     = body.get('nom_app', '').strip()
+        entite      = body.get('entite', 'caps').strip() or 'caps'
+        envs        = body.get('envs', [])
+        repo_type   = body.get('repo_type', 'generic').strip().lower()
+        middlewares = body.get('middlewares', [])
 
         if len(code_app) < 2 or not code_app[:2].isalpha():
             return api_error('Le code appli doit commencer par 2 lettres', 400)
@@ -43,12 +45,16 @@ def api_clp_generate():
             return api_error('Le nom appli est requis', 400)
         if not isinstance(envs, list):
             return api_error('envs doit être une liste', 400)
+        if repo_type not in ('generic', 'maven'):
+            repo_type = 'generic'
 
-        zip_bytes = clp_svc.generate_ansible_zip(code_app, nom_app, entite, envs)
+        zip_bytes = clp_svc.generate_ansible_zip(
+            code_app, nom_app, entite, envs, repo_type, middlewares
+        )
         filename  = f'{code_app}_deploy.zip'
 
-        _audit.info('clp_builder_generate user=%s code_app=%s envs=%s',
-                    _uid(), code_app, [e.get('name') for e in envs])
+        _audit.info('clp_builder_generate user=%s code_app=%s repo=%s mw=%s envs=%s',
+                    _uid(), code_app, repo_type, middlewares, [e.get('name') for e in envs])
 
         return Response(
             zip_bytes,
