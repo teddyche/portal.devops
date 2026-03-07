@@ -221,7 +221,7 @@ def generate_project_zip():
         zf.writestr('aap-checker-project/inventories/PROD/hosts',                           _HOSTS_FILE)
         zf.writestr('aap-checker-project/inventories/PROD/group_vars/all.yml',              _GROUP_VARS_PROD)
         zf.writestr('aap-checker-project/roles/collect_aap/tasks/main.yml',                 _TASKS)
-        zf.writestr('aap-checker-project/encrypt_snapshot.py',                              _ENCRYPT_PY)
+        zf.writestr('aap-checker-project/collect_snapshot.py',                              _COLLECT_PY)
         zf.writestr('aap-checker-project/requirements.yml',                                 _REQUIREMENTS)
     buf.seek(0)
     return buf.read()
@@ -246,7 +246,7 @@ aap-checker-project/
 │       ├── hosts
 │       └── group_vars/all.yml  ← paramètres Production
 ├── roles/collect_aap/tasks/main.yml
-└── encrypt_snapshot.py         ← chiffrement AES-256 (Python)
+└── collect_snapshot.py         ← collecte paginée + gzip + chiffrement AES-256 (Python)
 ```
 
 ## Prérequis
@@ -275,8 +275,8 @@ d'avoir les variables spécifiques à chaque env au niveau de l'inventaire sur A
 
 ## Flux
 
-1. Collecte des données via API REST `/api/v2` (aucune collection awx/controller requise)
-2. JSON → gzip → chiffrement AES-256-CBC (Python — `encrypt_snapshot.py`)
+1. `collect_snapshot.py` interroge l'API REST `/api/v2` avec pagination automatique (`next`)
+2. JSON → gzip → chiffrement AES-256-CBC (tout dans `collect_snapshot.py`)
 3. Envoi par mail (pièce jointe `.enc`)
 4. Importation dans AppOps → AAP Checker → instance → Importer snapshot
 """
@@ -301,16 +301,7 @@ all:
 _GROUP_VARS_GLOBAL = """\
 ---
 # Variables globales — surchargées par inventories/<ENV>/group_vars/all.yml
-
-# ── Limites de collecte ───────────────────────────────────────────────────────
-# Par défaut (limit: false) : page_size=10000 → récupère tous les objets en une requête
-# Mettre limit: true pour utiliser les variables aap_page_size_* ci-dessous
-limit: false
-
-# Tailles de page utilisées uniquement si limit: true
-aap_page_size_objects: 200
-aap_page_size_jobs: 200
-aap_page_size_hosts: 500
+# La collecte est gérée par collect_snapshot.py avec pagination automatique (page_size=200).
 """
 
 _GROUP_VARS_HP = """\
@@ -351,139 +342,33 @@ mail_to: "ops@example.com"
 
 _TASKS = """\
 ---
-# ── Collecte AAP via API REST v2 (pas de collection awx/controller requise) ────
+# ── Collecte AAP via collect_snapshot.py (pagination automatique) ────────────
 
-- name: "AAP | Version"
+- name: "AAP | Ping (version check)"
   uri:
     url: "{{ aap_url }}/api/v2/ping/"
     headers: {Authorization: "Bearer {{ aap_token }}"}
     validate_certs: "{{ aap_validate_certs | default(true) }}"
   register: _ping
 
-- name: "AAP | Job templates"
-  uri:
-    url: "{{ aap_url }}/api/v2/job_templates/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _jt
-
-- name: "AAP | Jobs récents"
-  uri:
-    url: "{{ aap_url }}/api/v2/jobs/?page_size={{ limit | default(false) | ternary(aap_page_size_jobs, 10000) }}&order_by=-finished"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _jobs
-
-- name: "AAP | Workflow job templates"
-  uri:
-    url: "{{ aap_url }}/api/v2/workflow_job_templates/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _wfjt
-
-- name: "AAP | Workflow jobs récents"
-  uri:
-    url: "{{ aap_url }}/api/v2/workflow_jobs/?page_size={{ limit | default(false) | ternary(aap_page_size_jobs, 10000) }}&order_by=-finished"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _wfjobs
-
-- name: "AAP | Projects"
-  uri:
-    url: "{{ aap_url }}/api/v2/projects/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _projects
-
-- name: "AAP | Schedules"
-  uri:
-    url: "{{ aap_url }}/api/v2/schedules/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _schedules
-
-- name: "AAP | Tokens"
-  uri:
-    url: "{{ aap_url }}/api/v2/tokens/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _tokens
-
-- name: "AAP | Credentials"
-  uri:
-    url: "{{ aap_url }}/api/v2/credentials/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _creds
-
-- name: "AAP | Inventories"
-  uri:
-    url: "{{ aap_url }}/api/v2/inventories/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _inv
-
-- name: "AAP | Hosts"
-  uri:
-    url: "{{ aap_url }}/api/v2/hosts/?page_size={{ limit | default(false) | ternary(aap_page_size_hosts, 10000) }}&order_by=name"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _hosts
-
-- name: "AAP | Organizations"
-  uri:
-    url: "{{ aap_url }}/api/v2/organizations/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _orgs
-
-- name: "AAP | Teams"
-  uri:
-    url: "{{ aap_url }}/api/v2/teams/?page_size={{ limit | default(false) | ternary(aap_page_size_objects, 10000) }}"
-    headers: {Authorization: "Bearer {{ aap_token }}"}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
-  register: _teams
-
-- name: "AAP | Assembler snapshot"
-  set_fact:
-    _snap:
-      manifest:
-        instance_name: "{{ instance_name }}"
-        aap_url:       "{{ aap_url }}"
-        aap_version:   "{{ _ping.json.version | default('unknown') }}"
-        collected_at:  "{{ ansible_date_time.iso8601 }}"
-      job_templates:          "{{ _jt.json.results       | default([]) }}"
-      jobs:                   "{{ _jobs.json.results     | default([]) }}"
-      workflow_job_templates: "{{ _wfjt.json.results     | default([]) }}"
-      workflow_jobs:          "{{ _wfjobs.json.results   | default([]) }}"
-      projects:               "{{ _projects.json.results | default([]) }}"
-      schedules:              "{{ _schedules.json.results | default([]) }}"
-      tokens:                 "{{ _tokens.json.results   | default([]) }}"
-      credentials:            "{{ _creds.json.results    | default([]) }}"
-      inventories:            "{{ _inv.json.results      | default([]) }}"
-      hosts:                  "{{ _hosts.json.results    | default([]) }}"
-      organizations:          "{{ _orgs.json.results     | default([]) }}"
-      teams:                  "{{ _teams.json.results    | default([]) }}"
-
-- name: "PKG | Écrire JSON"
-  copy:
-    content: "{{ _snap | to_json }}"
-    dest: "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.json"
-
-- name: "PKG | Compresser"
-  command: "gzip -f '/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.json'"
-
-- name: "PKG | Chiffrer (AES-256-CBC Python)"
-  vars:
-    _snap_base: "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}"
+- name: "PKG | Collecter + chiffrer snapshot"
   script:
-    cmd: encrypt_snapshot.py
+    cmd: collect_snapshot.py
   args:
     executable: python3
   environment:
-    SNAP_INPUT:  "{{ _snap_base }}.json.gz"
-    SNAP_OUTPUT: "{{ _snap_base }}.enc"
-    ENC_KEY:     "{{ portal_enc_key }}"
+    AAP_URL:        "{{ aap_url }}"
+    AAP_TOKEN:      "{{ aap_token }}"
+    SNAP_OUTPUT:    "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.enc"
+    ENC_KEY:        "{{ portal_enc_key }}"
+    INSTANCE_NAME:  "{{ instance_name }}"
+    VALIDATE_CERTS: "{{ aap_validate_certs | default(true) }}"
+  no_log: true
+  register: _collect
+
+- name: "PKG | Résumé collecte"
+  debug:
+    msg: "{{ _collect.stdout_lines }}"
 
 - name: "MAIL | Envoyer snapshot"
   community.general.mail:
@@ -505,44 +390,110 @@ _TASKS = """\
 
 - name: "PKG | Nettoyage"
   file:
-    path: "{{ item }}"
+    path: "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.enc"
     state: absent
-  loop:
-    - "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.json.gz"
-    - "/tmp/aap_snap_{{ instance_name | replace(' ', '_') }}.enc"
 """
 
-_ENCRYPT_PY = """\
+_COLLECT_PY = """\
 #!/usr/bin/env python3
 \"\"\"
-encrypt_snapshot.py — Chiffrement AES-256-CBC PBKDF2-SHA256 (compatible openssl Salted__)
-Variables d'environnement : SNAP_INPUT, SNAP_OUTPUT, ENC_KEY
+collect_snapshot.py — Collecte paginée AAP API v2 + gzip + chiffrement AES-256-CBC
+Variables d'environnement : AAP_URL, AAP_TOKEN, SNAP_OUTPUT, ENC_KEY, INSTANCE_NAME, VALIDATE_CERTS
 \"\"\"
+import gzip
 import hashlib
+import json
 import os
+import ssl
+from datetime import datetime
+from urllib.request import Request, urlopen
+
+
+def collect_all(base_url, token, path, ctx, page_size=200):
+    \"\"\"Suit la pagination `next` jusqu'à épuisement des résultats.\"\"\"
+    results = []
+    sep = '&' if '?' in path else '?'
+    url = f"{base_url}{path}{sep}page_size={page_size}"
+    while url:
+        req = Request(url, headers={"Authorization": f"Bearer {token}"})
+        with urlopen(req, context=ctx, timeout=60) as r:
+            data = json.loads(r.read().decode())
+        results.extend(data.get("results", []))
+        nxt = data.get("next")
+        url = (nxt if nxt.startswith("http") else base_url + nxt) if nxt else None
+    return results
+
+
+def collect_scalar(base_url, token, path, ctx):
+    req = Request(f"{base_url}{path}", headers={"Authorization": f"Bearer {token}"})
+    with urlopen(req, context=ctx, timeout=30) as r:
+        return json.loads(r.read().decode())
+
+
+aap_url        = os.environ['AAP_URL'].rstrip('/')
+aap_token      = os.environ['AAP_TOKEN']
+snap_output    = os.environ['SNAP_OUTPUT']
+enc_key        = os.environ['ENC_KEY']
+instance_name  = os.environ.get('INSTANCE_NAME', 'AAP')
+validate_certs = os.environ.get('VALIDATE_CERTS', 'true').lower() not in ('false', '0', 'no')
+
+ctx = ssl.create_default_context() if validate_certs else ssl._create_unverified_context()
+
+print(f"[collect] Connexion à {aap_url}...", flush=True)
+ping = collect_scalar(aap_url, aap_token, '/api/v2/ping/', ctx)
+aap_version = ping.get('version', 'unknown')
+print(f"[collect] Version AAP : {aap_version}", flush=True)
+
+endpoints = [
+    ('job_templates',          '/api/v2/job_templates/?order_by=name',          200),
+    ('jobs',                   '/api/v2/jobs/?order_by=-finished',               200),
+    ('workflow_job_templates', '/api/v2/workflow_job_templates/?order_by=name',  200),
+    ('workflow_jobs',          '/api/v2/workflow_jobs/?order_by=-finished',      200),
+    ('projects',               '/api/v2/projects/?order_by=name',                200),
+    ('schedules',              '/api/v2/schedules/',                              200),
+    ('tokens',                 '/api/v2/tokens/',                                 200),
+    ('credentials',            '/api/v2/credentials/?order_by=name',             200),
+    ('inventories',            '/api/v2/inventories/?order_by=name',             200),
+    ('hosts',                  '/api/v2/hosts/?order_by=name',                   500),
+    ('organizations',          '/api/v2/organizations/',                          200),
+    ('teams',                  '/api/v2/teams/',                                  200),
+]
+
+snap = {
+    'manifest': {
+        'instance_name': instance_name,
+        'aap_url':       aap_url,
+        'aap_version':   aap_version,
+        'collected_at':  datetime.utcnow().isoformat() + 'Z',
+    }
+}
+
+for key, path, page_size in endpoints:
+    print(f"[collect] {key}...", flush=True)
+    snap[key] = collect_all(aap_url, aap_token, path, ctx, page_size)
+    print(f"[collect]   → {len(snap[key])} éléments", flush=True)
+
+# Gzip + chiffrement AES-256-CBC (format Salted__, compatible openssl)
+raw = gzip.compress(json.dumps(snap).encode('utf-8'))
+print(f"[collect] Compressé : {len(raw)} bytes", flush=True)
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-password = os.environ['ENC_KEY'].encode()
-salt     = os.urandom(8)
-key_iv   = hashlib.pbkdf2_hmac('sha256', password, salt, 100000, dklen=48)
-key, iv  = key_iv[:32], key_iv[32:]
-
-with open(os.environ['SNAP_INPUT'], 'rb') as f:
-    data = f.read()
-
-# PKCS7 padding
-pad_len = 16 - (len(data) % 16)
-data += bytes([pad_len]) * pad_len
-
+password  = enc_key.encode()
+salt      = os.urandom(8)
+key_iv    = hashlib.pbkdf2_hmac('sha256', password, salt, 100000, dklen=48)
+key, iv   = key_iv[:32], key_iv[32:]
+pad_len   = 16 - (len(raw) % 16)
+raw      += bytes([pad_len]) * pad_len
 cipher    = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
 encryptor = cipher.encryptor()
-encrypted = encryptor.update(data) + encryptor.finalize()
+encrypted = encryptor.update(raw) + encryptor.finalize()
 
-# Format Salted__ (compatible openssl -aes-256-cbc -pbkdf2)
-with open(os.environ['SNAP_OUTPUT'], 'wb') as f:
+with open(snap_output, 'wb') as f:
     f.write(b'Salted__' + salt + encrypted)
+
+print(f"[collect] Snapshot chiffré → {snap_output}", flush=True)
 """
 
 _REQUIREMENTS = """\

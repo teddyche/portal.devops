@@ -194,8 +194,18 @@
         .hbar-label { font-size:12px;color:#333;margin-bottom:3px;display:flex;justify-content:space-between; }
         .hbar-track { height:10px;background:#f0f0f0;border-radius:5px;overflow:hidden; }
         .hbar-fill  { height:100%;border-radius:5px;transition:width .3s; }
-        .nc-summary-row { display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
-        .nc-summary-row:last-child{border-bottom:none;}
+        .nc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+        .nc-item{background:#fafafa;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;}
+        .nc-item-ok{border-color:#c8e6c9;background:#f1f8f1;}
+        .nc-item-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+        .nc-item-lbl{font-size:12px;font-weight:600;color:#37474f;}
+        .nc-item-total{font-size:11px;color:#90a4ae;}
+        .nc-bar{height:7px;border-radius:4px;background:#e0e0e0;overflow:hidden;display:flex;margin-bottom:5px;}
+        .nc-bar-ok{background:#43a047;height:100%;}
+        .nc-bar-viol{background:#fb8c00;height:100%;}
+        .nc-item-counts{display:flex;gap:8px;font-size:11px;}
+        .nc-ok-ct{color:#2e7d32;font-weight:600;}
+        .nc-viol-ct{color:#e65100;font-weight:600;}
         .tok-gauge-row { display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap; }
         .tok-gauge { flex:1;min-width:80px;text-align:center;padding:12px 8px;border-radius:8px; }
         .tok-gauge-val { font-size:24px;font-weight:bold; }
@@ -944,15 +954,29 @@ function renderCockpit() {
     if (!nc) {
         html += '<div style="font-size:13px;color:#888;padding:8px 0">Cliquez sur <b>📏 Normes</b> pour configurer les regex.</div>';
     } else {
+        html += '<div class="nc-grid">';
         [
-            ['Job Templates', ncStats.jt, templates.length], ['Workflow Templates', ncStats.wf, wfs.length],
-            ['Projets', ncStats.proj, projects.length], ['Inventories', ncStats.inv, invs.length],
-            ['Credentials', ncStats.cred, creds.length], ['Hosts', ncStats.hosts, hosts.length],
-        ].forEach(([lbl, cnt, tot]) => {
-            html += '<div class="nc-summary-row"><span>' + lbl + '</span>' +
-                (cnt > 0 ? '<span style="color:#ff8c00;font-weight:bold">' + cnt + ' violation' + (cnt > 1 ? 's' : '') + '</span> / ' + tot
-                         : '<span style="color:#2e7d32">✅ OK (' + tot + ')</span>') + '</div>';
+            ['🔧', 'Job Templates',   ncStats.jt,   templates.length],
+            ['🔀', 'Workflows',       ncStats.wf,   wfs.length],
+            ['📁', 'Projets',         ncStats.proj, projects.length],
+            ['📦', 'Inventories',     ncStats.inv,  invs.length],
+            ['🔑', 'Credentials',     ncStats.cred, creds.length],
+            ['🖥',  'Hosts',          ncStats.hosts, hosts.length],
+        ].forEach(([ico, lbl, viol, tot]) => {
+            const ok  = tot - viol;
+            const pct = tot > 0 ? Math.round(ok / tot * 100) : 100;
+            html += '<div class="nc-item' + (viol === 0 ? ' nc-item-ok' : '') + '">' +
+                '<div class="nc-item-hd">' +
+                '<span class="nc-item-lbl">' + ico + ' ' + lbl + '</span>' +
+                '<span class="nc-item-total">' + tot + '</span>' +
+                '</div>' +
+                '<div class="nc-bar"><div class="nc-bar-ok" style="width:' + pct + '%"></div><div class="nc-bar-viol" style="width:' + (100 - pct) + '%"></div></div>' +
+                '<div class="nc-item-counts">' +
+                '<span class="nc-ok-ct">✓ ' + ok + '</span>' +
+                (viol > 0 ? '<span class="nc-viol-ct">⚠ ' + viol + ' violations</span>' : '') +
+                '</div></div>';
         });
+        html += '</div>';
     }
     html += '</div></div>'; // cockpit-card + cockpit-grid
     el.innerHTML = html;
