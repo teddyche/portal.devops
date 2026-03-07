@@ -55,9 +55,18 @@
             background: white; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08);
             padding: 18px 20px; min-width: 240px; max-width: 300px;
             cursor: pointer; transition: all .15s; border-left: 4px solid #c62828;
-            display: flex; flex-direction: column; gap: 8px;
+            display: flex; flex-direction: column; gap: 8px; position: relative;
         }
         .inst-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.14); }
+        .inst-card-kebab { position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;font-size:18px;color:#bdbdbd;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .15s;line-height:1;z-index:1; }
+        .inst-card:hover .inst-card-kebab { opacity:1; }
+        .inst-card-kebab:hover { background:#f0f0f0;color:#555; }
+        .inst-ctx-menu { position:fixed;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.18);min-width:160px;padding:4px 0;animation:fadeIn .1s; }
+        .inst-ctx-item { padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:9px;color:#333; }
+        .inst-ctx-item:hover { background:#f5f5f5; }
+        .inst-ctx-item.danger { color:#c62828; }
+        .inst-ctx-item.danger:hover { background:#ffebee; }
+        .inst-ctx-sep { height:1px;background:#f0f0f0;margin:3px 0; }
         .inst-card-name { font-size: 15px; font-weight: bold; color: #1a237e; }
         .inst-card-desc { font-size: 12px; color: #777; }
         .inst-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
@@ -552,6 +561,7 @@ function renderInstanceList() {
     c.innerHTML = Object.entries(groups).map(([env, list]) =>
         '<div class="env-section"><div class="env-label">🏷 ' + esc(env) + '</div><div class="cards-row">' +
         list.map(i => '<div class="inst-card" style="border-left-color:' + esc(i.color) + '" onclick="openInstance(\'' + i.id + '\')">' +
+            '<button class="inst-card-kebab" onclick="openInstCtxMenu(event,\'' + i.id + '\')" title="Options">⋮</button>' +
             '<div class="inst-card-name">' + esc(i.name) + '</div>' +
             (i.description ? '<div class="inst-card-desc">' + esc(i.description) + '</div>' : '') +
             '<div class="inst-card-meta"><span class="inst-card-snaps">Cliquer pour ouvrir</span>' +
@@ -870,6 +880,16 @@ function renderCockpit() {
     });
     const gRate = (totSucc + totFail) > 0 ? Math.round(totSucc / (totSucc + totFail) * 100) : null;
 
+    const wfJobs   = snapData.workflow_jobs || [];
+    const wfRunMap = {};
+    wfJobs.forEach(j => { if (j.unified_job_template != null) (wfRunMap[j.unified_job_template] = wfRunMap[j.unified_job_template] || []).push(j); });
+    const wfStats = wfs.map(t => {
+        const runs = wfRunMap[t.id] || [];
+        const s = runs.filter(r => r.status === 'successful').length;
+        const f = runs.filter(r => r.status === 'failed').length;
+        return { name: t.name, success: s, failed: f };
+    });
+
     let tokExp = 0, tokWarn = 0, tokOk = 0;
     tokens.forEach(t => {
         if (!t.expires) { tokOk++; return; }
@@ -893,8 +913,10 @@ function renderCockpit() {
         hosts.forEach(h => { if (ncCheckHost(h.name) !== 'ok') ncStats.hosts++; });
     }
 
-    const topFail = [...tplStats].filter(t => t.failed > 0).sort((a, b) => b.failed - a.failed).slice(0, 10);
-    const maxFail = Math.max(1, ...topFail.map(t => t.failed));
+    const topFail   = [...tplStats].filter(t => t.failed > 0).sort((a, b) => b.failed - a.failed).slice(0, 10);
+    const maxFail   = Math.max(1, ...topFail.map(t => t.failed));
+    const topWfFail = [...wfStats].filter(t => t.failed > 0).sort((a, b) => b.failed - a.failed).slice(0, 10);
+    const maxWfFail = Math.max(1, ...topWfFail.map(t => t.failed));
     const topInvFail = [...invs].filter(i => i.hosts_with_active_failures > 0).sort((a, b) => b.hosts_with_active_failures - a.hosts_with_active_failures).slice(0, 8);
     const maxHF = Math.max(1, ...topInvFail.map(i => i.hosts_with_active_failures));
 
@@ -917,21 +939,14 @@ function renderCockpit() {
     });
     html += '</div>';
 
-    // Tokens
-    html += '<div class="cockpit-card"><h3>🔑 Tokens</h3><div class="tok-gauge-row">' +
-        '<div class="tok-gauge" style="background:#e8f5e9"><div class="tok-gauge-val" style="color:#2e7d32">' + tokOk + '</div><div class="tok-gauge-lbl" style="color:#2e7d32">OK</div></div>' +
-        '<div class="tok-gauge" style="background:#fff8e1"><div class="tok-gauge-val" style="color:#e65100">' + tokWarn + '</div><div class="tok-gauge-lbl" style="color:#e65100">⚠ &lt; 30j</div></div>' +
-        '<div class="tok-gauge" style="background:#ffebee"><div class="tok-gauge-val" style="color:#c62828">' + tokExp + '</div><div class="tok-gauge-lbl" style="color:#c62828">✗ Expirés</div></div>' +
-        '</div>';
-    if (tokens.length > 0) {
-        const op = Math.round(tokOk / tokens.length * 100);
-        const wp = Math.round(tokWarn / tokens.length * 100);
-        html += '<div class="hbar-track" style="height:12px;border-radius:6px;overflow:hidden;display:flex;margin-top:4px">' +
-            '<div style="width:' + op + '%;background:#2e7d32;height:100%"></div>' +
-            '<div style="width:' + wp + '%;background:#e65100;height:100%"></div>' +
-            '<div style="width:' + (100 - op - wp) + '%;background:#c62828;height:100%"></div></div>' +
-            '<div style="font-size:11px;color:#888;margin-top:6px">' + tokens.length + ' token' + (tokens.length > 1 ? 's' : '') + ' au total</div>';
-    }
+    // Top WF Templates par échecs
+    html += '<div class="cockpit-card"><h3>🔀 Top Workflow Templates — Échecs</h3>';
+    if (!topWfFail.length) html += '<div style="color:#2e7d32;font-size:13px;padding:8px 0">✅ Aucun échec détecté</div>';
+    else topWfFail.forEach(t => {
+        const pct = Math.round(t.failed / maxWfFail * 100);
+        const nm  = t.name.length > 48 ? t.name.slice(0, 48) + '…' : t.name;
+        html += '<div class="hbar-item"><div class="hbar-label"><span>' + esc(nm) + '</span><span style="color:#6a1b9a;font-weight:bold">' + t.failed + ' échec' + (t.failed > 1 ? 's' : '') + '</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;background:#9c27b0"></div></div></div>';
+    });
     html += '</div>';
 
     // Inventories & hosts
@@ -1436,6 +1451,36 @@ function renderColorSwatches() {
         '<div class="color-swatch' + (c === _selectedColor ? ' active' : '') + '" style="background:' + c + '" onclick="selectInstColor(\'' + c + '\')"></div>').join('');
 }
 function selectInstColor(c) { _selectedColor = c; renderColorSwatches(); }
+
+// ── Instance context menu ───────────────────────────────────────────────────────
+function openInstCtxMenu(event, iid) {
+    event.stopPropagation();
+    closeInstCtxMenu();
+    const inst = instances.find(i => i.id === iid);
+    if (!inst) return;
+    const menu = document.createElement('div');
+    menu.id = 'instCtxMenu';
+    menu.className = 'inst-ctx-menu';
+    menu.innerHTML =
+        '<div class="inst-ctx-item" onclick="closeInstCtxMenu();openInstModal(instances.find(i=>i.id===\'' + iid + '\'))">✏️ Modifier</div>' +
+        '<div class="inst-ctx-sep"></div>' +
+        '<div class="inst-ctx-item danger" onclick="closeInstCtxMenu();confirmInstDelete(\'' + iid + '\')">🗑 Supprimer</div>';
+    document.body.appendChild(menu);
+    const btn = event.currentTarget;
+    const r = btn.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+    setTimeout(() => document.addEventListener('click', closeInstCtxMenu, { once: true }), 0);
+}
+function closeInstCtxMenu() { const m = document.getElementById('instCtxMenu'); if (m) m.remove(); }
+
+function confirmInstDelete(iid) {
+    const inst = instances.find(i => i.id === iid);
+    if (!inst) return;
+    if (!confirm('Supprimer l\'instance "' + inst.name + '" et tous ses snapshots ?\nCette action est irréversible.')) return;
+    fetch('/api/aap-checker/instances/' + iid, { method: 'DELETE' })
+        .then(() => loadInstances());
+}
 
 function openInstModal(inst) {
     _editInstId = inst ? inst.id : null;
