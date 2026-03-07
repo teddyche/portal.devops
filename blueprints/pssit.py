@@ -145,8 +145,9 @@ def api_pssit_launch(app_id: str, env_id: str):
 def api_pssit_job_status(app_id: str, env_id: str, awx_job_id: int):
     if not pssit_service.pssit_app_exists(_dd(), app_id):
         abort(404)
+    job_type = request.args.get('type', 'workflow_job')
     try:
-        result = pssit_service.get_pssit_job_status(_dd(), app_id, env_id, awx_job_id, _sk(), get_ssl_verify())
+        result = pssit_service.get_pssit_job_status(_dd(), app_id, env_id, awx_job_id, _sk(), get_ssl_verify(), job_type=job_type)
         return jsonify(result)
     except ServiceError as e:
         return api_error(e.message, e.status)

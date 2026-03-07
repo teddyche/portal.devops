@@ -168,6 +168,20 @@
 
         .empty-table { text-align: center; padding: 24px; color: #999; font-size: 14px; }
 
+        /* Spinner lignes en cours + détail erreur */
+        @keyframes spin-sm { to { transform: rotate(360deg); } }
+        .spin-sm {
+            display: inline-block; width: 10px; height: 10px;
+            border: 2px solid rgba(21,101,192,0.25); border-top-color: #1565c0;
+            border-radius: 50%; animation: spin-sm 0.8s linear infinite;
+            vertical-align: middle; margin-right: 4px;
+        }
+        .err-detail {
+            display: block; font-size: 11px; color: #c62828; margin-top: 3px;
+            max-width: 300px; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; cursor: help;
+        }
+
         /* Toast */
         .toast-container {
             position: fixed; bottom: 20px; right: 20px; z-index: 9999;
@@ -362,12 +376,17 @@ async function launchAction(action, envId) {
         });
         const result = await resp.json();
 
-        if (result.error) {
-            showToast(result.error, 'error');
+        if (!resp.ok) {
+            showToast('\u274c ' + (result.error || 'Erreur'), 'error');
+        } else if (result.status === 'error') {
+            history.unshift(result);
+            renderHistory();
+            const detail = (result.params && result.params._error) ? result.params._error.slice(0, 200) : 'Erreur AWX';
+            showToast('\u274c ' + detail, 'error');
         } else {
             history.unshift(result);
             renderHistory();
-            showToast(action.toUpperCase() + ' lanc\u00e9 sur ' + envName, 'success');
+            showToast('\u2705 ' + action.toUpperCase() + ' lanc\u00e9 sur ' + envName, 'success');
             if (result.status === 'running') startPollJob(result);
             if (action === 'status') {
                 const dot = document.getElementById('dot-' + envId);
@@ -404,12 +423,17 @@ async function launchDeploy(envId) {
         });
         const result = await resp.json();
 
-        if (result.error) {
-            showToast(result.error, 'error');
+        if (!resp.ok) {
+            showToast('\u274c ' + (result.error || 'Erreur'), 'error');
+        } else if (result.status === 'error') {
+            history.unshift(result);
+            renderHistory();
+            const detail = (result.params && result.params._error) ? result.params._error.slice(0, 200) : 'Erreur AWX';
+            showToast('\u274c ' + detail, 'error');
         } else {
             history.unshift(result);
             renderHistory();
-            showToast('D\u00e9ploiement lanc\u00e9 : version ' + artifact, 'success');
+            showToast('\u2705 D\u00e9ploiement lanc\u00e9 : version ' + artifact, 'success');
             if (result.status === 'running') startPollJob(result);
         }
     } catch (e) {
@@ -563,11 +587,21 @@ function renderHistory() {
             ? '<a class="awx-link" href="' + esc(h.awxJobUrl) + '" target="_blank">#' + h.awxJobId + '</a>'
             : '-';
 
+        let statusCell;
+        if (h.status === 'running' || h.status === 'pending') {
+            statusCell = '<span class="badge-status badge-' + h.status + '"><span class="spin-sm"></span>' + h.status + '</span>';
+        } else {
+            statusCell = '<span class="badge-status badge-' + h.status + '">' + h.status + '</span>';
+            if (h.status === 'error' && h.params && h.params._error) {
+                statusCell += '<span class="err-detail" title="' + esc(h.params._error) + '">' + esc(h.params._error.slice(0, 80)) + '</span>';
+            }
+        }
+
         html += '<tr>' +
             '<td>' + formatDate(h.timestamp) + '</td>' +
             '<td><strong>' + (h.action || '').toUpperCase() + '</strong></td>' +
             '<td>' + envBadge + '</td>' +
-            '<td><span class="badge-status badge-' + h.status + '">' + h.status + '</span></td>' +
+            '<td>' + statusCell + '</td>' +
             '<td>' + awxLink + '</td>' +
             '<td>' + esc(h.artifact || '-') + '</td>' +
             '</tr>';
@@ -580,9 +614,10 @@ function renderHistory() {
 // === Polling ===
 function startPollJob(entry) {
     if (activePollers[entry.id]) return;
+    const jobType = entry.awxJobType || 'workflow_job';
     activePollers[entry.id] = setInterval(async () => {
         try {
-            const resp = await fetch('/api/pssit/app/' + appId + '/env/' + entry.envId + '/job/' + entry.awxJobId + '/status');
+            const resp = await fetch('/api/pssit/app/' + appId + '/env/' + entry.envId + '/job/' + entry.awxJobId + '/status?type=' + jobType);
             const data = await resp.json();
 
             if (data.status && data.status !== 'running' && data.status !== 'pending') {

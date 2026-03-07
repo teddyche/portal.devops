@@ -59,6 +59,24 @@ def _validate_params(params: Any) -> dict:
     return validated
 
 
+def _resolve_template(awx: dict, action: str) -> tuple:
+    """Retourne (template_id: int, template_type: str).
+    Compatible ancien format (int seul) et nouveau format ({id, type}).
+    """
+    raw = awx.get('workflows', {}).get(action)
+    if not raw:
+        raise ServiceError(f'Workflow non configuré pour l\'action "{action}"')
+    if isinstance(raw, dict):
+        tid   = raw.get('id')
+        ttype = raw.get('type', 'workflow')
+    else:
+        tid   = raw
+        ttype = 'workflow'
+    if not tid:
+        raise ServiceError(f'Workflow non configuré pour l\'action "{action}"')
+    return int(tid), str(ttype)
+
+
 # === Helpers chemins ===
 
 def _apps_file(datas_dir: str) -> str:
@@ -288,29 +306,30 @@ def launch_pssit_workflow(
     params = _validate_params(body.get('params', {}))
 
     awx = env_config.get('awx', {})
-    template_id = awx.get('workflows', {}).get(action)
-    if not template_id:
-        raise ServiceError(f'Workflow non configuré pour {action}')
+    template_id, template_type = _resolve_template(awx, action)
 
-    awx_url = awx.get('url', '').rstrip('/')
-    awx_token = awx.get('token', '')
+    awx_url    = awx.get('url', '').rstrip('/')
+    awx_token  = awx.get('token', '')
     extra_vars = {**env_config.get('extraParams', {}), **params}
+    is_wf      = template_type == 'workflow'
 
     entry: dict = {
-        'id': uuid.uuid4().hex[:8],
-        'action': action,
-        'envId': env_id,
-        'timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
-        'awxJobId': None,
-        'awxJobUrl': None,
-        'status': 'pending',
-        'params': extra_vars,
-        'artifact': params.get('artifact'),
+        'id':         uuid.uuid4().hex[:8],
+        'action':     action,
+        'envId':      env_id,
+        'timestamp':  datetime.now(timezone.utc).isoformat() + 'Z',
+        'awxJobId':   None,
+        'awxJobUrl':  None,
+        'awxJobType': 'workflow_job' if is_wf else 'job',
+        'status':     'pending',
+        'params':     extra_vars,
+        'artifact':   params.get('artifact'),
     }
 
+    endpoint = 'workflow_job_templates' if is_wf else 'job_templates'
     try:
         resp = http_requests.post(
-            f'{awx_url}/api/v2/workflow_job_templates/{template_id}/launch/',
+            f'{awx_url}/api/v2/{endpoint}/{template_id}/launch/',
             headers={'Authorization': f'Bearer {awx_token}', 'Content-Type': 'application/json'},
             json={'extra_vars': json.dumps(extra_vars)} if extra_vars else {},
             timeout=30,
@@ -318,17 +337,24 @@ def launch_pssit_workflow(
             **_proxy_kwargs(datas_dir, app_id, awx.get('use_proxy', False)),
         )
         if resp.status_code in (200, 201):
-            job_data = resp.json()
-            awx_job_id = job_data.get('id') or job_data.get('workflow_job')
-            entry['awxJobId'] = awx_job_id
-            entry['awxJobUrl'] = f'{awx_url}/#/jobs/workflow/{awx_job_id}'
-            entry['status'] = 'running'
+            job_data   = resp.json()
+            awx_job_id = job_data.get('id') or (
+                job_data.get('workflow_job') if is_wf else job_data.get('job')
+            )
+            entry['awxJobId']  = awx_job_id
+            entry['awxJobUrl'] = f'{awx_url}/#/jobs/{"workflow" if is_wf else "playbook"}/{awx_job_id}'
+            entry['status']    = 'running'
         else:
+            try:
+                err_body = resp.json()
+                err_msg  = err_body.get('detail') or err_body.get('error') or err_body.get('msg') or resp.text[:300]
+            except Exception:
+                err_msg = resp.text[:300]
             entry['status'] = 'error'
-            entry['params']['_error'] = resp.text[:500]
+            entry['params']['_error'] = f'HTTP {resp.status_code}: {err_msg}'
     except Exception as e:
         entry['status'] = 'error'
-        entry['params']['_error'] = str(e)[:500]
+        entry['params']['_error'] = str(e)[:300]
 
     add_pssit_history(datas_dir, app_id, entry)
     return entry
@@ -341,6 +367,7 @@ def get_pssit_job_status(
     awx_job_id: int,
     secret_key: str,
     ssl_verify: Any,
+    job_type: str = 'workflow_job',
 ) -> dict:
     env_config = get_pssit_env_config(datas_dir, app_id, env_id, secret_key)
     if not env_config:
@@ -350,9 +377,10 @@ def get_pssit_job_status(
     awx_url = awx.get('url', '').rstrip('/')
     awx_token = awx.get('token', '')
 
+    _ep = 'workflow_jobs' if job_type == 'workflow_job' else 'jobs'
     try:
         resp = http_requests.get(
-            f'{awx_url}/api/v2/workflow_jobs/{awx_job_id}/',
+            f'{awx_url}/api/v2/{_ep}/{awx_job_id}/',
             headers={'Authorization': f'Bearer {awx_token}'},
             timeout=15,
             verify=env_config.get('ssl_verify', ssl_verify),

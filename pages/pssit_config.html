@@ -435,9 +435,15 @@ function renderProxyNtlmHint() {
 }
 
 function wfRow(action, val, envIdx) {
+    const id   = val && typeof val === 'object' ? (val.id || '') : (val || '');
+    const type = val && typeof val === 'object' ? (val.type || '') : '';
+    const icon = type === 'workflow' ? '⚡' : type === 'job' ? '🔧' : '';
     return '<tr>' +
-        '<td>' + action.toUpperCase() + '</td>' +
-        '<td><input type="number" id="awx-wf-' + action + '-' + envIdx + '" value="' + (val || '') + '" placeholder="Template ID" onchange="ensureWf(' + envIdx + ').' + action + '=parseInt(this.value)||null"></td>' +
+        '<td>' +
+            '<span id="awx-wf-type-' + action + '-' + envIdx + '" style="font-size:14px;" title="' + esc(type) + '">' + icon + '</span>' +
+            (icon ? ' ' : '') + action.toUpperCase() +
+        '</td>' +
+        '<td><input type="number" id="awx-wf-' + action + '-' + envIdx + '" value="' + (id || '') + '" placeholder="Template ID" onchange="setWf(' + envIdx + ',\'' + action + '\',this.value)"></td>' +
         '<td><button class="btn-awx-pick" onclick="openAwxPicker(' + envIdx + ',\'' + action + '\')" title="Choisir un template AWX">🔍</button></td>' +
     '</tr>';
 }
@@ -454,6 +460,21 @@ function ensureWf(i) {
     if (!config.environments[i].awx) config.environments[i].awx = {};
     if (!config.environments[i].awx.workflows) config.environments[i].awx.workflows = {};
     return config.environments[i].awx.workflows;
+}
+
+function setWf(envIdx, action, value) {
+    const id  = parseInt(value) || null;
+    const wf  = ensureWf(envIdx);
+    const typeEl = document.getElementById('awx-wf-type-' + action + '-' + envIdx);
+    if (id) {
+        const existing     = wf[action];
+        const existingType = (existing && typeof existing === 'object') ? (existing.type || 'workflow') : 'workflow';
+        wf[action] = { id, type: existingType };
+        if (typeEl && !typeEl.textContent) { typeEl.textContent = existingType === 'job' ? '🔧' : '⚡'; typeEl.title = existingType; }
+    } else {
+        wf[action] = null;
+        if (typeEl) { typeEl.textContent = ''; typeEl.title = ''; }
+    }
 }
 
 // ── Extensions cibles JFrog ────────────────────────────────────────────────
@@ -804,7 +825,7 @@ function _awxPickRender(templates) {
 
 function _awxTplRow(t) {
     const icon = t.type === 'workflow' ? '⚡' : '🔧';
-    return '<div class="awx-tpl-item" onclick="awxPickSelect(' + t.id + ',\'' + esc(t.name) + '\')">' +
+    return '<div class="awx-tpl-item" onclick="awxPickSelect(' + t.id + ',\'' + t.type + '\',\'' + esc(t.name) + '\')">' +
         '<span class="awx-tpl-icon">' + icon + '</span>' +
         '<span class="awx-tpl-name">' + esc(t.name) + '</span>' +
         (t.description ? '<span class="awx-tpl-desc">' + esc(t.description) + '</span>' : '') +
@@ -812,13 +833,13 @@ function _awxTplRow(t) {
     '</div>';
 }
 
-function awxPickSelect(id, name) {
+function awxPickSelect(id, type, name) {
     if (_apEnvIdx === null) return;
-    // Mettre à jour le modèle
-    ensureWf(_apEnvIdx)[_apAction] = id;
-    // Mettre à jour l'input dans le DOM
+    ensureWf(_apEnvIdx)[_apAction] = { id, type };
     const input = document.getElementById('awx-wf-' + _apAction + '-' + _apEnvIdx);
     if (input) input.value = id;
+    const typeEl = document.getElementById('awx-wf-type-' + _apAction + '-' + _apEnvIdx);
+    if (typeEl) { typeEl.textContent = type === 'job' ? '🔧' : '⚡'; typeEl.title = type; }
     closeAwxPicker();
 }
 
